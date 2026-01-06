@@ -1,0 +1,70 @@
+#
+#  Copyright (c) 2003, Computer Access Technology Corp. - All Rights Reserved
+#
+#  MS_BulkOnly_Requests.dec
+#
+#  Mass Storage Bulk-Only Request Decoder
+#
+
+%include "CATCScriptAPI.inc"    #include usefull decoder functions
+%include "UsbCommon.inc"
+
+%include "MS_Common.inc"
+%include "MS_Requests.inc"
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block 
+#
+#----  Output
+# out.Decoded   - amount of data has been decoded
+#
+
+
+set OutputType      = "Mass Strg Bulk-Only Requests";
+set UsbDecodeType   = "Request";
+set UsbReqType      = "Class";
+set UsbClassCode    = 0x8; # Mass Storage
+set UsbProtocol     = 0x50; # Bulk-Only
+set UsbScriptDecodeType  = 2; # Combined decoding for Cells and Text decoding 
+
+#
+# Parsing entry point
+#
+
+
+
+# User can select the colors for the fields he chooses
+set wDecodeCellColor = 0x898989; 
+set RequestFieldColor  = 0xA42A2A;
+set RequestDataFieldColor  = 0x302A2A;
+
+ProcessData()
+{
+    InitType2Decoder();
+    out.Decoded = 0;
+    request_type = ProcessMassStorageData();
+    if (request_type == 0xFE)
+    {
+        AddDecodedTextHeader();
+        max_lun = GetDataByte(8);
+        AddPayLoadCell("MaxLUN",   Format("0x%02X", max_lun),   
+            Format ("Maximum Logical Unit Number = %d", max_lun), FieldColor, [_TABULARCELL, MS_MAX_LUN, "TEXT_CAPTION"]);
+        out.Decoded = 9;
+        if ((in.DataLength > 9) && (in.DataLength < MaxShowDataBlockSize))
+        {         
+            ShowDataBlockReOrder(in.DataLength-9);
+        }
+    }
+    else if (request_type != 0xFF)
+    {
+        dummy = GetNBits(in.Data, 0, 0); # reset pointers
+        SetFieldOffsetLen(0, 8);        
+        if (in.DataLength < MaxShowDataBlockSize)
+        {         
+            ShowDataBlockReOrder(in.DataLength);
+        }
+    }   
+    SCSILevel = 0;
+    return Complete();
+}

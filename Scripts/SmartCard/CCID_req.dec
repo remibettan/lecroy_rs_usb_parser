@@ -1,0 +1,584 @@
+#*******************************************************************************
+#
+#  FILENAME: CCID_req.dec
+#
+#  Copyright (c) 2007, LeCroy - All Rights Reserved
+#
+#  DESCRIPTION
+#    This is the request file for SmartCard CCIDs (ICC Interface Devices). 
+#    This file is prepared as per the Specification Revision 1.1.
+#    This file is prepared as per the Integrated Circuit(s) Cards Interface
+#      Devices Specification for the SmartCard Class.
+#
+#  REVISION HISTORY
+#    01/07/2007
+#
+#*******************************************************************************   
+
+%include "CATCScriptAPI.inc"             #.inc files that are included
+%include "UsbCommon.inc" 
+
+
+ #----  Input
+ # in.Data       - Data_block to decode
+ # in.DataLength - Length of Data_block 
+ 
+ #----  Output
+ # out.Decoded   - amount of data has been decoded
+
+#############################################################################
+#                               View Settings                               #
+#############################################################################
+#
+#    In this section user can set up which fields are to be shown and 
+#    which are to be hidden in expanded and collapsed states.
+#    Zero-value everywhere means that fields will not be shown,
+#    otherwise means opposite.
+#
+#
+# ----------------------- All Field View Settings ---------------------------
+#   These settings have priority above separate field View Settings in
+#   expanded state ONLY.
+#   In order separate field View Settings to work properly
+#   BOTH All Field View Settings should be set to 0.
+#
+#   Due to the fact that ViewAll-setting and HideAll-setting are 
+#   exceptive propositions - ViewAll has been set a higher priority.
+# ---------------------------------------------------------------------------
+
+  const CCID_ViewAll              = 0;
+  const CCID_HideAll              = 0;
+
+# ---------------------------------------------------------------------------
+
+
+# -----------------------  Separate Field View Settings ---------------------
+# The FIRST value in list-variables defines if the field is to be shown or
+# hidden in COLLAPSED state. 
+# 0 - means the field is to be shown.
+# 1 - means the field is to be hidden.
+# 
+# The SECOND value in list-variables defines if the field is to be shown or
+# hidden in EXPANDED state. 
+# 0 - means the field is to be shown.
+# 1 - means the field is to be hidden.
+#
+# i.e.  const RPD_Field = [0, 1]# - means that field 'Field' will be hidden
+# in collapsed state and will be shown in expanded state. 
+#
+ 
+#                                 [collapsed, expanded]   
+const CCID_bmRequestType                = [1, 1];
+const CCID_wValue                       = [1, 1];
+const CCID_wIndex                       = [1, 1];
+const CCID_wLength                      = [1, 1];
+const CCID_bErrorCode                   = [1, 1];        #No purpose currently, just declared
+const CCID_bSeq                         = [1, 1];
+const CCID_bSlot                        = [1, 1];
+
+
+#-----------------------------------------------------------------------------
+
+set OutputType      = "CCID Requests";      
+set UsbDecodeType   = "Request";
+set UsbReqType      = "Class";
+set UsbClassCode    = 0x0B;     # Class code for Smart Card
+set UsbScriptDecodeType = 1;    # Combined decoding for Cells and Text decoding 
+set UsbProtocol     = 0;        # this is used for seperation from different Smart Card Class requests
+
+set bReqType  = 0;              #Declaring global variables
+set bRequest  = 0;
+set wValue    = 0;
+set wIndex    = 0;
+set wLength    = 0;
+
+set AttributeString  = "";      #Holds Text Data
+
+#Colors for Requests (Currently all same color, can be changed if desired)
+
+set CCID_AbortReqColor        = 0x25C9FF;    #Request 0x01
+set CCID_GetClkFreqsReqColor  = 0x25C9FF;    #Request 0x02    
+set CCID_GetDataRatesReqColor = 0x25C9FF;    #Request 0x03    
+set CCID_CaptionColor         = 0x7FFFFF;    #Caption Cell (Expansion Indicator)     #9B4A13 - 7700500;  
+
+set FullyDecoded = 1;  # Variable that will determine if request has been fully decoded
+
+set RestoreBitCurrentFieldOffset = 0;        #Temp Variables to store a restore value
+set RestoreBitCurrentFieldLength = 0;
+
+ProcessData()
+{   
+   
+    CommonDecoderInit();        # Initialization of SRP common global variables [found in CATCScriptAPI.inc]
+    
+    UnitDecoderInit("CCID");    # This function must be called before starting unit decoding. [found in CATCScriptAPI.inc]
+                                # It performes necessary initialization routine for "unit" decoder.
+                                # Unit has its own prefix, view settings and may have its own color.
+       
+    SetCellColor(CCID_CaptionColor);
+    AddCaptionCell("SmartCard","CCID","This data payload represents a SmartCard CCID Request.",_MONOCOLOR);  # Will allow for the expansion of certain fields
+    #AddCell( "SimpleShowItem( )", Format("%d", SimpleShowItem( )) );
+    
+    #AddStringToDlg( "SimpleShowItem( )", Format("%d", SimpleShowItem( )), Format("%d", SimpleShowItem( )) );
+    
+    
+    RestoreCellColor();
+    AddSeparator();
+    
+    FullyDecoded = 1;            
+    out.Decoded = 0;            # Nothing has been decoded yet
+    
+    if (in.DataLength < 8)      # Checking for Illegal Payload
+    { 
+      if(!AddSpecPLCellMonoNoDlg("Error", "Illegal Payload", "Nothing is being decoded", __ERROR))  
+        AddErrorMonoCell("Error", "Illegal Payload", "Nothing is being decoded");      #[found in CATCScriptAPI.inc]
+      return Complete();
+    }
+    
+    GetNBits(in.Data, 0, 0);        #Initialize pointer/counter for NextNBits_()
+                                     
+    bReqType = NextNBits_(8);       #0-7
+    bRequest = NextNBits_(8);       #8-15
+    wValue   = NextDataWord_();     #16-31
+    wIndex   = NextDataWord_();     #32-47
+    wLength  = NextDataWord_();     #48-63
+    
+    out.Decoded = 8;                # "Decoded" 8 bytes
+    
+    _row = Find(CCIDRequestTable, bRequest);  # will determine which request is being used
+    
+    AddShortDataHeader(_row[1]);
+    
+    if (_row[0] == 0)
+    {
+        AddSeparator();
+        AddDecodedTextHeader();  # header for the text decoding
+        SetFieldOffsetLen(8,8);  
+        FieldColor = bRequestColor;
+        AddPayLoadCell("bmRequestType",Format("0x%02X",bReqType),Format("Bitmap with decimal value of %d",bReqType) + "\n\nCharacteristics of Request:\n   D7      Data xfer direction\n\t   0 = Host to Device\n\t   1=Device to host\n\n   D6..5   Type\n\t   0 = Standard\n\t   1 = Class\n\t   2 = Vendor\n\t   3 = Reserved\n\n   D4..0   Recipient\n\t   0 = Device\n\t   1 = Interface\n\t   2 = Endpoint\n\t   3 = Other\n\t   4..31 = Reserved\n");
+        SetFieldOffsetLen(16,8);
+        FieldColor = bRequestColor;
+        AddPayLoadCell("bRequest", _row[1], Format("bRequest HexVal: 0x%04X", bRequest));
+        SetFieldOffsetLen(32,16);
+        FieldColor = wValueColor;
+        AddPayLoadCell("wValue", wValue, "");
+        SetFieldOffsetLen(48,16);
+        FieldColor = wIndexColor;
+        AddPayLoadCell("wIndex",wIndex,"");
+        SetFieldOffsetLen(64,16);
+        FieldColor = wLengthColor;
+        AddPayLoadCell("wLength",wLength,"");
+        
+        if((in.DataLength - out.Decoded)!=0)
+          ShowDataBlockReOrder(in.DataLength-out.Decoded);
+    }
+    if ( _row[0] != 0)
+    {
+        AttributeString = _row[1];
+        
+        AddSeparator();                        # Adding Separator between what will be decoded and what is already visible
+        Call ( _row[1], [ in.DataLength ] );  # will call function for the specified request
+        if(FullyDecoded == 1)                 # if the request is fully decoded
+        {
+            out.Decoded = in.DataLength;
+        }
+        else if(FullyDecoded == 0)
+        {
+           #Currently not doing anything, The last commented line for this statement was original, but 
+           #wasn't working, however, don't need it since out.Decoded is kept track of throughout this script.
+           #The next commented line can be uncommented to show all undecoded data as a 'Data' block.
+           #ShowDataBlock(in.DataLength-out.Decoded);
+           # out.Decoded = BitCurrentFieldOffset/8;        
+           ShowDataBlockReOrder(in.DataLength-out.Decoded);
+        }
+        #AddPayLoadCell("FullyDecoded",FormatEx("%d -- BCFO %d -- Dec %d -- Len %d -- R1 %d -- R2 %d -- inFLG %d",FullyDecoded,BitCurrentFieldOffset,out.Decoded,in.DataLength,RestoreBitCurrentFieldOffset,RestoreBitCurrentFieldLength,in.PrepareFldsForDlg),"");
+    }
+    
+    AddSeparator();
+
+    ############ for Debug purposes#########
+    # GetNBits(in.Data, 0, 0);             #
+    # ShowDataBlock(in.DataLength);        #
+    ########################################       
+
+    return Complete();
+}
+
+# Add Request Decoding by Application [request table in Dialog View]
+DecodeRequestToText()
+{
+    return DecodeRequestToTextCommon( CCIDRequestTable );    
+}
+
+#doGeneralDecoding()
+#{
+#}
+
+# Request List/Table for CCID
+set CCIDRequestTable =
+[
+  [ 0x00, "UNDEFINED" ],
+  [ 0x01, "ABORT"  ],
+  [ 0x02, "GET_CLOCK_FREQUENCIES"  ],
+  [ 0x03, "GET_DATA_RATES"  ]
+];
+
+ABORT()
+{
+  FieldColor = CCID_AbortReqColor;          #Set the Cell Color for Cells
+  
+  if(bReqType != 0x21)                      # != 00100001B  ---- Verifying correct bmRequestType for Request and adding Cell
+  {    
+    SetCellColor(RED);
+    SetFieldOffsetLen_CCID( 8, 8 );
+    AddPayLoadCell("RequestType",Format("*WARNING* 0x%02X",bReqType),FormatEx("WARNING: For ABORT Request, bmRequestType\n should only be 0xA1 (10100001B), but \nit is 0x%02X. \n\nBitmap with decimal value of %d",bReqType,bReqType) + "\n\nCharacteristics of Request:\n   D7      Data xfer direction\n\t   0 = Host to Device\n\t   1=Device to host\n\n   D6..5   Type\n\t   0 = Standard\n\t   1 = Class\n\t   2 = Vendor\n\t   3 = Reserved\n\n   D4..0   Recipient\n\t   0 = Device\n\t   1 = Interface\n\t   2 = Endpoint\n\t   3 = Other\n\t   4..31 = Reserved\n");
+    RestoreFieldOffsetLen_CCID();
+    RestoreCellColor();
+  }
+  else
+    if(SimpleShowItem( ))
+      AddReqTypeCell_CCID();                    
+  
+  AddRequestCell_CCID( AttributeString );   #Adding Request Cell  
+  
+  bSeq  = ((wValue>>8) & 0xFF);             #Getting High Byte of wValue
+  bSlot = (wValue & 0xFF);                  #Getting Low Byte of wValue
+  
+  SetFieldOffsetLen_CCID( 32, 16 );
+  
+  AddPayLoadCell("bSeq",Format("%d",bSeq),FormatEx("Sequence Number (High Byte of wValue): 0x%02X    wValue=0x%04X", bSeq, wValue));
+  
+  AddPayLoadCell("bSlot",Format("%d",bSlot),FormatEx("Slot Number (Low Byte of wValue): 0x%02X    wValue=0x%04X", bSlot, wValue));
+  
+  RestoreFieldOffsetLen_CCID();
+  
+  AddWIndexCell_CCID( "", "wIndex" );       #Adding wIndex Cell 
+  
+  if(wLength != 0x0000)
+  {
+    SetCellColor(RED);
+    SetFieldOffsetLen_CCID( 64, 16 );
+    AddPayLoadCell("wLength*", Format( "%u", wLength ), "WARNING! NO DATA EXPECTED. ABORT Request\nshould not have any data.\nThe Data is not being decoded.\nSee 'Data' for raw bytes."); 
+    RestoreFieldOffsetLen_CCID();
+    RestoreCellColor();
+    FullyDecoded = 0;
+  }     
+  else if(SimpleShowItem( ))                #If expanded, adding wLength Cell
+    AddWLengthCell_CCID( "Data Length" );        
+    
+  out.Decoded = 8;
+  
+  datLength = in.DataLength - out.Decoded;  #This value should be the same as wLength (but in case wLength or rawdata is corrupted, we're using this value);
+  
+  if(datLength != wLength)
+  {
+    SetCellColor(RED);
+    AddPayLoadCell("WARNING","Data Discrepancy",FormatEx("Data discrepancy found between wLength (%d) and actual data length (%d).\nNo Data is Expected for the ABORT Request.",wLength,datLength));
+    RestoreCellColor();
+    FullyDecoded = 0;
+  }
+}
+
+GET_CLOCK_FREQUENCIES()
+{
+  FieldColor = CCID_GetClkFreqsReqColor;
+  
+  if(bReqType != 0xA1)                      # != 10100001B  ---- Verifying correct bmRequestType for Request and adding Cell
+  {    
+    SetCellColor(RED);
+    SetFieldOffsetLen_CCID( 8, 8 );
+    AddPayLoadCell("RequestType",Format("*WARNING* 0x%02X",bReqType),FormatEx("WARNING: For GET CLOCK FREQUENCIES Request,\nbmRequestType should only be 0xA1 (10100001B), but it is 0x%02X. \n\nBitmap with decimal value of %d",bReqType,bReqType) + "\n\nCharacteristics of Request:\n   D7      Data xfer direction\n\t   0 = Host to Device\n\t   1=Device to host\n\n   D6..5   Type\n\t   0 = Standard\n\t   1 = Class\n\t   2 = Vendor\n\t   3 = Reserved\n\n   D4..0   Recipient\n\t   0 = Device\n\t   1 = Interface\n\t   2 = Endpoint\n\t   3 = Other\n\t   4..31 = Reserved\n");
+    RestoreFieldOffsetLen_CCID();
+    RestoreCellColor();
+  }    
+  else
+    if(SimpleShowItem( ))
+      AddReqTypeCell_CCID();  
+      
+  AddRequestCell_CCID( AttributeString );   #Adding Request Cell
+  
+  
+  if(wValue != 0x0000)                      #Verifying wValue for Request and adding Cell 
+  {
+    SetCellColor(RED);
+    SetFieldOffsetLen_CCID( 32, 16 );
+    AddPayLoadCell("wValue*",Format("*WARNING* 0x%04X",wValue),Format("WARNING: For GET CLOCK FREQUENCIES Request,\nwValue should be 0, but it is 0x%04X",wValue));
+    RestoreFieldOffsetLen_CCID();
+    RestoreCellColor();
+  }
+  else
+    AddWValueCell_CCID("","");    
+  
+  AddWIndexCell_CCID( "", "wIndex" );       #Adding wIndex Cell
+  
+  if(SimpleShowItem( ))                     #If expanded, adding wLength Cell
+    AddWLengthCell_CCID( "Data Length (bNumClockSupported * sizeof(double word)" );  
+  
+  out.Decoded = 8;
+  
+  #AddSeparator();
+  #AddCell("Data Structure", "DEVICE_INFO","The fields are shown in the order they are \nreceived in the payload. Compare with data structure \nformat to find any discrepancies.",FieldColor);
+  
+  NumClkFreqs = (wLength/4);
+  
+  if(in.Expanded)
+    AddCell("CLK_FREQS",Format("%u",NumClkFreqs),Format("%u Clock Frequencies Supported",NumClkFreqs),FieldColor,_MONOCOLOR);
+  else
+    AddCell("CLK_FREQS",Format("%u",NumClkFreqs),Format("%u Clock Frequencies Supported\nExpand to view Frequencies",NumClkFreqs),FieldColor);
+  
+  datLength = in.DataLength - out.Decoded;  #This value should be the same as wLength (but in case wLength or rawdata is corrupted, we're using this value);
+  
+  if(datLength != wLength)
+  {
+    SetCellColor(RED);
+    AddCell("Error","Data Length Discrepancy", Format("Difference between wLength and actual \ndata found is %u bytes. \nData is not being decoded.",(wLength-datLength)),RED); 
+    RestoreCellColor();
+    FullyDecoded = 0;
+  }
+  else                                          #Process Clock Frequencies Array
+  {
+    if(datLength < 4)
+    {
+      SetCellColor(RED);
+      AddCell("ERROR", "Not Enough Data", Format("There are only %u bytes for \nCLK_FREQS Array. \nCan't decode \n  - See 'Data' for raw bytes",datLength),RED);
+      RestoreCellColor();
+      FullyDecoded = 0;
+      return 1;
+    }
+    tempIndex = 1;
+    AddShortDataHeader("CLOCK_FREQUENCIES");
+    while(datLength >3)                         #Verifying there is a dWord
+    {  
+      dwClkFreq = NextDataDWord_();             #Fetching Field Id and Length in an Association Response Data Structure
+      out.Decoded += 4;
+      datLength   -= 4;
+      
+      if(SimpleShowItem( ))
+        AddPayLoadCell(Format("Freq %u",tempIndex),Format("%u KHz",dwClkFreq),Format("Supported Clk Frequency\nHex Value: 0x%08X",dwClkFreq));
+      tempIndex++;  
+    }
+    
+    if(datLength > 0)
+    {
+      SetCellColor(WarningColor);
+      AddCell("!!! WARNING !!!", "Leftover Data in PAYLOAD", Format("There are %u bytes unaccounted for, not decoded. \nSee 'Data' for raw bytes",datLength),WarningColor);
+      RestoreCellColor();
+      FullyDecoded = 0;
+    }
+    else if((tempIndex -1) < NumClkFreqs)       #Should never occur due to nature of wLength limiting data to be seen
+    {
+      SetCellColor(WarningColor);
+      AddCell("!!! WARNING !!!", "Not Enough Clock Frequencies", FormatEx("There are %u Clock Frequencies expected, \nonly found %u.",NumClkFreqs,tempIndex-1),WarningColor);
+      RestoreCellColor();
+    }
+  }  
+}
+
+
+GET_DATA_RATES()
+{
+  FieldColor = CCID_GetDataRatesReqColor;
+  
+  if(bReqType != 0xA1)                      # != 10100001B  ---- Verifying correct bmRequestType for Request and adding Cell
+  {    
+    SetCellColor(RED);
+    SetFieldOffsetLen_CCID( 8, 8 );
+    AddPayLoadCell("RequestType",Format("*WARNING* 0x%02X",bReqType),FormatEx("WARNING: For SET ASSOCIATION RESPONSE Request,\nbmRequestType should only be 0x21 (00100001B), but it is 0x%02X. \n\nBitmap with decimal value of %d",bReqType,bReqType) + "\n\nCharacteristics of Request:\n   D7      Data xfer direction\n\t   0 = Host to Device\n\t   1=Device to host\n\n   D6..5   Type\n\t   0 = Standard\n\t   1 = Class\n\t   2 = Vendor\n\t   3 = Reserved\n\n   D4..0   Recipient\n\t   0 = Device\n\t   1 = Interface\n\t   2 = Endpoint\n\t   3 = Other\n\t   4..31 = Reserved\n");
+    RestoreFieldOffsetLen_CCID();
+    RestoreCellColor();
+  }  
+  else
+    if(SimpleShowItem( ))
+      AddReqTypeCell_CCID();  
+  
+  AddRequestCell_CCID( AttributeString );   #Adding Request Cell
+  
+  if(wValue != 0x0000)                      #Verifying wValue for Request and adding Cell 
+  {
+    SetCellColor(RED);
+    SetFieldOffsetLen_CCID( 32, 16 );
+    AddPayLoadCell("wValue*",Format("*WARNING* 0x%04X",wValue),Format("WARNING: For GET DATA RATES Request,\nwValue should be 0, but it \nis 0x%04X",wValue));
+    RestoreFieldOffsetLen_CCID();
+    RestoreCellColor();
+  }
+  else
+    AddWValueCell_CCID("","");    
+      
+  AddWIndexCell_CCID( "", "wIndex" );       #Adding Index Cell
+  
+  if(SimpleShowItem( ))                     #If expanded, adding wLength Cell
+    AddWLengthCell_CCID( "Data Length (bNumDataRatesSupported * sizeof(double word)" );        
+
+  out.Decoded = 8;
+  
+  #AddSeparator();
+  
+  NumDataRates = (wLength/4);
+  
+  if(in.Expanded)
+    AddCell("DATA_RATES",Format("%u",NumDataRates),Format("%u Data Rates Supported",NumDataRates),FieldColor,_MONOCOLOR);
+  else
+    AddCell("DATA_RATES",Format("%u",NumDataRates),Format("%u Data Rates Supported\nExpand to view Rates",NumDataRates),FieldColor);
+  
+  datLength = in.DataLength - out.Decoded;  #This value should be the same as wLength (but in case wLength or rawdata is corrupted, we're using this value);
+  
+  if(datLength != wLength)
+  {
+    SetCellColor(RED);
+    AddCell("Error","Data Length Discrepancy", Format("Difference between wLength and actual \ndata found is %u bytes. \nData is not being decoded.",(wLength-datLength)),RED); 
+    RestoreCellColor();
+    FullyDecoded = 0;
+  }
+  else                                          #Process Data Rates Array
+  {
+    if(datLength < 4)
+    {
+      SetCellColor(RED);
+      AddCell("ERROR", "Not Enough Data", Format("There are only %u bytes for \nDATA_RATES Array. \nCan't decode \n  - See 'Data' for raw bytes",datLength),RED);
+      RestoreCellColor();
+      FullyDecoded = 0;
+      return 1;
+    }
+    tempIndex = 1;
+    AddShortDataHeader("DATA_RATES");
+    while(datLength >3)                         #Verifying there is a dWord
+    {  
+      dwDataRate = NextDataDWord_();            #Fetching Field Id and Length in an Association Response Data Structure
+      out.Decoded += 4;
+      datLength  -= 4;
+
+      if(SimpleShowItem( ))
+        AddPayLoadCell(Format("Rate %u",tempIndex),Format("%u bps",dwDataRate),Format("Supported Data Rate\nHex Value: 0x%08X",dwDataRate));
+      tempIndex++;  
+    }
+    
+    if(datLength > 0)
+    {
+      SetCellColor(WarningColor);
+      AddCell("!!! WARNING !!!", "Leftover Data in PAYLOAD", Format("There are %u bytes unaccounted for, not decoded. \nSee 'Data' for raw bytes",datLength),WarningColor);
+      RestoreCellColor();
+      FullyDecoded = 0;
+    }
+    else if((tempIndex -1) < NumDataRates)      #Should never occur due to nature of wLength limiting data to be seen
+    {
+      SetCellColor(WarningColor);
+      AddCell("!!! WARNING !!!", "Not Enough Data Rates", FormatEx("There are %u Data Rates expected, \nonly found %u.",NumDataRates,tempIndex-1),WarningColor);
+      RestoreCellColor();
+    }
+  }    
+}
+
+
+### These are general functions to decrease code length 
+### (copied from UsbCommon.inc and removed FieldColor setting plus minor tweaking where necessary/desired)
+
+AddReqTypeCell_CCID()
+{
+    SetFieldOffsetLen_CCID( 8, 8 );  
+    AddPayLoadCell("RequestType",Format("0x%02X",bReqType),Format("Bitmap with decimal value of %d",bReqType) + "\n\nCharacteristics of Request:\n   D7      Data xfer direction\n\t   0 = Host to Device\n\t   1=Device to host\n\n   D6..5   Type\n\t   0 = Standard\n\t   1 = Class\n\t   2 = Vendor\n\t   3 = Reserved\n\n   D4..0   Recipient\n\t   0 = Device\n\t   1 = Interface\n\t   2 = Endpoint\n\t   3 = Other\n\t   4..31 = Reserved\n");
+    RestoreFieldOffsetLen_CCID();
+}
+
+AddRequestCell_CCID( req_text )
+{
+    SetFieldOffsetLen_CCID( 16, 8 );
+    AddPayLoadCell("Request", req_text, Format("bRequest HexVal: 0x%04X", bRequest));
+    RestoreFieldOffsetLen_CCID();
+}
+
+AddWValueCell_CCID( val_text, tooltip )
+{
+    SetFieldOffsetLen_CCID( 32, 16 );
+ 
+    if( val_text == null || val_text == "" )
+        val_text = Format( "0x%04X", wValue );
+        
+    if(tooltip == null || tooltip == "")
+        tooltip = "wValue";
+    
+    AddPayLoadCell( "Value", val_text, tooltip );
+    RestoreFieldOffsetLen_CCID();
+}
+
+AddWIndexCell_CCID( idx_text, tooltip )
+{
+    SetFieldOffsetLen_CCID( 48, 16 );
+    
+    if( idx_text == null || idx_text == "" )
+        idx_text = Format( "0x%04X", wIndex );
+    
+    AddPayLoadCell("Interface", idx_text, tooltip ); 
+    RestoreFieldOffsetLen_CCID();
+}
+
+AddWLengthCell_CCID( tooltip )
+{
+    SetFieldOffsetLen_CCID( 64, 16 );
+    AddPayLoadCell("wLength", Format( "%u", wLength ), tooltip ); 
+    RestoreFieldOffsetLen_CCID();        
+}
+
+SetFieldOffsetLen_CCID( offset, len )
+{
+    RestoreBitCurrentFieldOffset = BitCurrentFieldOffset;
+    RestoreBitCurrentFieldLength = BitCurrentFieldLength;
+    BitCurrentFieldOffset = offset;
+    BitCurrentFieldLength = len;
+}
+
+RestoreFieldOffsetLen_CCID()
+{
+    BitCurrentFieldOffset = RestoreBitCurrentFieldOffset;
+    BitCurrentFieldLength = RestoreBitCurrentFieldLength;
+}    
+
+GetByteStrFld_CCID( len_in_bytes )
+{
+    tmp = "0x";        
+    for(i = 0; i < len_in_bytes; i++) 
+        tmp += Format("%02X", NextNBits_(8));    
+    return tmp;
+}
+
+GetUnicodeString_CCID(length)
+{
+    done = 0;
+    str = "";
+    offset = 8;
+    index = 0;
+    val = 0;
+    while ((done == 0) && (index < length))
+    {
+        val = NextNBits_(8);
+
+        ###val = GetDataByte(start_offset + index);
+
+        if (val != null)
+        {
+            str += Format("%c", val);
+            index++;
+        } 
+        else
+        {
+            done = 1;
+        }
+    }
+    
+    if(index != length)
+    {
+      trash = 0;
+      trash = NextNBits_((length - index)*8);
+    }
+    return str;   
+}    
+
+
+####################################################################################
+#                       USBTracer specific caption cell                            #
+####################################################################################
+
+AddSpecCaptionCell(caption, text, tooltip, FieldColor, addparam, addparam1, addparam2 )
+{   
+    AddCell(caption, text, tooltip, FieldColor, _USBBULK_HEADER, addparam, addparam1, addparam2 );        
+    return 1;        
+}

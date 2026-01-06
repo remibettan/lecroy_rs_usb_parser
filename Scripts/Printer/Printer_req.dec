@@ -1,0 +1,61 @@
+
+#########################################################
+#   Copyright (c) 2005, LeCroy - All Rights Reserved    #
+#   Hid_Req.inc                                         #
+#########################################################
+
+
+%include "CATCScriptAPI.inc"             #.inc files that are included
+%include "UsbCommon.inc" 
+%include "Printer_req.inc"
+
+
+
+ #----  Input
+ # in.Data       - Data_block to decode
+ # in.DataLength - Length of Data_block 
+ 
+ #----  Output
+ # out.Decoded   - amount of data has been decoded
+ 
+
+set OutputType      = "Printer Class Requests";      
+set UsbDecodeType   = "Request";
+set UsbReqType      = "Class";
+set UsbClassCode    = 0x07;    # Class code for Printing devices
+set UsbSubClass     = 0x01;    # Common class
+set UsbProtocol     = 0x02;    # 
+set UsbScriptDecodeType = 1;   # Combined decoding for Cells and Text decoding 
+
+set bReqType = 0xFF;
+set bRequest = 0xFF;
+set wValue   = 0xFFFF;
+set wIndex   = 0xFFFF;
+set wLength  = 0;
+set Base = 0;
+set sizeOf_w = 2;
+set sizeOf_b = 1;
+set CurrentIndex = 0;
+set ReqType = 0xFFFF;
+
+# User can select the colors for the fields he chooses
+set wDecodeCellColor = 0x898989; 
+set RequestFieldColor  = 0x842A2A;
+set RequestDataFieldColor  = 0x002A2A;
+
+
+
+
+ProcessData()
+{    
+    ProcessDataInit();
+    InitType2Decoder();      
+    CurrentFldInit();  
+    bReqType = 0xFF;
+    bRequest = 0xFF;
+    wValue   = 0xFFFF;
+    wIndex   = 0xFFFF;   
+    out.Decoded = PrinterClassRequest();
+    return Complete();
+}
+

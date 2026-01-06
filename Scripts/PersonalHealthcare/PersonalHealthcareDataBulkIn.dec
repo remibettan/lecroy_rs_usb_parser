@@ -1,0 +1,91 @@
+#*******************************************************************************
+#
+#  FILENAME: PersonalHealthcareDataBulkIn.dec
+#
+#  Copyright (c) 2008, LeCroy - All Rights Reserved
+#
+#  DESCRIPTION
+#    This is the Bulk-IN Endpoint Message Decode file for Personal Healthcare Devices.
+#    This file is prepared as per the Specification Revision 1.0.
+#    This file is prepared as per the Devices Specification for Personal Healthcare.
+#
+#  REVISION HISTORY
+#    01/30/2008 Created. - RK and JC
+#
+#*******************************************************************************
+
+%include "UsbCommon.inc"
+%include "CATCScriptAPI.inc"
+%include "PersonalHealthcareDataBulk.inc"
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block
+#
+#----  Output
+# out.Decoded   - Amount of Data that has been decoded
+# out.State
+# out.Data
+# out.DataLength
+#
+
+set ModuleType  = "DataBlock Decoder";          #?_?
+set LevelName   = "PHDC Bulk In Messages";      #?_?
+set LevelColor  = 0x898989;                     #?_?
+
+set OutputType      = "PHDC Bulk In Message";
+set UsbDecodeType   = "Endpoint";
+set UsbEndpId       = 15;           # Just a unique value for each endpoint of the same Class/Vendor/Product
+                                    # to distinguish them
+set UsbClassCode    = 0x0F;         # Personal Healthcare Devices (PHDC)
+set UsbEndpType     = "Bulk";
+set UsbEndpDir      = "In";
+set UsbScriptDecodeType  = 2;       # Combined decoding for Cells and Text decoding
+set UsbMaxXferSize  = 0x7FFFFFFF;   # Trying largest possible positive value
+set UsbMaxPktSize   = 512;          # Will automatically be reduced to 64 if branch is Full Speed
+set UsbMaxXferDecodeSize  = 0xFF;   # Max bytes that we will be decoding. User can up this if desired.
+
+# User can select the color for the fields
+set PHDCBulkInColor = PHDCColor;
+
+
+set RestoreBitCurrentFieldOffset = 0;    #Temp Variables to store a restore value
+set RestoreBitCurrentFieldLength = 0;
+
+ProcessData()
+{
+    CommonDecoderInit();        # Initialization of SRP common global variables [found in CATCScriptAPI.inc]
+
+    SetCellColor(PHDC_CaptionColor);
+    AddCaptionCell("Personal Healthcare","PHDC","This data payload represents a Personal Healthcare Bulk-IN message.",_MONOCOLOR);  # Will allow for the expansion of certain fields
+    RestoreCellColor();
+    AddSeparator();
+
+	FieldColor = PHDCBulkInColor;
+
+    FullyDecoded = 1;
+    out.Decoded = 0;            # Nothing has been decoded yet
+
+    PHDC_DATA_BULK();
+
+    /*if (((in.DataLength - out.Decoded) <= 64 ) && ((in.DataLength - out.Decoded) > 0))
+		{
+			ShowDataBlockReOrder(in.DataLength-out.Decoded);
+		}
+	*/
+	if ( (in.DataLength - out.Decoded) > 0 )
+    	FullyDecoded = 0;
+
+    return Complete();
+}
+
+
+####################################################################################
+#                       USBTracer specific caption cell                            #
+####################################################################################
+
+AddSpecCaptionCell(caption, text, tooltip, FieldColor, addparam, addparam1, addparam2 )
+{
+    AddCell(caption, text, tooltip, FieldColor, _USBBULK_HEADER, addparam, addparam1, addparam2 );
+    return 1;
+}

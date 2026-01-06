@@ -1,0 +1,393 @@
+#
+#  Copyright (c) 2003, Computer Access Technology Corp. - All Rights Reserved
+#
+#  MS_UFI_CBI_Requests.dec
+#
+#  Mass Storage UFI Command-Bulk-Interrupt Request Decoder
+#
+
+%include "CATCScriptAPI.inc"    #include usefull decoder functions
+
+# SCSI definitions
+%include "..\Shared\SCSI\SCSI_Defs.inc"
+
+%include "UsbCommon.inc"
+%include "MS_Common.inc"
+%include "MS_Requests.inc"
+%include "MS_UFI_Common.inc"
+
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block 
+#
+#----  Output
+# out.Decoded   - amount of data has been decoded
+#
+
+set OutputType      = "Mass Strg Class UFI CBI Requests";
+set UsbDecodeType   = "Request";
+set UsbReqType      = "Class";
+set UsbClassCode    = 0x8; # Mass Storage Class
+set UsbSubClass     = 0x04; # UFI
+set UsbProtocol     = 0x00; # CBI with Command Complete Interrupts
+set UsbScriptDecodeType     = 2; # Combined decoding for Cells and Text decoding 
+set UsbDecExtraInfoBytePos  = 8; # Position of Additional Info byte 
+ 
+#
+# Parsing entry point
+#
+
+
+
+# User can select the colors for the fields he chooses
+set wDecodeCellColor = 0x898989; 
+set RequestFieldColor  = 0x842A2A;
+set RequestDataFieldColor  = 0x002A2A;
+set OperCode = 0;
+set SCSILevel = 0;
+
+ProcessData()
+{
+    InitType2Decoder();
+    Prefix = "SOB";
+    OperCode = 0;
+
+    req_type = ProcessMassStorageData();
+
+    #SCSILevel = GetNBits(in.DecodeParams, 8, 8);
+    Read_SCSILevel();
+    dummy = GetNBits(in.Data, 0, 0); # reset pointers
+
+    
+	if ((req_type == 0) && ((in.DataLength == 20) || ((in.DataLength == 12) && (SCSILevel == 1))))
+	{
+	    DecodeUFICommand();
+	}
+	else
+	{
+        SetFieldOffsetLen(0, 8);        
+        out.Decoded = 0;
+        if (in.DataLength < 1024)
+        {
+		    ShowDataBlockReOrder(in.DataLength);
+		    out.Decoded = in.DataLength;
+		}
+	}
+	
+	SCSILevel = 0;
+    return Complete();
+}
+
+
+DecodeUFICommand()
+{
+    save_endian = LittleEndian;
+    LittleEndian = 0;
+    
+    dummy = GetDataByte(7);
+    #SaveFieldSettings();
+    #Global_BitField_offset = 8*8;
+    CurrentFldInit(); 
+        
+    AddDecSeparator();
+    
+    DataByteHeaderOffset = 8;    #Reset base for GetDataXXXX() functions, so offsets are correct in text
+    OperCode = GetDataByte(0); 
+
+    AddDecodedTextHeader();
+    DoInitialCell(OperCode);
+     
+    FieldColor = CDB_Color;
+    
+    if (in.Expanded)
+    {       
+        if (SCSILevel == 1) # SCSI Level
+            AddPLCellMonoStr( "UFI Cmd", CDB_Name , "USB Floppy Interface Command", FieldColor, [_TABULARCELL, SCSI_CELL_CDB_SCSI] );
+        else
+            AddPLCellMonoStr( "UFI Cmd", CDB_Name , "USB Floppy Interface Command", FieldColor, [_TABULARCELL, SCSI_CELL_CDB] );
+    }
+    else
+    {        
+        FieldColor = UFI_CmdColor;        
+        AddPLCellMonoStr( "UFI Cmd", null , "USB Floppy Interface Command", _MONOFIELD);
+        FieldColor = CDB_Color;
+        AddPLCellMonoStr( CDB_Name, null , CDB_Tooltip, _MONOFIELD );
+    }
+    AddSimplePLCell("OperCode", Format ("0x%02X", OperCode), CDB_Tooltip);
+
+    DoLUN();
+
+    select
+    {
+        (OperCode == 0x00)    : DoTestUnitReady(); 
+       ((OperCode == 0x28) || 
+        (OperCode == 0xA8) ||               
+        (OperCode == 0x2A) ||
+        (OperCode == 0xAA))   : DoReadOrWrite(); 
+        (OperCode == 0x25)    : DoReadCapacity();      
+        (OperCode == 0x04)    : DoFormatUnit();     
+        (OperCode == 0x12)    : DoInquiry();       
+        (OperCode == 0x55)    : DoModeSelect();      
+        (OperCode == 0x5A)    : DoModeSense();     
+        (OperCode == 0x1E)    : DoPreventAllowRemoval();     
+        (OperCode == 0x23)    : DoReadFormatCapacities();    
+        (OperCode == 0x03)    : DoRequestSense();     
+        (OperCode == 0x01)    : DoRezero();        
+        (OperCode == 0x2B)    : DoSeek(); 
+        (OperCode == 0x1D)    : DoSendDiagnostic();          
+        (OperCode == 0x1B)    : DoStartStopUnit(); 
+       ((OperCode == 0x2F)  ||
+        (OperCode == 0x2E))   : DoVerifyOrWriteAndVerify(); 
+        default               : DoDefault();     
+    };
+     
+    LittleEndian = save_endian; 
+        
+    out.Decoded = in.DataLength;               
+    
+}
+
+
+
+DoTestUnitReady()
+{
+    # DoNothing!();
+}
+ 
+DoReadOrWrite()
+{
+    val = GetDataByte(1); 
+    str  = Format("DPO:%d \n",         (val >> 4) & 0x1);    
+    str += Format("FUA:%d \n",         (val >> 3) & 0x1);    
+    str += Format("RelAdr:%d",         val & 0x1);    
+    AddSimplePLCell("Flags(1)", Format ("0x%02X", val & 0x1F), str);
+    
+    DoLBA();
+    
+    if ((OperCode == 0x28) || (OperCode == 0x2A))
+    {
+        DoTransferLengthWord();
+    }
+    else
+    {
+        DoTransferLengthLong();
+    }
+}
+  
+ 
+DoReadCapacity()
+{    
+    val = GetDataByte(1); 
+    str = Format("RelAdr:%d",         val & 0x1);    
+    AddSimplePLCell("Flags(1)", Format ("0x%02X", val & 0x1F), str);
+    
+    DoLBA();
+    
+    val = GetDataByte(8); 
+    str = Format("PMI:%d",         val & 0x1);    
+    AddSimplePLCell("Flags(8)", Format ("0x%02X", val), str);
+    
+}
+      
+DoFormatUnit()
+{
+    val = GetDataByte(1); 
+    str  = Format("FmtData:%d \n",         (val >> 4) & 0x1);    
+    str += Format("CmpList:%d \n",         (val >> 3) & 0x1);    
+    str += Format("Defect List Format:%d", val & 0x7);    
+    AddSimplePLCell("Flags(1)", Format ("0x%02X", val & 0x1F), str);
+        
+    val = GetDataByte(2);     
+    AddSimplePLCell("Track", Format ("0x%02X", val), 
+        Format ("Track Number  %d", val));
+        
+    val = GetDataWord(3);     
+    AddSimplePLCell("Intrlv", Format ("0x%04X", val), 
+        Format ("Interleave  %d", val));
+        
+    val = GetDataWord(7);     
+    AddSimplePLCell("ParmListLen", Format ("0x%04X", val), 
+        Format ("Parameter List Length  %d", val));
+}
+
+     
+DoInquiry()
+{
+    val = GetDataByte(1);     
+    AddSimplePLCell("Flags(1)", Format ("0x%02X", val & 0x1F), Format("Enable Vital Product Data:%d", val & 0x1));
+        
+    val = GetDataByte(2);     
+    AddSimplePLCell("Page Code", Format ("0x%02X", val),Format ("Page Code  %d", val));
+        
+    val = GetDataByte(4);     
+    AddSimplePLCell("Alloc Len", Format ("%d", val), Format ("Allocation Length  0x%02X", val));
+}
+ 
+       
+DoModeSelect()
+{
+    val = GetDataByte(1); 
+    str  = Format("Page Format:%d \n", (val >> 4) & 0x1);    
+    str += Format("Save Pages:%d",    val  & 0x1);    
+    AddSimplePLCell("Flags(1)", Format ("0x%02X", val & 0x1F), str);
+ 
+    val = GetDataWord(7);     
+    AddSimplePLCell("ParmListLen", Format ("0x%04X", val), 
+        Format ("Parameter List Length  %d", val));
+}       
+    
+      
+DoModeSense()
+{
+    val = GetDataByte(1); 
+    str  = Format("Disable Block Descriptor:%d \n", (val >> 3) & 0x1);    
+    AddSimplePLCell("Flags(1)", Format ("0x%02X", val & 0x1F), str);
+ 
+    val = GetDataByte(2);
+    pcf = val >> 6;
+    select
+    {
+        pcf = 0 : str = "Current";
+        pcf = 1 : str = "Changeable";
+        pcf = 2 : str = "Default";
+        pcf = 3 : str = "Saved";
+    };     
+    
+    AddSimplePLCell("Page Cntrl", Format ("%d", pcf), "Page Control values: " + str);
+    
+    AddSimplePLCell("Page Code", Format ("0x%02X", val&0x3F),Format ("Page Code  %d", val&0x3F));
+    
+    val = GetDataWord(7);     
+    AddSimplePLCell("ParmListLen", Format ("0x%04X", val), 
+        Format ("Parameter List Length  %d", val));
+}       
+
+     
+DoPreventAllowRemoval()
+{
+    val = GetDataByte(4);     
+    AddSimplePLCell("Prevent", Format ("%d", val & 0x1), Format("Prevent Media Removal:%d", val & 0x1));
+}       
+
+     
+     
+DoReadFormatCapacities()
+{
+    val = GetDataWord(7);     
+    AddSimplePLCell("Alloc Len", Format ("0x%04X", val), 
+        Format ("Allocation Length  %d", val));
+}       
+
+    
+DoRequestSense()
+{
+    val = GetDataByte(4);     
+    AddSimplePLCell("Alloc Len", Format ("0x%02X", val), 
+        Format ("Allocation Length  %d", val));
+}       
+
+    
+     
+DoRezero()
+{
+    # DoNothing!();
+}       
+
+    
+      
+DoSeek()
+{
+    DoLBA();
+}       
+
+    
+ 
+DoSendDiagnostic()
+{
+    val = GetDataByte(1); 
+    str  = Format("PF:%d \n",         (val >> 4) & 0x1);    
+    str += Format("SelfTest:%d \n",   (val >> 2) & 0x1);    
+    str += Format("DefOfl:%d \n",     (val >> 1) & 0x1);    
+    str += Format("UnitOfl:%d",        val & 0x1);    
+    AddSimplePLCell("Flags(1)", Format ("0x%02X", val & 0x1F), str);
+} 
+
+         
+DoStartStopUnit()
+{
+    val = GetDataByte(1); 
+    str  = Format("Imediate:%d",   val & 0x1);    
+    AddSimplePLCell("Flags(1)", Format ("0x%02X", val & 0x1F), str);
+    
+    val = GetDataByte(4); 
+    str  = Format("LoEj:%d \n",    (val >> 1) & 0x1);    
+    str += Format("Start:%d \n",    val & 0x1);    
+    AddSimplePLCell("Flags(4)", Format ("0x%02X", val), str);
+} 
+
+
+DoVerifyOrWriteAndVerify()
+{
+    val = GetDataByte(1); 
+    str  = Format("DPO:%d \n",         (val >> 4) & 0x1);    
+    str += Format("ByteChk:%d \n",     (val >> 1) & 0x1);    
+    str += Format("RelAdr:%d",         val & 0x1);    
+    AddSimplePLCell("Flags(1)", Format ("0x%02X", val & 0x1F), str);
+    
+    DoLBA();
+    
+    DoTransferLengthWord();
+} 
+    
+ 
+DoDefault()
+{
+}     
+
+
+    
+DoLUN()
+{ 
+    val = GetDataByte(1);        
+    AddSimplePLCell("LUN", Format ("%d", val>> 5), 
+        Format ("Logical Unit Number   (Byte 1 = 0x%02X)", val));
+}
+ 
+ 
+    
+DoLBA()
+{  
+    val = GetDataLong(2);
+
+    if (SCSILevel == 1) # SCSI Level
+    {    
+        str = Format("0x%08X", val);    
+    	
+        AddDecSeparator(); 
+        AddCell("Logical Block Addr", str, 
+        "The LOGICAL BLOCK ADDRESS field specifies\n" + 
+        "the logical block where the operation shall\n" + 
+        "begin.", SCSI_Color, [_TABULARCELL, SCSI_CELL_LBA_SCSI, "TEXT_CAPTION"] );
+    }
+    else
+        AddSimplePLCell("LBA", Format ("0x%08X", val), Format("Logical Block Address = %d", val), FieldColor, [_TABULARCELL, SCSI_CELL_LBA, "TEXT_CAPTION"]);
+    
+    
+}
+
+
+DoTransferLengthLong()
+{  
+    val = GetDataLong(6);        
+    AddSimplePLCell("Length", Format ("0x%08X", val), Format("Transfer Length = %d", val), FieldColor, [_TABULARCELL, SCSI_CELL_LENGTH, "TEXT_CAPTION" ]);
+}
+
+
+DoTransferLengthWord()
+{  
+    val = GetDataWord(7);        
+    AddSimplePLCell("Length", Format ("0x%04X", val), Format("Transfer Length = %d", val), FieldColor, [_TABULARCELL, SCSI_CELL_LENGTH, "TEXT_CAPTION" ]);
+}
+
+  

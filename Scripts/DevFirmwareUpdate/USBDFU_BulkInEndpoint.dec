@@ -1,0 +1,66 @@
+#
+#  Copyright (c) 2010, LeCroy Corp. - All Rights Reserved
+#
+#  USBDFU_BulkINEndpoint.dec
+#
+#  USB test and Measurement Bulk-Only Protocol IN Endpoint Decoder
+#
+# V1.0 - MGD
+
+%include "CATCScriptAPI.inc"
+%include "UsbCommon.inc"
+
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block 
+#
+#----  Output
+# out.Decoded   - amount of data has been decoded
+#
+
+
+#------------------------  Common Globals -----------------------------------
+
+set OutputType    = "USBDFU Bulk IN Endp";
+set UsbDecodeType = "Endpoint";
+set UsbEndpId     = 4; # just a unique value for each endpoint of the same Class/Vendor/Product to distinguish them
+set UsbClassCode  = 0xFE; # 
+set UsbSubClass     = 0x01; #USBDFU
+set UsbProtocol     = 0x02; # Bulk-Only
+set UsbEndpType   = "Bulk";
+set UsbEndpDir    = "In";
+set UsbMaxXferSize = 0x7FFFFFFF;  #try largest possible positive value  
+set UsbMaxXferDecodeSize   = 36;  # Max bytes that we will be decoding  
+set UsbMaxPktSize          = 512;   
+set UsbScriptDecodeType    = 2; # Combined decoding for Cells and Text decoding
+
+set UsbXferCompleteClue = 4;     # this Xfer ends if Bulk In seen during decoding  
+
+# User can select the colors for the fields he chooses
+
+
+set Dblock_size = 0;
+set usbDFU_colour = 0x77AE28;
+#-------------------------------------------------------------------------------
+
+
+
+#############################################################################
+#                               View Settings                               #
+#############################################################################
+#
+
+ProcessData()
+{
+
+
+    SetCellColor(usbDFU_colour);
+    AddCaptionCell("DFU","Class","In order to view comments in text field, user must expand this caption cell",usbDFU_colour,_MONOCOLOR);  # will allow for the expansion of certain fields
+    GetNBits( in.Data, 0, 0 );
+    ShowDataBlockReOrder( in.DataLength );
+
+    out.Decoded = in.DataLength;
+
+    return Complete();
+ }

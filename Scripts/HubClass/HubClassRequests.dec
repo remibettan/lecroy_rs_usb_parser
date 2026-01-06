@@ -1,0 +1,2205 @@
+#
+#  Copyright (c) 2002, Computer Access Technology Corp. - All Rights Reserved
+#  REVISION HISTORY
+#            File Created -mp-   10JUN08 Updated according to USB 3.0 ver0.85 
+#    05JUL08 Added error handling  
+#    09SEP08 Updated according to USB 3.0 ver0.9   
+#
+#  HubClassRequests.dec
+#
+#  Hub Class Request Decoder
+#
+#%include "DecoderTools.inc"    #include usefull decoder functions
+%include "CATCScriptAPI.inc"             #.inc files that are included
+%include "UsbCommon.inc"
+%include "Standard\\StandardRequests_EDIT_OTG_WUSB_FLAG.inc"
+%include "ErrorHandlingMessages.inc"
+%include "PowerDelivery\\PDHubClassRequests.inc"
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block 
+#
+#----  Output
+# out.Decoded   - amount of data has been decoded
+#
+
+
+const Tabular_Def_Table = Map( 
+[   
+    #-----------------------------------------------------------------------------------------------------
+    #       id            ,      colId                          ,       containerCellId
+    #-----------------------------------------------------------------------------------------------------
+    [ CELL_REQUEST        , TABULAR_SCRIPT_COLUMN_ID_SUBTYPE   , TABULAR_SCRIPT_CONTAINER_CELL_ID_NONE ],
+    [ CELL_WVALUE         , TABULAR_SCRIPT_COLUMN_ID_NONE      , TABULAR_SCRIPT_CONTAINER_CELL_ID_MISC ]
+    
+] );
+
+set ModuleType      = "DataBlock Decoder";
+set OutputType      = "Hub Class Requests";
+set UsbDecodeType   = "Request";
+set UsbReqType      = "Class";
+set UsbClassCode    = 0x9;
+set UsbScriptDecodeType = 1; # explicit text decoding processing
+
+#
+# Parsing entry point
+#
+
+
+
+# User can select the colors for the fields he chooses
+set wDecodeCellColor    = 0x494949; 
+
+
+const ErrorColor = 0x0000FF;
+
+set ErrorFlag = 0;
+
+set bReqType = 0;
+set bRequest = 0;
+set wValue   = 0;
+set wIndex   = 0;
+set wLength  = 0;
+set bLength             = 0;
+set bDescriptorType     = 0;
+
+
+set IsUsb2Hub = 1; # default value
+
+ProcessData()
+{
+ 
+    ProcessDataInit();
+    
+    Speed        = GetDecoderHeaderByte(2);
+    tempSpeedFlag = Speed; # Gets Speed value from in.context[2]
+	if(tempSpeedFlag == Super_Speed_Plus_Mode || tempSpeedFlag == SSIC_HS_Mode) 
+		tempSpeedFlag = Super_Speed_Mode;
+    #UsbSpecLevel = GetDecoderHeaderByte(?);
+    out.Decoded = 0;
+
+    ErrorFlag = 0;
+    EntryBaseOffset    = 0;
+    EntryFieldGroupLen = 0;
+
+    if (in.DataLength < 8)      # Checking for Illegal Payload
+    {
+        if (!AddSpecPLCellMonoNoDlg("Error", "Illegal Payload", "Nothing is being decoded", __ERROR))
+            AddErrorMonoCell("Error", "Illegal Payload", "Nothing is being decoded");      #[found in CATCScriptAPI.inc]
+        return Complete();
+    }
+
+    out.Decoded = 0;    
+    
+    bReqType = GetDataByte(0);
+    bRequest = GetDataByte(1);
+    wValue   = GetDataWord(2);
+    wIndex   = GetDataWord(4);
+    wLength  = GetDataWord(6);
+    
+    if( tempSpeedFlag != Super_Speed_Mode )
+        _row = Find(HubRequestTable, bRequest);
+    else
+        _row = Find(HubRequestTable_USB3, bRequest);    
+    
+    AddSeparator();
+    
+    AddRequestCell( _row[1] );
+   # AddPayLoadCell("bRequest", _row[1], Format("0x%04X - ", bRequest) + _row[2], bRequestColor);
+    
+# for debugging...
+#    AddCell("bReqType", Format("0x%02X", bReqType), "",  bRequestColor);
+#    AddCell("wValue",   Format("0x%04X", wValue),   "",  wValueColor);
+#    AddCell("wIndex",   Format("%d", wIndex),   "",  wIndexColor);
+#    AddCell("wLength",  Format("%d", wLength),  "",  wLengthColor);
+
+    if ( _row != null)
+    {
+
+        Call ( _row[1], [ in.DataLength ] );
+        out.Decoded = in.DataLength+8;
+    }
+    else
+    {
+        AddPayLoadCell("bReqType", Format("0x%02X", bReqType), "",  bRequestColor);
+        AddWValueCell(   Format("0x%04X", wValue),   "");
+        AddWIndexCell(   Format("%d", wIndex),   "");
+        AddWLengthCell( Format("%d", wLength),  "");
+        out.Decoded = 8;
+    }
+
+    AddSeparator();
+
+############ for Debug purposes
+#    GetNBits(in.Data, 0, 0);
+#    ShowDataBlock(in.DataLength);
+############
+
+   return Complete();
+}
+
+
+set HubRequestTable = 
+[
+    [0x00, "GET_STATUS"                 , "Get the Status" ],
+    [0x01, "CLEAR_FEATURE"              , "Clear the Hub Feature" ],
+    [0x02, "GET_STATE"                  , "Retrieve the current Hub state" ],
+    [0x03, "SET_FEATURE"                , "Set the Hub Feature" ],
+    [0x04, "Reserved"                   , "Error: This is reserved by USB org" ],
+    [0x05, "Reserved"                   , "Error: This is reserved by USB org" ],
+    [0x06, "GET_HUB_DESCRIPTOR"         , "Get the Hub-specific descriptors" ],
+    [0x07, "SET_DESCRIPTOR"             , "Set the values of the desriptor" ],
+    [0x08, "CLEAR_TT_BUFFER"            , "Clear Transaction Translator Bulk/Control Buffer" ],
+    [0x09, "RESET_TT"                   , "Reset Transaction Translator" ],
+    [0x0A, "GET_TT_STATE"               , "Get Transaction Translator internal state" ],
+    [0x0B, "STOP_TT"                    , "Stop the Transaction Translator" ],
+    [0x0C, "SET_AND_TEST"               , "SetandTestPortFeature for LPM capable Hubs" ],
+    [0xffff  ,  "Unknown_Hub_Request"   ,  ""       ]
+];
+
+set HubRequestTable_USB3 = 
+[
+    [0x00, "GET_STATUS"                 , "Get the Status" ],
+    [0x01, "CLEAR_FEATURE"              , "Clear the Hub Feature" ],
+    [0x02, "GET_STATE"                  , "Retrieve the current Hub state" ],
+    [0x03, "SET_FEATURE"                , "Set the Hub Feature" ],
+    [0x04, "Reserved"                   , "Error: This is reserved by USB org" ],
+    [0x05, "Reserved"                   , "Error: This is reserved by USB org" ],
+    [0x06, "GET_HUB_DESCRIPTOR"         , "Get the Hub-specific descriptors" ],
+    [0x07, "SET_DESCRIPTOR"             , "Set the values of the desriptor" ],
+    [0x0C, "SET_HUB_DEPTH"              , "Set Hub Depth" ],
+    [0x0D, "GET_PROT_ERR_COUNT"         , "Get port error count" ],
+    [0x14, "PD_GET_PARTNER_PDO"         , "Get Partner PDO" ],
+#    [0x15, "PD_GET_BATTERY_STATUS"      , "Get Battery Status" ],
+    [0x16, "PD_SET_PDO"                 , "Set PDO" ],
+    [0x17, "PD_GET_VDM"                 , "Get VDM" ],
+    [0X18, "PD_SEND_VDM"                , "Send VDM" ],
+    [0xffff  ,  "Unknown_Hub_Request"   ,  ""       ]
+];
+
+set HubRequestWithDataTextTable = 
+[
+    [0x00, "GET_STATUS_Text"                 , "Get the Status" ],
+    [0x02, "GET_STATE_Text"                  , "Retrieve the current Hub state" ],
+    [0x07, "SET_DESCRIPTOR_Text"             , "Set the values of the desriptor" ],
+    [0x0A, "GET_TT_STATE_Text"               , "Get Transaction Translator internal state" ],
+    [0x0C, "SET_AND_TEST_Text"              , "SetandTestPortFeature for LPM capable Hubs" ],
+    [0xffff  ,  "Unknown_Hub_Request_Text"   ,  ""       ]
+];
+
+
+set HubRequestWithDataTextTable_USB3 = 
+[
+    [0x00, "GET_STATUS_Text"                 , "Get the Status" ],
+    [0x02, "GET_STATE_Text"                  , "Retrieve the current Hub state" ],
+    [0x07, "SET_DESCRIPTOR_Text"             , "Set the values of the desriptor" ],
+    [0x0A, "GET_TT_STATE_Text"               , "Get Transaction Translator internal state" ],
+    [0x0C, "SET_HUB_DEPTH_Text"              , "Set hub depth" ],
+    [0xffff  ,  "Unknown_Hub_Request_Text"   ,  ""       ]
+];
+
+set PortStatusBitmapTable =
+[
+                   [  0, "PORT_CONNECTION    " ],
+                   [  1, "PORT_ENABLE        " ],
+                   [  2, "PORT_SUSPEND       " ],
+                   [  3, "PORT_OVER_CURRENT  " ],
+                   [  4, "PORT_RESET         " ],
+                   [  5, "PORT_L1            " ],
+                   [  8, "PORT_POWER         " ],
+                   [  9, "PORT_LOW_SPEED     " ], 
+                   [ 10, "PORT_HIGH_SPEED    " ],
+                   [ 11, "PORT_TEST          " ],
+                   [ 12, "PORT_INDICATOR_CTRL" ]
+];
+
+set PortStatusBitmapTable_USB3 =
+[
+                   [  0, "PORT_CONNECTION    " ],
+                   [  1, "PORT_ENABLE        " ],
+                   [  3, "PORT_OVER_CURRENT  " ],
+                   [  4, "PORT_RESET         " ],
+                   [  5, "PORT_LINK_STATE    " ],
+                   [  9, "PORT_POWER         " ], 
+                   [ 10, "PORT_SPEED         " ],
+                   [ 15, "PORT_TEST          " ]
+];
+
+set PortChangeBitmapTable =
+[
+                   [  0, "C_PORT_CONNECTION  " ],
+                   [  1, "C_PORT_ENABLE      " ],
+                   [  2, "C_PORT_SUSPEND     " ],
+                   [  3, "C_PORT_OVER_CURRENT" ],
+                   [  4, "C_PORT_RESET       " ],
+                   [  5, "C_PORT_L1          " ]
+];
+
+set PortChangeBitmapTable_USB3 =
+[
+                   [  0, "C_PORT_CONNECTION  " ],
+                   [  3, "C_PORT_OVER_CURRENT" ],
+                   [  4, "C_PORT_RESET       " ],
+                   [  5, "C_BH_PORT_RESET  " ],
+                   [  6, "C_PORT_LINK_STATE  " ],
+                   [  7, "C_PORT_CONFIG_ERROR" ]                   
+];
+
+set HubStatusBitmapTable =
+[
+                   [  0, "Local Power Source    " ],
+                   [  1, "Over-current Indicator" ]
+];
+
+set HubChangeBitmapTable =
+[
+                   [  0, "C_HUB_LOCAL_POWER " ],
+                   [  1, "C_HUB_OVER_CURRENT" ]
+];
+
+set TestModeSelector =
+[
+                   [  0xFF, "Undefined" ],
+                   [  1, "Test_J" ],
+                   [  2, "Test_K" ],
+                   [  3, "Test_SE0_NAK" ],
+                   [  4, "Test_Packet" ],
+                   [  5, "Test_Force_Enable" ]
+];
+
+set TestModeSelectorLow_USB3 =
+[
+                   [  0xFF, "Undefined" ],
+                   [  1, "Enter to Loopback" ],
+                   [  2, "Enter Compliance" ],
+                   [  3, "Vendor Specific" ]
+];
+
+/*set TestModeSelectorHigh_USB3 =
+[
+                   [  0, "Add SKPs to Compliance Pattern(Compliance SOS)" ],
+                   [  1, "Send Compliance Pattern 2" ],
+                   [  2, "Send Vendor Specific CompliancePattern" ]
+];*/
+
+set TestModeSelectorHigh_USB3 =
+[
+                   [  3, "Add SKPs to Compliance Pattern(Compliance SOS)" ],
+                   [  4, "Send Compliance Pattern 2" ],
+                   [  5, "Send Vendor Specific CompliancePattern" ]
+];
+
+set PortRemoteWakeMask =
+[
+                   [  0, "Conn_RWEnable" ],
+                   [  1, "Disconn_RWEnable" ],
+                   [  2, "OC_RWEnable" ]
+];
+
+set PortSpeedVal =
+[
+                   [  0, "Conn_RWEnable" ],
+                   [  1, "Disconn_RWEnable" ],
+                   [  2, "OC_RWEnable" ],
+                   [  3, "Conn_RWEnable" ],
+                   [  4, "Disconn_RWEnable" ],
+                   [  5, "OC_RWEnable" ],
+                   [  6, "Conn_RWEnable" ],
+                   [  7, "Disconn_RWEnable" ]
+];
+
+set PortLinkState =
+[
+                   [  0, "U0" ],
+                   [  1, "U1" ],
+                   [  2, "U2" ],
+                   [  3, "U3" ],
+                   [  4, "eSS.Disabled" ],
+                   [  5, "Rx.Detect" ],
+                   [  6, "eSS.Inactive" ],
+                   [  7, "Polling" ],
+                   [  8, "Recovery" ],
+                   [  9, "Hot Reset" ],
+                   [  10, "Compliance" ],
+                   [  11, "Loopback" ],
+                   [  12, "0xC: Unknown" ],
+                   [  13, "0xD: Unknown" ],
+                   [  14, "0xE: Unknown" ],
+                   [  15, "0xF: Unknown" ]
+];
+
+#*******************************************************************************
+# GET_STATUS    : This request returns the current hub status and the states 
+#                 that have changed since the previous acknowledgement
+# bmRequestType : 0xA0
+# bRequest      : 0x00
+# wValue        : 0x0000
+# wIndex        : 0x0000
+# wLength       : 0x04
+# Data          : Hub Status and Change Indicators
+#*******************************************************************************
+GET_STATUS()
+{
+#    if( in.DataLength < 12 )
+#    {
+#        if( !AddSpecPLCellMonoNoDlg("Error", "Short Payload", Format( "Expecting 12 bytes, found %d.", in.DataLength ), __ERROR ) )
+#            AddErrorMonoCell( "Error", "Short Payload", Format( "Expecting 12 bytes, found %d.", in.DataLength ) );      #[found in CATCScriptAPI.inc]
+#
+#        ErrorFlag = 1;
+#        out.Decoded = 8;
+#        return 0;
+#    }
+
+    wHubStatusBits        = GetDataWord(8);
+    wHubStatusChangeBits  = GetDataWord(10);
+    status = "x";
+    change = "y";        
+    status = ToBitString(wHubStatusBits, 16);
+    change = ToBitString(wHubStatusChangeBits, 16);
+        
+    if (bReqType == 0xA0)
+    {
+        AddHubbmRequestType();
+
+        
+        if (wIndex == 0)
+        {
+            #AddCell("wIndex",   Format("0 (Hub Status)"),   "Hub Status Bitmap",  wIndexColor);
+                AddWIndexCell( Format("0 (Hub Status)"),   "Hub Status Bitmap");
+        }
+        else
+        {
+           # AddCell("wIndex",   Format("Invalid wIndex: 0x%04X", wIndex),   "Expected 0 only",  ErrorColor);       
+            AddWIndexCell(   Format("Invalid wIndex: 0x%04X", wIndex),   "Expected 0 only", 1);       
+        }
+
+        AddHubwLength( 4 );
+
+        SetFieldOffsetLen( 80, 16 );
+        AddPayLoadCell("Hub Status Bits",   status,
+            ToBitDecode(HubStatusBitmapTable, wHubStatusBits, "", "Hub Status bits (Bytes 0-1):\n"),
+            wDecodeCellColor);
+        RestoreFieldOffsetLen();
+
+        SetFieldOffsetLen( 96,16 );
+        AddPayLoadCell("Hub Change Bits",   change,  ToBitDecode(HubChangeBitmapTable, wHubStatusChangeBits, "", "Hub Change bits (Bytes 2-3):\n"),
+          wDecodeCellColor);
+
+        out.Decoded += 2;  # in case wLength > 4
+    }
+    else if (bReqType == 0xA3)
+    {
+        AddWIndexCell(   Format("For Port # %i", wIndex),   "Hub Port Number for this Request",  wIndexColor); 
+        
+        if ( tempSpeedFlag != Super_Speed_Mode )
+        {
+            # Hi Speed or lower
+            SetFieldOffsetLen( 64+16, 16 );
+            AddPayLoadCell("Port Status Bits",   status,
+                ToBitDecode(PortStatusBitmapTable, wHubStatusBits, "", "Port Status bits (Bytes 0-1):\n"),  wDecodeCellColor);       
+          SetFieldOffsetLen( 64+32, 16 );      
+            AddPayLoadCell("Port Change Bits",   change,
+                ToBitDecode(PortChangeBitmapTable, wHubStatusChangeBits, "", "Port Change bits (Bytes 2-3):\n"),
+                wDecodeCellColor);        
+        }  
+        else
+        {
+            if ((wValue & 0xFF) == 0 || (wValue & 0xFF) == 2) # PORT_STATUS, EXT_PORT_STATUS
+            {
+                str = StartTable("Port Status bits (Bytes 0-1):\n");
+                str = ToBitDecodeByIndex(str, PortStatusBitmapTable_USB3, 0,3,wHubStatusBits, "", "");
+                str = ToBitsDecodeStringValue(str, PortStatusBitmapTable_USB3, 4,4, wHubStatusBits, "Bits 5-8", PortLinkState);
+                str = ToBitDecodeByIndex(str, PortStatusBitmapTable_USB3, 5,5,wHubStatusBits, "", "");
+                str = ToBitsDecode      (str, PortStatusBitmapTable_USB3, 6,3, wHubStatusBits, "Bits 10-12", "");
+                str = ToBitDecodeByIndex(str, PortStatusBitmapTable_USB3, 7,7,wHubStatusBits, "", "");
+                str = EndTable(str);        
+            
+                SetFieldOffsetLen( 64 + 16, 16 );          
+                AddPayLoadCell("Port Status Bits",   status, str, wDecodeCellColor);
+                port_state_value =  (wHubStatusBits >> 5) & 0xF;
+                port_state_value_string = Format( "%s", PortLinkState[port_state_value][1] ); 
+                
+                # Add extra cell to trace view, since this is an important value.    
+                AddCell("PORT_LINK_STATE",  port_state_value_string , Format( "Bits 5-8 of Port Status Bits: %x", port_state_value), wDecodeCellColor);       
+             
+                SetFieldOffsetLen( 64+32 , 16 );      
+                AddPayLoadCell("Port Change Bits",   change,
+                    ToBitDecode(PortChangeBitmapTable_USB3, wHubStatusChangeBits, "", "Port Change bits (Bytes 2-3):\n"),
+                    wDecodeCellColor);  
+					
+				if((wValue & 0xFF) == 2) # EXT_PORT_STATUS
+				{
+					dwHubExtendedStatusBits        	= GetDataLong(12);					
+					
+					extended_status = Format("0x%08x", dwHubExtendedStatusBits);
+										
+					
+					str = StartTable("Extended Port Status Bits:\n");					
+					
+					rx_speed_id =  dwHubExtendedStatusBits & 0x000F;													
+					rx_speed_str = Format( "%d", rx_speed_id);
+					AddTableRow(str, "Rx Sublink Speed ID", 0, 3, rx_speed_str);                
+					
+					tx_speed_id =  (dwHubExtendedStatusBits >> 4) & 0x000F;													
+					tx_speed_str = Format( "%d", tx_speed_id);
+					AddTableRow(str, "Tx Sublink Speed ID", 4, 7, tx_speed_str);                
+					
+					rx_lane_count =  ((dwHubExtendedStatusBits >> 8) & 0x000F) + 1;
+					rx_lane_count_str = Format( "%d", rx_lane_count);
+					AddTableRow(str, "Rx Lane Count", 8, 11, rx_lane_count_str);
+					
+					tx_lane_count =  ((dwHubExtendedStatusBits >> 12) & 0x000F) + 1;
+					tx_lane_count_str = Format( "%d", tx_lane_count);
+					AddTableRow(str, "Tx Lane Count", 12, 15, tx_lane_count_str);
+					
+					extended_status_rsvd =  ((dwHubExtendedStatusBits >> 16) & 0xFFFF);
+					extended_status_rsvd_str = Format( "0x%04x", extended_status_rsvd);
+					AddTableRow(str, "Reserved", 15, 31, extended_status_rsvd_str);
+					
+					str = EndTable(str);        
+            
+			
+					SetFieldOffsetLen( 64 + 48, 32 );          
+					AddPayLoadCell("Extended Port Status", extended_status, str, wDecodeCellColor);										
+				}
+            }
+            else if ((wValue & 0xFF) == 1) # PD_STATUS
+            {
+                PD_GET_STATUS();
+                return 0;
+            }
+            else if ((wValue & 0xFF) == 2) # EXT_PORT_STATUS
+            {
+            }
+                      
+         }      
+         out.Decoded += 2;  # in case wLength > 4   
+    }
+    else
+    {
+        AddPayLoadCell("Invalid bReqType value",   Format("0x%02X", bReqType),   "Expected 0xA0 or 0xA3 only",  ErrorColor);        
+    }  
+}
+
+GET_STATUS_Text()
+{
+    wHubStatusBits        = GetDataWord(8);
+    wHubStatusChangeBits  = GetDataWord(10);
+    status = ToBitString(wHubStatusBits, 16);
+    change = ToBitString(wHubStatusChangeBits, 16);
+    temp_str = "GET_STATUS";
+    temp_str += NewLine();
+
+    if (bReqType == 0xA0)
+    {
+        if (wIndex == 0)
+        {
+            tmp_str1 = ("Hub Status Bitmap") + NewLine();
+        }
+        else
+        {
+            tmp_str1 = Format("Invalid wIndex: 0x%04X", wIndex);       
+            tmp_str1 += NewLine();
+        }
+            
+        temp_str2 = Format ("Hub Status Bits  %s",   status);
+        temp_str2 = temp_str2 + NewLine();       
+        temp_str2 = temp_str2 + NewLine();       
+        temp_str3 = ToBitDecode(HubStatusBitmapTable, wHubStatusBits, "");        
+        temp_str3 = temp_str3 + NewLine();       
+        temp_str4 = Format ("Hub Change Bits  %s",   change); 
+        temp_str4 = temp_str4 + NewLine();       
+        temp_str5 = ToBitDecode(HubChangeBitmapTable, wHubStatusChangeBits, ""); 
+        temp_str5 = temp_str5 + NewLine();       
+        temp_str = temp_str + temp_str1;       
+        temp_str = temp_str + temp_str2;       
+        temp_str = temp_str + temp_str3;       
+        temp_str = temp_str + temp_str4;       
+        temp_str = temp_str + temp_str5;       
+    }
+    else if (bReqType == 0xA3)
+    {
+        temp_str1 = Format("For Port # %i", wIndex); 
+        temp_str1 = temp_str1 + NewLine();       
+        temp_str1 = temp_str1 + NewLine();       
+        temp_str2 = Format ("Port Status Bits  %s",   status);
+        temp_str2 = temp_str2 + NewLine();       
+        
+        if ( tempSpeedFlag != Super_Speed_Mode )
+            temp_str3 = ToBitDecode(PortStatusBitmapTable, wHubStatusBits, "");        
+        else
+            temp_str3 = ToBitDecode(PortStatusBitmapTable_USB3, wHubStatusBits, "");                
+        
+        temp_str3 = temp_str3 + NewLine();       
+        temp_str4 = Format ("Port Change Bits  %s",   change); 
+        temp_str4 = temp_str4 + NewLine();       
+        
+        if ( tempSpeedFlag != Super_Speed_Mode )
+            temp_str5 = ToBitDecode(PortChangeBitmapTable, wHubStatusChangeBits, ""); 
+        else
+            temp_str5 = ToBitDecode(PortChangeBitmapTable_USB3, wHubStatusChangeBits, "");     
+            
+        temp_str5 = temp_str5 + NewLine();       
+        temp_str = temp_str + temp_str1;       
+        temp_str = temp_str + temp_str2;       
+        temp_str = temp_str + temp_str3;       
+        temp_str = temp_str + temp_str4;       
+        temp_str = temp_str + temp_str5;       
+    }
+    else
+    {
+        tmp_str = ( Format("Invalid bReqType value: 0x%02X", bReqType));        
+    } 
+    return (temp_str); 
+}
+
+
+set PortClearFeatureTable =
+[
+                   [  0xFF,  "Undefined" ],  
+                   [  0, "PORT_CONNECTION" ],
+                   [  1, "PORT_ENABLE" ],
+                   [  2, "PORT_SUSPEND(L2)" ],
+                   [  3, "PORT_OVER_CURRENT (Should not clear this feature!)" ],
+                   [  4, "PORT_RESET (Should not clear this feature!)" ],
+                   [  8, "PORT_POWER" ],
+                   [  9, "PORT_LOW_SPEED (Should not clear this feature!)" ], 
+                   [ 10, "PORT_L1" ], 
+                   [ 16, "C_PORT_CONNECTION" ],
+                   [ 17, "C_PORT_ENABLE" ],
+                   [ 18, "C_PORT_SUSPEND" ],
+                   [ 19, "C_PORT_OVER_CURRENT" ],
+                   [ 20, "C_PORT_RESET" ],
+                   [ 21, "PORT_TEST" ],
+                   [ 22, "PORT_INDICATOR" ],
+                   [ 23, "C_PORT_L1" ]
+];
+
+set PortClearFeatureTable_USB3 =
+[
+                   [  0xFF,  "Undefined" ],  
+                   [  0, "PORT_CONNECTION" ],
+#                  [  1, "PORT_ENABLE(Should not set this feature!)" ],
+#                  [  2, "PORT_SUSPEND" ],
+                   [  3, "PORT_OVER_CURRENT (Should not set this feature!)" ],
+                   [  4, "PORT_RESET" ],
+                   [  5, "PORT_LINK_STATE"],
+                   [  8, "PORT_POWER" ],
+#                  [  9, "PORT_LOW_SPEED (Should not set this feature!)" ], 
+#                  [ 10, "PORT_L1 (Should not set this feature!)" ], 
+                   [ 16, "C_PORT_CONNECTION" ],
+#                  [ 17, "C_PORT_ENABLE" ],
+#                  [ 18, "C_PORT_SUSPEND" ],
+                   [ 19, "C_PORT_OVER_CURRENT" ],
+                   [ 20, "C_PORT_RESET" ],
+                   [ 21, "PORT_TEST" ],
+                   [ 23, "PORT_U1_TIMEOUT" ],
+                   [ 24, "PORT_U2_TIMEOUT" ],
+                   [ 25, "C_PORT_LINK_STATE" ],
+                   [ 26, "C_PORT_CONFIG_ERROR" ],
+                   [ 27, "PORT_REMOTE_WAKE_MASK" ] ,
+                   [ 28, "BH_PORT_RESET" ]  ,
+                   [ 29, "C_BH_PORT_RESET" ],                    
+                   [ 30, "FORCE_LINKPM_ACCEPT" ],
+                   
+                  ## Power Delivery Features ##
+                   [ 40, "BATTERY_WAKE_MASK"],
+                   [ 41, "OS_IS_PD_AWARE"],
+                   [ 42, "POLICY_MODE"],
+                   [ 43, "PR_SWAP"],
+                   [ 44, "GOTO_MIN"],
+                   [ 45, "RETURN_POWER"],
+                   [ 46, "ACCEPT_PD_REQUEST"],
+                   [ 47, "REJECT_PD_REQUEST"],
+                   [ 48, "PORT_PD_RESET"],
+                   [ 49, "C_PORT_PD_CHANGE"],
+                   [ 50, "CABLE_PD_RESET"],
+                   [ 54, "CHARGING_POLICY"]
+];
+
+
+
+
+set HubClearFeatureTable =
+[
+                   [  0xFF,  "Undefined" ], 
+                   [  0, "C_HUB_LOCAL_POWER " ],
+                   [  1, "C_HUB_OVER_CURRENT" ]
+];
+
+#*******************************************************************************
+# CLEAR_FEATURE : This request resets a value reported in the port status
+# bmRequestType : 0x23
+# bRequest      : 0x01
+# wValue        : Feature Selector
+# wIndex        : Port
+# wLength       : 0x00
+# Data          : None
+#*******************************************************************************
+CLEAR_FEATURE()
+{ 
+    _row = null;
+
+    if (bReqType == 0x20)
+    {
+      AddHubbmRequestType();
+        _row = Find(HubClearFeatureTable, wValue);        
+       if ( _row[0] != 0xFF)
+    
+        {
+            AddWValueCell( _row[1], Format("%d", wValue));
+        }
+        else
+        {
+            AddWValueCell(  Format("%d", wValue),   "Expected 0 or 1 only",  1);
+        }
+
+    }
+    else if (bReqType == 0x23)
+    {
+        if ( tempSpeedFlag != Super_Speed_Mode )
+            _row = Find(PortClearFeatureTable, wValue);
+        else
+            _row = Find(PortClearFeatureTable_USB3, wValue);
+        
+
+        AddHubbmRequestType();
+        if ( _row[0] != 0xFF)
+        {
+            AddWValueCell( _row[1], Format("%d", wValue));
+            if ((wValue == 10) || (wValue == 23))  # PORT_L1, C_PORT_L1
+            {
+                # Include Selector, HIRD bits
+                tempSt1 = Format("Selector:%i  ", (wIndex >> 8) & 0x00FF );
+                tempSt2 = Format("HIRD:0x%1X  ",  (wIndex >> 4) & 0x000F );
+                tempSt3 = Format("Port# %i",       wIndex       & 0x000F );
+                tempSt1 = tempSt1 + tempSt2;
+                tempSt1 = tempSt1 + tempSt3;
+                AddWIndexCell( tempSt1, "Selector, HIRD, and Port Number for Feature");
+            }
+            else
+                AddWIndexCell( Format("Port # %i", wIndex), "Port Number for Feature");
+        }
+        else
+        {
+            AddWValueCell(Format("%d", wValue),"UnExpected Value",  1);
+        }
+        
+        if ( IsPDPortFeature( _row[0] ) ) #PD Feature Selector range
+        {
+            if (wLength != 2)
+            {
+                AddWLengthCell( FormatEx(_err_Illegal_Value, "wLength", wLength, 2 ), 1 );
+            }
+            else
+            {
+                AddWLengthCell( "Correct Value of 2", 0 );
+                PD_DecodeClearPortPDFeature();
+            }
+        }
+        else
+        {
+            if (wLength != 0)
+                AddWLengthCell( FormatEx(_err_Illegal_Value,"wLength",wLength,2 ) ,1 );  
+            else
+                AddWLengthCell( "Correct Value of 0",0 );
+        }
+        AddHubwLength( 0 );
+    }
+    else
+    {
+        AddPayLoadCell("Invalid bRequestType value",   Format("0x%02X", bReqType),   "Expected 0x20 or 0x23 only",  ErrorColor);
+    }
+}
+
+set BusStateBitmapTable =
+[
+                   [  0, "Value of the D- signal" ],
+                   [  1, "Value 0f the D+ signal" ]
+];
+
+#*******************************************************************************
+# GET_BUS_STATE : This is an optional per port diagnostic request that returns 
+#                 the state value
+# bmRequestType : 0xA3
+# bRequest      : 0x02
+# wValue        : 0x0000
+# wIndex        : Port
+# wLength       : 0x01
+# Data          : Per-Port Bus State
+#*******************************************************************************
+
+GET_STATE()
+{
+    AddCell("wIndex",   Format("For Port # %i", wIndex),   "Hub Port Number for this Request",  wIndexColor);
+
+    if( in.DataLength > 7 )
+    {
+        AddHubwLength( 1 );
+
+        bBusStateBits = GetDataByte(8);
+        status = "x";
+        status = ToBitString(bBusStateBits, 8);
+
+        SetFieldOffset( 72, 8 );
+        AddPayLoadCell("Bus State",   status,   "Bus State bits (Byte 0):\n" +
+            ToBitDecode(BusStateBitmapTable, bBusStateBits, ""),  wDecodeCellColor);
+
+        out.Decoded++;  # In case more in.DataLength > 8.
+    }
+    else
+    {
+        if( !AddSpecPLCellMonoNoDlg("Error", "Short Payload", Format( "Expecting 9 bytes, found %d.", in.DataLength ), __ERROR ) )
+            AddErrorMonoCell( "Error", "Short Payload", Format( "Expecting 9 bytes, found %d.", in.DataLength ) );      #[found in CATCScriptAPI.inc]
+
+        ErrorFlag = 1;
+        out.Decoded = 8;
+    }
+}
+
+GET_STATE_Text()
+{
+    temp_str =  ("GET_STATE");
+    bBusStateBits = GetDataByte(8);
+    temp_str1 = (Format("For Port # %i", wIndex));        
+    temp_strx = ToBitString(bBusStateBits, 8);
+    temp_str2 = ("Bus State: ") + temp_strx; 
+    temp_str3 = ToBitDecode(BusStateBitmapTable, bBusStateBits, "");
+    temp_str += NewLine();
+    temp_str1 += NewLine();
+    temp_str2 += NewLine();
+    temp_str3 += NewLine();
+    temp_str += temp_str1;
+    temp_str += temp_str2;
+    temp_str += temp_str3;
+    return (temp_str);   
+}
+
+
+
+set PortSetFeatureTable =
+[
+                   [  0xFF,  "Undefined" ],  
+                   [  0, "PORT_CONNECTION" ],
+                   [  1, "PORT_ENABLE(Should not set this feature!)" ],
+                   [  2, "PORT_SUSPEND" ],
+                   [  3, "PORT_OVER_CURRENT (Should not set this feature!)" ],
+                   [  4, "PORT_RESET" ],
+                   [  8, "PORT_POWER" ],
+                   [  9, "PORT_LOW_SPEED (Should not set this feature!)" ], 
+                   [ 10, "PORT_L1 (Should not set this feature!)" ], 
+                   [ 16, "C_PORT_CONNECTION" ],
+                   [ 17, "C_PORT_ENABLE" ],
+                   [ 18, "C_PORT_SUSPEND" ],
+                   [ 19, "C_PORT_OVER_CURRENT" ],
+                   [ 20, "C_PORT_RESET" ],
+                   [ 21, "PORT_TEST" ],
+                   [ 22, "PORT_INDICATOR" ],
+                   [ 23, "C_PORT_L1 (Should not set this feature!)" ]
+];
+
+set PortSetFeatureTable_USB3 =
+[
+                   [  0xFF,  "Undefined" ],  
+                   [  0, "PORT_CONNECTION" ],
+                   [  1, "PORT_ENABLE(Should not set this feature!)" ],
+                   [  2, "PORT_SUSPEND" ],
+                   [  3, "PORT_OVER_CURRENT (Should not set this feature!)" ],
+                   [  4, "PORT_RESET" ],
+                   [  5, "PORT_LINK_STATE"],
+                   [  8, "PORT_POWER" ],
+                   [  9, "PORT_LOW_SPEED (Should not set this feature!)" ], 
+                   [ 10, "PORT_L1 (Should not set this feature!)" ], 
+                   [ 16, "C_PORT_CONNECTION" ],
+                   [ 17, "C_PORT_ENABLE" ],
+                   [ 18, "C_PORT_SUSPEND" ],
+                   [ 19, "C_PORT_OVER_CURRENT" ],
+                   [ 20, "C_PORT_RESET" ],
+                   [ 21, "PORT_TEST" ],
+                   [ 23, "PORT_U1_TIMEOUT" ],
+                   [ 24, "PORT_U2_TIMEOUT" ],
+                   [ 25, "C_PORT_LINK_STATE" ],
+                   [ 26, "C_PORT_CONFIG_ERROR" ],
+                   [ 27, "PORT_REMOTE_WAKE_MASK" ] ,         
+                   [ 28, "BH_PORT_RESET" ]  ,
+                   [ 29, "C_BH_PORT_RESET" ]  ,
+                   [ 30, "FORCE_LINKPM_ACCEPT" ],
+                   
+                  ## Power Delivery Features ##
+                   [ 40, "BATTERY_WAKE_MASK"],
+                   [ 41, "OS_IS_PD_AWARE"],
+                   [ 42, "POLICY_MODE"],
+                   [ 43, "PR_SWAP"],
+                   [ 44, "GOTO_MIN"],
+                   [ 45, "RETURN_POWER"],
+                   [ 46, "ACCEPT_PD_REQUEST"],
+                   [ 47, "REJECT_PD_REQUEST"],
+                   [ 48, "PORT_PD_RESET"],
+                   [ 49, "C_PORT_PD_CHANGE"],
+                   [ 50, "CABLE_PD_RESET"],
+                   [ 54, "CHARGING_POLICY"]
+           
+];
+
+set PDPortFeatureSelectorTable =
+[   # Value # Title           # HasFunction
+	[0xFFFF, "UNDEFINED",         0 ],  #default value
+	[0x2B, "PR_SWAP",           0 ],
+    [0x2C, "GOTO_MIN",          0 ],
+    [0x2D, "RETURN_POWER",      0 ],
+    [0x2E, "ACCEPT_PD_REQUEST", 0 ],
+    [0x2F, "REJECT_PD_REQUEST", 0 ],
+    [0x30, "PORT_PD_RESET",     0 ],
+    [0x31, "C_PORT_PD_CHANGE",  0 ],
+    [0x32, "CABLE_PD_RESET",    0 ]
+];
+
+set HubSetFeatureTable =
+[
+                   [  0xFF,  "Undefined" ],  
+                   [  0, "C_HUB_LOCAL_POWER " ],
+                   [  1, "C_HUB_OVER_CURRENT" ]
+];
+
+IsPDPortFeature( feature )
+{
+    _row = Find(PDPortFeatureSelectorTable, feature);
+    if ( _row[0] != 0xFFFF)    
+        return 1;
+	else
+        return 0;
+}
+
+#*******************************************************************************
+# SET_FEATURE   : This request sets a value reported in the hub status
+# bmRequestType : 0x20
+# bRequest      : 0x03
+# wValue        : Feature Selector
+# wIndex        : 0x0000
+# wLength       : 0x00
+# Data          : None
+#*******************************************************************************
+
+SET_FEATURE()
+{
+    _row = null;
+
+    if (bReqType == 0x20)
+    {
+        AddHubbmRequestType();
+        _row = Find(HubSetFeatureTable, wValue);        
+        if ( _row[0] != 0xFF)
+        {
+            AddWValueCell( _row[1], Format("%d", wValue));
+        }
+        else
+        {
+            AddWValueCell(  Format("%d", wValue),   "Expected 0 or 1 only",  1);
+        }
+
+        AddHubwLength( 0 );
+    }
+    else if (bReqType == 0x23)
+    {
+		AddHubbmRequestType();
+		
+		if( IsPDPortFeature( wValue ) ) 
+		{
+            _row = Find(PDPortFeatureSelectorTable, wValue);
+            AddWValueCell(_row[1], FormatEx("wValue = 0x%04X\n\n",wValue) + row[1]);
+            SetFieldOffsetLen( 40, 8 ); #Index
+            AddPayLoadCell("Port Number", Format("Port # %i", wIndex&0xFF), "Port Number for Feature", wIndexColor);              
+			return 0;
+		}			
+        else
+		{	if ( tempSpeedFlag == Super_Speed_Mode )
+				_row = Find(PortSetFeatureTable_USB3, wValue);
+			else
+				_row = Find(PortSetFeatureTable, wValue);
+		}
+        
+        if ( _row[0] != 0xFF)
+        {
+            AddWValueCell( _row[1], Format("%d", wValue));
+           # AddWIndexCell("wIndex", Format(" U1 Timeout: 0x%02X", ((wIndex >> 8) & 0xFF)), "Port Number for Feature");
+        }
+        else
+        {
+            AddWValueCell(  Format("%d", wValue),   "UnExpected Value ",  1);
+        }
+
+        SetFieldOffsetLen( 40, 8 ); #Index
+        AddPayLoadCell("Port Number", Format("Port # %i", wIndex&0xFF), "Port Number for Feature", wIndexColor);  
+
+
+        SetFieldOffsetLen( 48, 8 );
+        if ( tempSpeedFlag != Super_Speed_Mode )
+        {
+            if(wValue == 21/*Port_Test*/)
+            {
+               _row = Find(TestModeSelector, wIndex>>8);
+                AddPayLoadCell("Selector", _row[1], Format("%d", wIndex>>8), wIndexColor);
+            }
+        }
+        else
+        {
+             if(wValue == 5 /* PORT_LINK_STATE */)
+             {
+                  u_state = (wIndex >> 8 ) &0xFF;
+                  Tooltip = Format("Value = %d", u_state);
+
+                  if ( u_state == 0 ) 
+                  {
+                      AddPayLoadCell("Transition", " to U0", Tooltip, wIndexColor);
+                  }
+                  else if ( u_state == 1 )
+                  {
+                      AddPayLoadCell("Transition", "from U0 to U1", Tooltip, wIndexColor);
+                  }
+                  else if ( u_state == 2 )
+                  {
+                      AddPayLoadCell("Transition", "from U0 to U2", Tooltip, wIndexColor);
+                  }
+                  else if ( u_state == 3 )
+                  {
+                      AddPayLoadCell("Transition", "to U3", Tooltip, wIndexColor);
+                  }
+                  else if ( u_state == 4 )
+                  {
+                      AddPayLoadCell("Transition", "to SS.Disabled", Tooltip, wIndexColor);
+                  }
+                  else if ( u_state == 5 )
+                  {
+                      AddPayLoadCell("Transition", "to Rx.Detect", Tooltip, wIndexColor);
+                  }
+                  else
+                  {
+                      AddPayLoadCell("Transition", Format("Illegal Transition Value: %d", u_state), Tooltip, wIndexColor);
+                  }
+             }
+             
+             if(wValue == 21/*Port_Test*/)
+             {
+                  _row = Find(TestModeSelectorLow_USB3, ((wIndex>>8)&0x7));
+                  if( ((wIndex>>8)&0x7) == 2 ) 
+                  {
+                      Tooltip = ToBitDecode(TestModeSelectorHigh_USB3, (wIndex>>8)&0xF8, "", "Bits(3-5)Test Mode Selector\n");
+                  
+                      AddPayLoadCell("Test Mode Selector", _row[1], Tooltip, wIndexColor);
+                  }
+                  else
+                      AddPayLoadCell("Test Mode Selector", _row[1], Format("%d", wIndex>>8), wIndexColor);
+             }
+             if(wValue == 23/*Port_U1_Timeout*/)
+             {
+                  if( (wIndex>>8) <= 127 )                  
+                        AddPayLoadCell("U1 Timeout", Format("%d MicroSeconds", (wIndex>>8)), "U1 Timeout Value", wIndexColor);
+                  else if( (wIndex>>8) == 0xFF )
+                        AddPayLoadCell("U1 Timeout", "Infinite", "U1 Timeout Value", wIndexColor);
+             }
+             if(wValue == 24/*Port_U2_Timeout*/)
+             {
+                  if( (wIndex>>8) == 0xFF )
+                        AddPayLoadCell("U2 Timeout", "Infinite", "U2 Timeout Value", wIndexColor);
+                  else
+                  {
+                      if( (wIndex>>8)*256 < 1000 )
+                          AddPayLoadCell("U2 Timeout", Format("%d MicroSeconds", (wIndex>>8)*256), "U2 Timeout Value", wIndexColor);
+                      else
+                      {
+                          TempVal = (wIndex>>8)*256;
+                          strtemp = Format ("%d",TempVal/1000);
+                    
+                          if( (TempVal%1000) )
+                              strtemp += Format (".%03d",(TempVal%1000) );
+                    
+                          AddPayLoadCell("U2 Timeout", Format("%s ms",strtemp), "U2 Timeout Value", wIndexColor);
+                      }   
+                  }
+             }
+             
+             if(wValue == 25/*C_PORT_LINK_STATE*/)
+             {
+                temp = wIndex>>8;
+                if (wIndex > 3)
+                {
+                      SetCellColor(ERROR_COLOR);
+                      AddCell("Feature Selector","Invalid Value", "Unexpected Value (above 3)",wIndexColor,_ERROR);            
+                      if( in.PrepareFldsForDlg ) 
+                          PrepareFieldForDlg("Feature Selector","Invalid Value","<font Color = \"ORANGE\">  Unexpected Value (above 3)</font>", addparam, VS[COLLAPSED] ); 
+                      RestoreCellColor();
+                }
+                else
+                {
+                     AddPayLoadCell("Port Link State",Format("tansition the link to u%d",temp) , "Port Link State Value" , wIndexColor);
+                }   
+             }
+             if(wValue == 27/*PORT_REMOTE_WAKE_MASK*/)
+             {
+                   Tooltip = ToBitDecode(PortRemoteWakeMask, wIndex>>8, "", "Port Remove Wake Mask\n");
+                   PortRemote = ToBitString(wIndex>>8, 8);
+                   AddPayLoadCell("Port Remote Wake Mask", PortRemote, Tooltip, wIndexColor);
+             }  
+             
+             if(wValue == 28/*BH_PORT_RESET*/)
+             {
+                   AddPayLoadCell("BH Port Reset", "28", "hub shall initiate a warm reset", wIndexColor);
+             }                        
+         }  
+        AddHubwLength( 0 );
+    }
+    else
+    {
+
+        AddPayLoadCell("Invalid bRequestType value",   Format("0x%02X", bReqType),   "Expected 0x20 or 0x23 only",  ErrorColor);
+    }
+}
+
+
+Reserved()
+{
+    AddPayLoadCell("Invalid bRequest", Format("0x%02X", bRequest), "Expected 0,1,2,3,6,7,8,9,10,11,or 12 only", ErrorColor);
+}
+
+
+
+GET_HUB_DESCRIPTOR()
+{
+    base = Base; 
+
+    #bDescriptorType   = (wValue >> 8) & 0xFF;
+    #bDescriptorIndex  = wValue & 0xFF;
+    wLanguageId       = wIndex;
+    #wDescriptorLength = wLength;
+
+    if (tempSpeedFlag != Super_Speed_Mode)
+    {
+       if ((wValue == 0) || (wValue == 0x2900))
+         {
+          AddWValueCell( "HUB Type, Index 0",  Format("0x%04X", wValue) + " - Hub Class Descriptor Type");
+         }
+       else
+         {
+          AddWValueCell( Format("0x%04X", wValue),   "Expected 0 or 0x2900",  1);
+         }
+    }
+    else
+    {
+        if (wValue == 0x2A00)
+        {
+            AddWValueCell( "HUB Type, Index 0",  Format("0x%04X", wValue) + " - Hub Class Descriptor Type");
+        }
+        else
+        {
+            AddWValueCell( Format("0x%04X", wValue),   "Expected 0x2A00",  1);
+        }       
+    }
+
+    if (wLanguageId)
+    {
+        AddWIndexCell(  Format("LangID: 0x%04X", wLanguageId),   "Language ID");
+    }
+    
+    AddWLengthCell(   Format("Length: 0x%04X", wLength),   "Length Of Data");
+ 
+    UsbDataDecodeStr = "This is the full data decode";
+    UsbReqStr = "The request part";
+    UsbNumDesc = 1;
+    NewLineMode = 0;
+    if (tempSpeedFlag == Super_Speed_Mode)
+        UsbDescTooltipStr = DecodeDescriptorsToText_USB3();
+    else
+        UsbDescTooltipStr = DecodeDescriptorsToText();
+    
+    #AddPayLoadCell("Descriptors",  Format("%d Descriptors", UsbNumDesc), UsbDescTooltipStr,  wDescriptorColor);
+    #wDescriptorColor
+}
+
+SET_DESCRIPTOR()
+{
+    AddPayLoadCell("<Not Implemented>", Format("0x%02X", bRequest), "Decoding for SET_DESCRIPTOR not implemented", ErrorColor);
+}
+
+SET_DESCRIPTOR_Text()
+{
+    return ("SET_DESCRIPTOR decoding not implemented in script"); 
+}
+
+
+
+
+CLEAR_TT_BUFFER()
+{
+   
+    endpointNum       = wValue & 0xF;
+    deviceAddress     = (wValue >> 4)  & 0x7F;
+    endpointType      = (wValue >> 11) & 0x3;
+    direction         = (wValue >> 15) & 0x1;
+    reserved          = (wValue >> 13) & 0x3;
+    wPort             = wIndex;
+
+
+    AddPayLoadCell("EndP", Format("%d", endpointNum),  Format("0x%01X", endpointNum) + " - Endpoint Number",  wValueColor);
+    AddPayLoadCell("Addr", Format("%d", deviceAddress),  Format("0x%02X", deviceAddress) + " - Device Address",  wValueColor);
+    
+    if (endpointType == 0)
+        AddPayLoadCell("EndP Type", "Control",  Format("%d", endpointNum) + " - Endpoint Type",  wValueColor);
+    else if (endpointType == 1)
+        AddPayLoadCell("EndP Type", "Isoch",  Format("%d", endpointNum) + " - Endpoint Type",  wValueColor);
+    else if (endpointType == 2)
+        AddPayLoadCell("EndP Type", "Bulk",  Format("%d", endpointNum) + " - Endpoint Type",  wValueColor);
+    else
+        AddPayLoadCell("EndP Type", "Interrupt",  Format("%d", endpointNum) + " - Endpoint Type",  wValueColor);
+        
+    if (direction)   
+        AddPayLoadCell("Dir", "In",  Format("%d", direction) + " - Direction",  wValueColor);
+    else
+        AddPayLoadCell("Dir", "Out",  Format("%d", direction) + " - Direction",  wValueColor);
+        
+    if (reserved)   
+        AddPayLoadCell("Dir", "In",  Format("0x%01X", reserved) + " - Reserved: ERROR",  ErrorColor);
+        
+    AddPayLoadCell("TT_port", Format("%d", wPort),  Format("0x%04X", wPort) + " - TT_Port number",  wIndexColor);
+    
+    if (wLength != 0)
+        AddWLengthCell( Format("0x%04X", wLength) + " - Must be 0: ERROR",  1);    
+}
+
+RESET_TT()
+{   
+    wPort             = wIndex;
+    
+    if (wValue != 0)
+        AddWValueCell(Format("%d", wValue),  Format("0x%04X", wValue) + " - Must be 0: ERROR",  1); 
+        
+    AddPayLoadCell("TT_port", Format("%d", wPort),  Format("0x%04X", wPort) + " - TT_Port number",  wIndexColor);
+    
+    if (wLength != 0)
+        AddWLengthCell(   Format("0x%04X", wLength) + " - Must be 0: ERROR",  1);    
+}
+
+
+GET_TT_STATE()
+{
+    wPort             = wIndex;
+    
+    if ((wValue&0xFF) != 0)
+        AddPayLoadCell("TT_Flags 7..0", Format("%d", wValue & 0xFF),  Format("0x%02X", wValue& 0xFF) + " - Bits 0-7 Must be 0: ERROR",  ErrorColor); 
+        
+    AddPayLoadCell("TT_Flags 15..8", Format("%d", wValue >> 8),  Format("0x%02X", wValue >> 8) + " - vendor specific",  wValueColor); 
+        
+    AddPayLoadCell("TT_port", Format("%d", wPort),  Format("0x%04X", wPort) + " - TT_Port number",  wIndexColor);
+    
+    AddPayLoadCell("TT State Length", Format("%d", wLength),  Format("0x%04X", wLength),  wLengthColor);
+    
+    received_length = in.DataLength-8; 
+    
+    difference = (wLength+8) - in.DataLength;
+    
+    if (received_length != wLength)
+    {
+        AddPayLoadCell("Length Mismatch", Format("%d", received_length), "wLength stated does not match amount seen",  wLengthColor);     
+    }    
+    lttflags = GetDataLong(8);
+    
+    AddPayLoadCell("TT_Return_Flags", Format("0x%08X", lttflags),  Format("0x%08X", lttflags),  wDescriptorColor);
+    
+    if (wLength > 4)
+    {  
+        ShowDataBlock(in.DataLength-12);
+    }
+}
+
+
+GET_TT_STATE_Text()
+{
+    temp_str =  ("GET_TT_STATE");
+    lttflags = GetDataLong(8);
+    temp_str1 = (Format("TT_returnFlags 0x%08X", lttflags));        
+    temp_str += NewLine();
+    temp_str += NewLine();
+    temp_str1 += NewLine();
+    temp_str1 += NewLine();
+    temp_str += temp_str1;
+    temp_str1 = "";
+    
+    additionalData = in.DataLength-12;
+    kount = 0;
+    while (additionalData > 0)
+    {
+        temp_str2 = (Format(" %02X", GetDataByte(12+kount)));
+        temp_str1 += temp_str2;
+        kount++;
+        additionalData--;        
+    }
+    temp_str += temp_str1; 
+    return (temp_str);   
+}
+
+
+
+STOP_TT()
+{   
+    wPort             = wIndex;
+    
+    if (wValue != 0)
+        AddWValueCell( Format("%d", wValue),  Format("0x%04X", wValue) + " - Must be 0",  1); 
+        
+    AddPayLoadCell("TT_port", Format("%d", wPort),  Format("0x%04X", wPort) + " - TT_Port number",  wIndexColor);
+    
+    if (wLength != 0)
+        AddWLengthCell(  Format("0x%04X", wLength) + " - Must be 0",  ErrorColor);    
+}
+
+
+
+SET_AND_TEST()
+{
+
+    if (wValue == 10) # PORT_L1
+        AddWValueCell( Format("%d", wValue),  Format("0x%04X", wValue) + " - PORT_L1"); 
+    else
+        AddWValueCell( Format("%d", wValue),  Format("0x%04X", wValue) + " - Feature Selector MUST be 10 for PORT_L1",  1); 
+        
+        
+        
+        
+    received_length = in.DataLength-8; 
+    
+    difference = (wLength+8) - in.DataLength;
+    
+    if (received_length != wLength)
+    {
+        AddPayLoadCell("Length Mismatch", Format("%d", received_length), "wLength stated does not match amount seen",  wLengthColor);     
+    }    
+    
+    completion_code = GetDataByte(8);
+    
+    if (completion_code == 0x00)    
+        AddPayLoadCell("Completion Code", "Success",  "0x00",  wDescriptorColor);
+    else if (completion_code == 0x01)    
+        AddPayLoadCell("Completion Code", "Reserved", "0x01",  ErrorColor);
+    else if (completion_code == 0x10)    
+        AddPayLoadCell("Completion Code", "NYET",     "0x10",  wDescriptorColor);
+    else if (completion_code == 0x11)    
+        AddPayLoadCell("Completion Code", "Timeout",  "0x11",  wDescriptorColor);
+    else if (completion_code == 0x30)    
+        AddPayLoadCell("Completion Code", "STALL",  "0x30",  wDescriptorColor);
+    else    
+        AddPayLoadCell("Completion Code", Format("Undefined: 0x%02X", completion_code),  Format("0x%02X", completion_code),  ErrorColor);
+    
+    if (wLength > 1)
+    {  
+        ShowDataBlock(in.DataLength-9);
+    }
+        
+        
+}
+
+
+
+SET_AND_TEST_Text()
+{
+    temp_str =  ("SET_AND_TEST");
+    completion_code = GetDataByte(8);
+    temp_str  =  (Format("For Port# %i",  (wIndex & 0x0F)));
+    temp_str2 =  (Format(" BESL: 0x%01X", ((wIndex >> 4) & 0x0F)));
+    temp_str3 =  (Format(" Device addr: 0x%02X",  ((wIndex >> 8) & 0x7F)));
+    temp_str4 =  (Format(" Rem Wake Enable: %i",  ((wIndex >> 15) & 0x01)));
+    if (completion_code == 0x00)    
+        temp_str5 =  "Completion Code: Success (0x00)";
+    else if (completion_code == 0x01)    
+        temp_str5 =  "Completion Code: Reserved (0x01)";
+    else if (completion_code == 0x10)    
+        temp_str5 =  "Completion Code: NYET (0x10)";
+    else if (completion_code == 0x11)    
+        temp_str5 =  "Completion Code: Timeout (0x11)";
+    else    
+        temp_str5 = (Format("Completion Code Unknown: 0x%04X", completion_code));
+        
+    temp_str += NewLine();
+    temp_str2 += NewLine();
+    temp_str3 += NewLine();
+    temp_str4 += NewLine();
+    temp_str5 += NewLine();
+    temp_str += temp_str2;
+    temp_str += temp_str3;
+    temp_str += temp_str4;
+    temp_str += temp_str5;
+    return (temp_str);   
+}
+
+
+Unknown_Hub_Request()
+{
+    AddPayLoadCell("Invalid bRequest", Format("0x%02X", bRequest), "Expected 0,1,2,3,6,7,8,9,10,11,or 12 only", ErrorColor);
+}
+
+Unknown_Hub_Request_Text()
+{
+    return (Format("Invalid bRequest: 0x%02X", bRequest)); 
+}
+
+
+#  Text based portion------------------------------------------------
+
+
+DecodeDataToText()
+{
+    InitText();
+    if(in.DataLength > 8 )
+    {
+        bLength             = GetDataByte(8);
+        bDescriptorType     = GetDataByte(9);
+    }
+    else
+    {
+        ErrorFlag = 1;
+        return( "NOT ENOUGH DATA TO DECODE!" );
+    }
+
+    if (bDescriptorType == 0x29)
+    {
+        AddDataHeader("HUB Descriptor", bLength);
+    
+        if (tempSpeedFlag == Super_Speed_Mode)
+            return DecodeDescriptorsToText_USB3();
+        else
+            return DecodeDescriptorsToText();
+    }
+    else
+    {
+        if( tempSpeedFlag != Super_Speed_Mode  )
+            _row = Find(HubRequestWithDataTextTable, bRequest);
+        else
+            _row = Find(HubRequestWithDataTextTable_USB3, bRequest);
+    
+        if ( _row != null)
+        {
+            return (Call ( _row[1], [ in.DataLength ] ));
+        }
+        else
+        {
+            str =  Format("--> UNKNOWN DESCRIPTOR TYPE: 0x%02X", bDescriptorType);
+            AddDataHeader(str, bLength);
+            return ("UNKNOWN Descriptor!");
+        }
+    }
+}
+
+set bNbrPorts = 0;
+
+
+DecodeDescriptorsToText()
+{
+    #InitText();
+
+    if( in.DataLength < 17 )    # Checking for Short Payload
+    {
+        if (!AddSpecPLCellMonoNoDlg("Error", "Short Payload", "Descriptor is not being decoded", __ERROR))
+            AddErrorMonoCell("Error", "Short Payload", "Descriptor is not being decoded");      #[found in CATCScriptAPI.inc]
+
+        ErrorFlag = 1;
+        out.Decoded = 8;
+        return "Short Payload, Descriptor not decoded.";
+    }
+        
+    SaveOffset();
+    InitText();
+   
+    Global_BitField_offset = REQ_DATA_OFFSET;
+    CurrentFldInit();
+    
+    EntryBaseOffset    = 0;
+    EntryFieldGroupLen = 0;
+   
+    base  = Base;
+    
+    bLength             = GetDataByte(8);
+    bDescriptorType     = GetDataByte(9);  
+    bNbrPorts           = GetDataByte(10);
+    wHubCharacteristics = GetDataWord(11);
+    bPwrOn2PwrGood      = GetDataByte(13);
+    bHubContrCurrent    = GetDataByte(14);
+    DeviceRemovable     = GetDataByte(15);
+    if (bNbrPorts > 7)
+    {
+        DeviceRemovable_2 = GetDataByte(16);
+        PortPwrCtrlMask   = GetDataByte(17);
+        PortPwrCtrlMask_2 = GetDataByte(18);
+    }
+    else
+    {
+        PortPwrCtrlMask     = GetDataByte(16);
+    }
+ 
+    if( tempSpeedFlag != Super_Speed_Mode  )
+    {
+        if (bNbrPorts > 7)
+        {
+            PortPwrCtrlMask   = GetDataByte(17);
+            PortPwrCtrlMask_2 = GetDataByte(18);
+        }
+        else
+        {
+            PortPwrCtrlMask     = GetDataByte(16);
+        }
+    }
+
+    str  = "";
+    
+    if (bDescriptorType == 0x29)
+    {
+         AddDataHeader("HUB Descriptor", bLength);
+    }
+    else
+    {
+        str = OutputType;
+        str += NewLine();
+        str +=  "--> UNKNOWN DESCRIPTOR TYPE: ";
+        str +=  Format("0x%02X", bDescriptorType);
+        AddDataHeader(str, bLength);
+    }
+    AddEntry( 0, "bLength", bLength, 2, "", 1);
+    AddDescriptorSizeString(bLength );
+    AddFieldBreak();
+    
+    AddEntry( 1, "bDescriptorType", bDescriptorType, 2, GetDescriptorTypeString("HUB"), 0);
+    AddFieldBreak();
+    
+    str = Format ("The hub has %d", bNbrPorts);
+    AddEntry( 2, "bNbrPorts", bNbrPorts, 2, str, 0 );
+    AddDescriptionOnly( "downstream ports" );
+#    if( bNbrPorts > 15 )  // USB 2 allows up to 127
+#        AddDescriptionOnly( "(Error : The maximum number of ports a hub can support is 15.)" );
+    AddFieldBreak();
+    
+    AddHubChars(wHubCharacteristics);
+
+    AddEntry( 5, "bPwrOn2PwrGood", bPwrOn2PwrGood, 2, "Time from start of", 0);
+    AddDescriptionOnly( "the power-on sequence" );
+    AddDescriptionOnly( "until power is good" );
+    AddDescriptionOnly(Format ("is %d ms", bPwrOn2PwrGood*2));
+    AddFieldBreak();        
+       
+    AddEntry( 6, "bHubContrCurrent", bHubContrCurrent, 2, "Max current reqired", 0);
+    AddDescriptionOnly( "by Hub Controller");
+    if ( tempSpeedFlag != Super_Speed_Mode )
+        AddDescriptionOnly( Format ("is %d ma", bHubContrCurrent));
+    else
+        AddDescriptionOnly( Format ("is %d ma", bHubContrCurrent*8));
+    AddFieldBreak();        
+
+       
+   
+    str = "0 --> Removable , 1 --> Not Removable <br>";
+    for (i=1; i<=bNbrPorts; i++)
+    { 
+         value = DeviceRemovable >> i;
+ 
+        if (value & 0x1)
+        {
+            str += Format("<br>Port %d : Not Removable",i);
+        }
+        else
+        {
+            str += Format("<br>Port %d : Removable",i);
+        }
+    }
+    if ( bNbrPorts < 7)
+    { 
+        AddEntry( 7, "DeviceRemovable", DeviceRemovable, 2, "Device Removable:", 0);
+        AddDescriptionOnly( str );
+        AddFieldBreak(); 
+    }
+    else
+    {
+        AddEntry( 7, "DeviceRemovable", DeviceRemovable , 4, "Device Removable:", 0);
+        AddDescriptionOnly( str );
+        AddFieldBreak(); 
+    }
+  
+   
+
+    if (tempSpeedFlag != Super_Speed_Mode)
+    {
+      if ( PortPwrCtrlMask == 0xFF)
+       {      
+         AddEntry( 8, "PortPwrCtrlMask", PortPwrCtrlMask, 2, "0xFF for 1.0 Compatibility", 0);
+       }
+      else
+       {
+        AddEntry( 8, "PortPwrCtrlMask", PortPwrCtrlMask, 2, "ERROR: Should have been", 0);
+        AddDescriptionOnly( "0xFF for USB Version 1.0");
+        AddDescriptionOnly( "Compatibility");
+       }
+      AddFieldBreak();     
+   }
+      
+    SetFieldOffsetLen( B_offset, GetBitOffset() - B_offset );
+    return GetFinalText();
+    
+}
+
+
+
+
+AddHubChars(wHubCharacteristics)
+{    
+    power_switch_str    = "";
+    compound_device_str = "";
+    overcurrent_str     = "";
+    
+    if (wHubCharacteristics & 0x2)
+    {
+        power_switch_str = "No Power Switching";
+    }
+    else
+    {
+        if (wHubCharacteristics & 0x1)
+        {
+            power_switch_str = "Individual Power Switching";
+        }
+        else
+        {
+            power_switch_str = "Ganged Power Switching";
+        }
+    }
+    
+    if (wHubCharacteristics & 0x4)
+    {
+        compound_device_str = "Compound device";
+    }
+    else
+    {       
+        compound_device_str = "Not a compound device";
+    }
+    
+    if (wHubCharacteristics & 0x10)
+    {
+        overcurrent_str = "No Over-current protection";
+    }
+    else
+    {
+        if (wHubCharacteristics & 0x08)
+        {
+            overcurrent_str = "Individual Over-current protection";
+        }
+        else
+        {
+            overcurrent_str = "Global Over-current protection";
+        }
+    }
+    
+    if (wHubCharacteristics & 0x4)
+    {
+        port_indicators_str = "  are Supported";
+    }
+    else
+    {       
+        port_indicators_str = "  are NOT supported";
+    }
+    
+    
+    AddEntry( 3, "wHubCharacteristics", wHubCharacteristics, 4, power_switch_str, 0);
+    AddDescriptionOnly( compound_device_str );
+    AddDescriptionOnly( overcurrent_str );
+    
+    if( tempSpeedFlag != Super_Speed_Mode )
+    {
+         AddDescriptionOnly( "Downstream Port Indicators" );
+         AddDescriptionOnly( port_indicators_str );
+
+         if (IsUsb2Hub == 1)
+         {
+              if ((wHubCharacteristics & 0xE0) == 0)
+              {
+                  AddDescriptionOnly( "--(The next 2 items are" );
+                  AddDescriptionOnly( "--for USB 2.0 Hubs only." );
+                  AddDescriptionOnly( "--Ignore if this is a 1.1 Hub)" );
+              }
+              str = "  8";
+              tt_think = (wHubCharacteristics & 0x60) >> 5;
+              select
+              {
+                  tt_think == 1 : str = "  16"; 
+                  tt_think == 2 : str = "  24"; 
+                  tt_think == 3 : str = "  32"; 
+              };
+              AddDescriptionOnly( "TT requires at most");
+              AddDescriptionOnly( str + " bit times of interpacket" );
+              AddDescriptionOnly( "  gap on a full-/low-speed " );
+              AddDescriptionOnly( "  downstream bus" );
+        
+              AddDescriptionOnly( "Port Indicators are" );
+             if (wHubCharacteristics & 0x80)
+             {
+                 AddDescriptionOnly( "  supported on downstream" );
+             }
+             else
+             {
+                 AddDescriptionOnly( "  NOT supported on downstream" );
+             }
+             AddDescriptionOnly( "  facing ports" );        
+          }
+     }
+   
+    AddFieldBreak();
+  
+            
+}
+
+DecodeRequestToText()
+{
+  
+    InitText();
+    
+    if( tempSpeedFlag != Super_Speed_Mode )
+        return DecodeRequestToTextCommon(HubRequestTable);
+    else
+        return DecodeRequestToTextCommon(HubRequestTable_USB3);    
+}
+
+
+
+RequestDecode()
+{
+ 
+ 
+    NewLineMode = 1;
+    Speed        = GetDecoderHeaderByte(2);
+    tempSpeedFlag = Speed; # Gets Speed value from in.context[2]
+	if(tempSpeedFlag == Super_Speed_Plus_Mode || tempSpeedFlag == SSIC_HS_Mode) 
+		tempSpeedFlag = Super_Speed_Mode;
+    #UsbSpecLevel = GetDecoderHeaderByte(?);
+            
+    UsbReqStr        = DecodeRequestToText();
+    if (wLength == 0)
+    {
+        UsbDataDecodeStr = "No data associated with this request";
+    }
+    else
+    {
+        UsbDataDecodeStr = DecodeDataToText();
+    }
+
+    return Complete();    
+}
+
+Decode_wValue(w_value)
+{
+    if (bRequest == 6) # GET_DESCRIPTOR
+    {
+        if (tempSpeedFlag != Super_Speed_Mode)
+        {
+            if ((wValue == 0) || (wValue == 0x2900))
+            {
+                return "HUB Type, Index 0";
+            }
+            else
+            {
+                return Format("Invalid: 0x%04X", wValue);
+            }
+        }
+        else
+        {
+            if (wValue == 0x2A00)
+            {
+                return "HUB Type, Index 0";
+            }
+            else
+            {
+                return Format("Invalid: 0x%04X", wValue);
+            }
+        }
+    }
+    else if (bRequest == 1)  # CLEAR_FEATURE 
+    {
+        if (bReqType == 0x20) # Hub
+        {
+            _row = Find(HubClearFeatureTable, wValue);        
+            if (( _row[0] != 0xFF))
+            {
+                return (_row[1]);
+            }
+            else
+            {
+                return Format("Invalid: 0x%04X", wValue);
+            }
+        }
+        else if (bReqType == 0x23) # Port
+        {
+            if ( tempSpeedFlag != Super_Speed_Mode )
+                _row = Find(PortClearFeatureTable, wValue);        
+            else
+                _row = Find(PortClearFeatureTable_USB3, wValue);        
+            if ( _row[0] != 0xFF)
+            {
+                return (_row[1]);
+            }
+            else
+            {
+                return Format("Invalid: 0x%04X", wValue);
+            }
+        }
+        else
+        {
+            return Format("Invalid bReqType: 0x%04X", bReqType);
+        }
+    }
+    else if (bRequest == 3) # SET_FEATURE
+    {
+        if (bReqType == 0x20) # Hub
+        {
+            _row = Find(HubSetFeatureTable, wValue);        
+            if ( _row[0] != 0xFF)
+            {
+                return (_row[1]);
+            }
+            else
+            {
+                return Format("Invalid: 0x%04X", wValue);
+            }
+        }
+        else if (bReqType == 0x23) # Port
+        {
+            if ( tempSpeedFlag == Super_Speed_Mode )
+                _row = Find(PortSetFeatureTable_USB3, wValue);        
+            else
+                _row = Find(PortSetFeatureTable, wValue);        
+                
+            if ( _row[0] != 0xFF)
+            {
+                return (_row[1]);
+            }
+            else
+            {
+                return Format("Invalid: 0x%04X", wValue);
+            }
+        }
+        else
+        {
+            return Format("Invalid bReqType: 0x%04X", bReqType);
+        }
+    }
+    else if (tempSpeedFlag != Super_Speed_Mode && bRequest == 8) # CLEAR_TT_BUFFER
+    {
+        return Format("DevSpec: 0x%04X", wValue);
+    }
+    else if (tempSpeedFlag != Super_Speed_Mode && bRequest == 10) # GET_TT_STATE
+    {
+        return Format("TT_Flags: 0x%04X", wValue);
+    }
+     else if (bRequest == 12) # SET_AND_TEST
+    {
+        if( tempSpeedFlag != Super_Speed_Mode )# SET_AND_TEST
+        {
+              if (wValue == 10)
+               return Format("Feat Select: PORT_L1 (10)", wValue);
+            else
+               return Format("Feat Select: %d (Error)", wValue);
+            }
+        else  #SET_HUB_DEPTH
+        {
+           if (wValue <= 5)
+               return Format("Hub Depth : %d", wValue);
+           else
+               return Format("Hub Depth : %d (Error)", wValue);
+        }
+    }
+    else
+    {
+        return (Format ("0x%04X", wValue));
+    }
+
+}
+
+Decode_wIndex(w_index)
+{
+    if (bRequest == 6) # GET_DESCRIPTOR
+    {
+        if (w_index)
+        {
+            return Format("LanguageID: 0x%04X", wLanguageId);
+        }
+        else 
+        {
+            return "0x0000";
+        }
+    }
+    else if ((bRequest == 1) || (bRequest == 3))  # CLEAR_FEATURE  or SET_FEATURE
+    {
+        if (bReqType == 0x20) # Hub
+        {
+            if (w_index == 0)
+            {
+                return "0x0000";
+            }
+            else
+            {
+                return (Format ("Invalid: 0x%04X", wValue));
+            }
+        }
+        else if (bReqType == 0x23) # Port
+        {
+              if( tempSpeedFlag != Super_Speed_Mode)
+              {
+                temp_str =  (Format("Port# %i,", (wIndex & 0x0F)));
+                temp_str2 =  (Format(" HIRD: 0x%01X,", ((wIndex >> 4) & 0x0F)));
+                temp_str3 =  (Format(" Selector: 0x%02X", ((wIndex >> 8) & 0xFF)));
+                return (temp_str + temp_str2 + temp_str3);
+            }
+            else
+            {
+                if (bRequest == 1)# CLEAR_FEATURE
+                {
+                    temp_str =  (Format("Port# %i", (wIndex & 0xFF)));
+                    temp_str2 =  (Format(" Sel %i", ((wIndex >> 8) & 0xFF)));
+                    return (temp_str + temp_str2);
+                }
+                else
+                {
+                   temp_str =  (Format("Port# %i,", (wIndex & 0xFF)));
+                   temp_str2 = "???";
+                   if(wValue == 5 /*PORT_LINK_STATE*/)
+                   {
+                         temp_str2 =  (Format(" Transition Val: %d", ((wIndex >> 8) & 0xFF)));
+                   }
+                   if(wValue == 21/*Port_Test*/)
+                   {
+                         temp_str2 =  (Format(" Test Mode Selector: 0x%02X", ((wIndex >> 8) & 0xFF)));
+                   }
+                   if(wValue == 23/*Port_U1_Timeout*/)
+                   {
+                        temp_str2 =  (Format(" U1 Timeout: 0x%02X", ((wIndex >> 8) & 0xFF)));
+                   }
+                   if(wValue == 24/*Port_U2_Timeout*/)
+                   {
+                        temp_str2 =  (Format(" U2 Timeout: 0x%02X", ((wIndex >> 8) & 0xFF)));
+                   } 
+                   if(wValue == 27/*PORT_REMOTE_WAKE_MASK*/)
+                   {
+                        temp_str2 =  (Format(" Port Remote Wake Mask: 0x%02X", ((wIndex >> 8) & 0xFF)));
+                   }    
+                   return (temp_str + temp_str2 );
+                }
+            }   
+        }
+        else
+        {
+            return Format("Invalid bReqType: 0x%04X", bReqType);
+        }
+    }
+    else if (bRequest == 0) # GET_STATUS
+    {
+        if (bReqType == 0xA0) # Hub
+        {
+            if (w_index == 0)
+            {
+                return "0x0000";
+            }
+            else
+            {
+                return (Format ("Invalid: 0x%04X", wValue));
+            }
+        }
+        else if (bReqType == 0xA3) # Port
+        {
+            return  (Format("Port# %i", wIndex ));
+        }
+        else
+        {
+            return Format("Invalid bReqType: 0x%04X", bReqType);
+        }
+    }
+    else if ((tempSpeedFlag != Super_Speed_Mode ) &&
+                     (bRequest == 8)  || # CLEAR_TT_BUFFER
+             (bRequest == 9)  || # RESET_TT
+             (bRequest == 10) || # GET_TT_STATE
+             (bRequest == 11))   # STOP_TT
+    {
+        return Format("TT_Port: 0x%04X", wIndex);
+    }
+    else if (bRequest == 12) 
+    {
+          if( tempSpeedFlag != Super_Speed_Mode )# SET_AND_TEST
+        {
+            temp_str  =  (Format("Port# %i,",  (wIndex & 0x0F)));
+            temp_str2 =  (Format(" BESL: 0x%01X,", ((wIndex >> 4) & 0x0F)));
+            temp_str3 =  (Format(" Device addr: 0x%02X,",  ((wIndex >> 8) & 0x7F)));
+            temp_str4 =  (Format(" Rem Wake Enable: %i",  ((wIndex >> 15) & 0x01)));
+            return (temp_str + temp_str2 + temp_str3 + temp_str4);
+        }
+        else # SET_HUB_DEPTH
+        {
+             if (wIndex)
+           {
+                return (Format ("Invalid: 0x%04X", wIndex));
+           }
+           else
+           {
+                return "0000";
+           }
+        }
+    }
+    else
+    {
+        return (Format ("0x%04X", wIndex));
+    }
+}
+
+
+AddHubbmRequestType()
+{
+    if( SimpleShowItem() )
+        AddCell("bReqType", Format("0x%02X", bReqType), "",  bRequestColor);
+}
+#*******************************************************************************
+# SET_HUB_DEPTH : This request sets the value that the hub uses to determine the index into 
+#                                 the Route String Route String Index for the hub.
+# bmRequestType : 0x20
+# bRequest      : 0x0C
+# wValue        : Hub Depth
+# wIndex        : 0x0000
+# wLength       : 0x00
+# Data          : None
+#*******************************************************************************
+SET_HUB_DEPTH()
+{
+    if( wValue > 5 )
+        AddWValueCell( Format("%d", wValue),   "Expected <= 5",  1);
+    else
+        AddWValueCell(Format ("%d" , wValue),"Hub Depth");
+          
+    if( wIndex != 0 )
+        AddWIndexCell(  Format("%d", wIndex),   "Should set to 0",  1);
+    else
+        AddWIndexCell("","Should set to 0");
+      
+    if( wLength != 0 )
+        AddWLengthCell(     "Should set to 0",  1);
+    else
+        AddWLengthCell("Length of the payload, should set to 0");
+}
+#*******************************************************************************
+# GET_PROT_ERR_COUNT : 
+#                                 the Route String Route String Index for the hub.
+# bmRequestType : 0x80
+# bRequest      : 0x0D
+# wValue        : 0x00
+# wIndex        : Port Number
+# wLength       : 0x02
+# Data          : Number of Link Errors on this port
+#*******************************************************************************
+GET_PROT_ERR_COUNT()
+{
+    if( wValue != 0  )
+        AddWValueCell( Format("%d", wValue),    "Should set to 0",  1);
+    else
+        AddWValueCell(Format ("%d" , wValue),"Should set to 0");
+          
+
+    AddWIndexCell(  Format("%d", wIndex),   "Port Number",  0);
+
+      
+    if( wLength != 2 )
+        AddWLengthCell(     "Should set to 2",  1);
+    else
+        AddWLengthCell("Length of the payload, should set to 2");
+}
+
+AddHubwLength( errchecklength )
+{
+    if( errchecklength != NULL )
+    {
+        if( wLength > errchecklength )
+        {
+            if( in.DataLength-8 > errchecklength )
+            {
+                ErrorFlag = 1;
+                out.Decoded = 8;
+                AddCell("wLength", Format("%d", wLength), FormatEx( "wLength = 0x%04X\nExpecting only %d bytes, found %d", wLength, errchecklength, in.DataLength-8 ), wLengthColor, _ERROR );
+            }
+            else
+            {
+                AddCell("wLength", Format("%d", wLength), FormatEx( "wLength = 0x%04X\nExpected %d!", wLength, errchecklength ), wLengthColor, _ERROR );
+            }
+
+            return 0;
+        }
+        else if( in.DataLength-8 > errchecklength )
+        {
+            ErrorFlag = 1;
+            out.Decoded = 8;
+            AddCell("wLength", Format("%d", wLength), FormatEx( "wLength = 0x%04X\nExpecting only %d bytes, found %d", wLength, errchecklength, in.DataLength-8 ), wLengthColor, _ERROR );
+            return 0;
+        }
+    }
+
+    if( SimpleShowItem() )
+        AddCell("wLength", Format("%d", wLength), "",  wLengthColor );
+}
+
+####################################################################################
+#                       USBTracer specific caption cell                            #
+####################################################################################
+
+AddSpecCaptionCell(caption, text, tooltip, FieldColor, addparam, addparam1, addparam2 )
+{
+    AddCell(caption, text, tooltip, FieldColor, _USBBULK_HEADER, addparam, addparam1, addparam2 );
+    return 1;
+}
+
+DecodeDescriptorsToText_USB3()
+{
+    #InitText();
+
+    if( in.DataLength < 17 )    # Checking for Short Payload
+    {
+        if (!AddSpecPLCellMonoNoDlg("Error", "Short Payload", "Descriptor is not being decoded", __ERROR))
+            AddErrorMonoCell("Error", "Short Payload", "Descriptor is not being decoded");      #[found in CATCScriptAPI.inc]
+
+        ErrorFlag = 1;
+        out.Decoded = 8;
+        return "Short Payload, Descriptor not decoded.";
+    }
+        
+    SaveOffset();  
+    InitText();
+   
+    Global_BitField_offset = REQ_DATA_OFFSET;
+    CurrentFldInit();
+
+    EntryBaseOffset    = 0;
+    EntryFieldGroupLen = 0;
+   
+    base  = Base;
+    bLength             = GetDataByte(8);
+    bDescriptorType     = GetDataByte(9);  
+    bNbrPorts           = GetDataByte(10);
+    wHubCharacteristics = GetDataWord(11);
+    bPwrOn2PwrGood      = GetDataByte(13);
+    bHubContrCurrent    = GetDataByte(14);
+    bHubHdrDecLat       = GetDataByte(15);
+    wHubDelay           = GetDataWord(16);
+    #DeviceRemovable     = GetDataByte(18);
+    if (bNbrPorts > 7)
+    {
+       DeviceRemovable     = GetDataWord(18);
+    }
+    else
+    {
+        DeviceRemovable     = GetDataByte(18);
+    }
+   
+
+ 
+    if( tempSpeedFlag != Super_Speed_Mode  )
+    {
+        if (bNbrPorts > 7)
+        {
+            PortPwrCtrlMask   = GetDataByte(20);
+            PortPwrCtrlMask_2 = GetDataByte(21);
+        }
+        else
+        {
+            PortPwrCtrlMask     = GetDataByte(19);
+        }
+    }
+
+    str  = "";
+    
+    if  ((bDescriptorType == 0x2A) && ( tempSpeedFlag == Super_Speed_Mode  )) 
+    {
+         AddDataHeader("HUB Descriptor", bLength);
+    }
+    else
+    {
+        str = OutputType;
+        str += NewLine();
+        str +=  "--> UNKNOWN DESCRIPTOR TYPE: ";
+        str +=  Format("0x%02X", bDescriptorType);
+        AddDataHeader(str, bLength);
+    }
+    
+
+    
+    AddEntry( 0, "bLength", bLength, 2, "", 1);
+    AddDescriptorSizeString(bLength );
+    AddFieldBreak();
+    
+    AddEntry( 1, "bDescriptorType", bDescriptorType, 2, GetDescriptorTypeString("HUB"), 0);
+    AddFieldBreak();
+    
+    str = Format ("The hub has %d", bNbrPorts);
+    AddEntry( 2, "bNbrPorts", bNbrPorts, 2, str, 0 );
+    AddDescriptionOnly( "downstream ports" );
+    if( bNbrPorts > 15 )
+        AddDescriptionOnly( "(Error : The maximum number of ports a hub can support is 15.)" );
+    AddFieldBreak();
+    
+    AddHubChars(wHubCharacteristics);
+
+    AddEntry( 5, "bPwrOn2PwrGood", bPwrOn2PwrGood, 2, "Time from start of", 0);
+    AddDescriptionOnly( "the power-on sequence" );
+    AddDescriptionOnly( "until power is good" );
+    AddDescriptionOnly(Format ("is %d ms", bPwrOn2PwrGood*2));
+    AddFieldBreak();        
+       
+    AddEntry( 6, "bHubContrCurrent", bHubContrCurrent, 2, "Max current reqired", 0);
+    AddDescriptionOnly( "by Hub Controller");
+    if ( tempSpeedFlag == Super_Speed_Mode )
+        AddDescriptionOnly( Format ("is %d * aCurrentUnit ma", bHubContrCurrent));
+    else
+        AddDescriptionOnly( Format ("is %d ma", bHubContrCurrent*8));
+    
+    
+    AddFieldBreak();        
+
+    
+    AddEntry( 7, "bHubHdrDecLat", bHubHdrDecLat, 2, "Worst case latency", 0);
+    if (bHubHdrDecLat == 0)
+         AddDescriptionOnly( "<br>is Much less than 0.1 micro seconds" );
+    if ((bHubHdrDecLat > 0) && (bHubHdrDecLat <5))
+        AddDescriptionOnly( Format ("<br> is 0.%d micro seconds", bHubHdrDecLat));
+    if (bHubHdrDecLat > 4)
+         AddDescriptionOnly( "<br> Reserved or not accaptable value " );
+       AddFieldBreak(); 
+      
+      
+      AddEntry( 8, "wHubDelay", wHubDelay, 4, "delay in nano seconds ", 0);
+      AddDescriptionOnly( Format ("<br> is %d nano seconds", wHubDelay));
+      AddFieldBreak();
+       
+    str = "0 --> Removable , 1 --> Not Removable <br>";
+    for (i=1; i<=bNbrPorts; i++)
+    { 
+         value = DeviceRemovable >> i;
+ 
+        if (value & 0x1)
+        {
+            str += Format("<br>Port %d : Not Removable",i);
+        }
+        else
+        {
+            str += Format("<br>Port %d : Removable",i);
+        }
+    }
+    if ( bNbrPorts < 7)
+    { 
+        AddEntry( 10, "DeviceRemovable", DeviceRemovable, 2, "Device Removable:", 0);
+        AddDescriptionOnly( str );
+        AddFieldBreak(); 
+    }
+    else
+    {
+        AddEntry( 10, "DeviceRemovable", DeviceRemovable , 4, "Device Removable:", 0);
+        AddDescriptionOnly( str );
+        AddFieldBreak(); 
+    }
+      
+    SetFieldOffsetLen( B_offset, GetBitOffset() - B_offset );
+    return GetFinalText();
+    
+}

@@ -1,0 +1,1437 @@
+#*******************************************************************************
+#
+#  FILENAME: CCIDBulkOut.dec
+#
+#  Copyright (c) 2005, LeCroy - All Rights Reserved
+#
+#  DESCRIPTION
+#    This is the Bulk-OUT Endpoint Message Decode file for SmartCard CCIDs 
+#      (ICC Interface Devices). 
+#    This file is prepared as per the Specification Revision 1.1.
+#    This file is prepared as per the Integrated Circuit(s) Cards Interface
+#      Devices Specification for the SmartCard Class.
+#
+#  REVISION HISTORY
+#    03/20/2005
+#    01/07/2007   Updated for CCID Rev. 1.1 from 1.0; Updated script
+#
+#*******************************************************************************  
+
+%include "UsbCommon.inc"
+%include "CATCScriptAPI.inc"
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block 
+#
+#----  Output
+# out.Decoded   - Amount of Data that has been decoded
+# out.State
+# out.Data
+# out.DataLength
+#
+
+const Tabular_Def_Table = Map( 
+[   
+    #-----------------------------------------------------------------------------------------------------
+    #       id                     ,      colId                          , 		containerCellId
+    #-----------------------------------------------------------------------------------------------------
+    [ CELL_SMART_CARD_MESSAGE_TYPE , TABULAR_SCRIPT_COLUMN_ID_SUBTYPE   , TABULAR_SCRIPT_CONTAINER_CELL_ID_NONE ],
+    [ CELL_SMART_CARD_SEQ          , TABULAR_SCRIPT_COLUMN_ID_NONE      , TABULAR_SCRIPT_CONTAINER_CELL_ID_MISC ]
+] );
+
+set ModuleType      = "DataBlock Decoder";      #?_?
+set LevelName   = "CCID Bulk Out Messages";     #?_?
+set LevelColor  = 0x898989;                     #?_?
+
+set OutputType      = "CCID Bulk Out Message";
+set UsbDecodeType   = "Endpoint";
+set UsbEndpId = 14;                 # Just a unique value for each endpoint of the same Class/Vendor/Product 
+                                    # to distinguish them                                  
+set UsbClassCode    = 0x0B;         # Smart Card (CCID)
+set UsbProtocol     = 0x0;
+set UsbEndpType     = "Bulk";
+set UsbEndpDir      = "Out";
+set UsbScriptDecodeType  = 2;       # Combined decoding for Cells and Text decoding 
+set UsbMaxXferSize  = 0x7FFFFFFF;   # Trying largest possible positive value  
+set UsbMaxPktSize   = 512;          # Will automatically be reduced to 64 if branch is Full Speed 
+set UsbMaxXferDecodeSize  = 0xFF;   # Max bytes that we will be decoding. User can up this if desired.
+
+set dwLength    = 0;             #Declaring global variables
+set slotNumber  = 0;
+set seqNumber    = 0;
+
+# User can select the colors for the fields he chooses
+set ErrorColor            = 0x0000FF;
+set wDecodeCellColor      = 0x898989; 
+set CCIDColor             = 0xA45A8A;
+set RequestDataFieldColor = 0x302A2A;
+set GreyColor             = 0x888888;
+set PINDataColor          = 0xF07000-500;  #0xF1FC3A 0xEB43BE 0x3A8CD1
+
+set CCID_CaptionColor     = 0x7FFFFF;   #Caption Cell (Expansion Indicator)     #9B4A13 - 7700500;  
+
+set RestoreBitCurrentFieldOffset = 0;    #Temp Variables to store a restore value
+set RestoreBitCurrentFieldLength = 0;
+
+#Bulk out messages
+set BulkOUTMesgTypeTable =[
+    [ 0xFF, "PC_to_RDR_NoParams",          "UNKNOWN",               "UNKNOWN Bulk OUT Message Type"],
+    [ 0x61, "PC_to_RDR_SetParameters",     "SetParameters",         "PC_to_RDR_SetParameters(61h)\nExpected Response Msg: RDR_to_PC_Parameters \nAbortable=No"],
+    [ 0x62, "PC_to_RDR_IccPowerOn",        "IccPowerOn",            "PC_to_RDR_IccPowerOn(62h)\nExpected Response Msg: RDR_to_PC_DataBlock\nAbortable=Yes"],
+    [ 0x63, "PC_to_RDR_NoParams",          "IccPowerOff",           "PC_to_RDR_IccPowerOff(63h)\nExpected Response Msg:RDR_to_PC_SlotStatus\nAbortable=No"],
+    [ 0x65, "PC_to_RDR_NoParams",          "GetSlotStatus",         "PC_to_RDR_GetSlotStatus(65h)\nExpected Response Msg:RDR_to_PC_SlotStatus\nAbortable=No"],
+    [ 0x69, "PC_to_RDR_Secure",            "Secure",                "PC_to_RDR_Secure(69h)\nExpected Response Msg: RDR_to_PC_DataBlock \nAbortable=Yes"],
+    [ 0x6A, "PC_to_RDR_T0APDU",            "T0APDU",                "PC_to_RDR_T0APDU(6Ah)\nExpected Response Msg: RDR_to_PC_SlotStatus \nAbortable=No"],
+    [ 0x6B, "PC_to_RDR_Escape",            "Escape",                "PC_to_RDR_Escape(6Bh)\nExpected Response Msg: RDR_to_PC_Escape \nAbortable=Yes"],
+    [ 0x6C, "PC_to_RDR_NoParams",          "GetParameters",         "PC_to_RDR_GetParameters(6Ch)\nExpected Response Msg: RDR_to_PC_Parameters \nAbortable=No"],
+    [ 0x6D, "PC_to_RDR_ResetParameters",   "ResetParameters",       "PC_to_RDR_SetParameters(61h)\nExpected Response Msg: RDR_to_PC_Parameters \nAbortable=No"],
+    [ 0x6E, "PC_to_RDR_IccClock",          "IccClock",              "PC_to_RDR_IccClock(6Eh)\nExpected Response Msg: RDR_to_PC_SlotStatus \nAbortable=No"],
+    [ 0x6F, "PC_to_RDR_XfrBlock",          "XfrBlock",              "PC_to_RDR_XfrBlock(6Fh)\nExpected Response Msg: RDR_to_PC_DataBlock\nAbortable=Yes"],
+    [ 0x71, "PC_to_RDR_Mechanical",        "Mechanical",            "PC_to_RDR_Mechanical(71h)\nExpected Response Msg: RDR_to_PC_SlotStatus \nAbortable=Yes"],
+    [ 0x72, "PC_to_RDR_NoParams",          "Abort",                 "PC_to_RDR_Abort(72h)\nExpected Response Msg: RDR_to_PC_SlotStatus \nAbortable=Yes"],
+    [ 0x73, "PC_to_RDR_SetDRateNClockF",   "SetDRate & ClockFreq",  "PC_to_RDR_SetDataRateAnd ClockFrequency(73h)\nExpected Response Msg: RDR_to_PC_DataRateAndClockFrequency \nAbortable=No"]
+];
+
+ProcessData()
+{
+  CommonDecoderInit();        # Initialization of SRP common global variables [found in CATCScriptAPI.inc]
+ 
+  SetCellColor(CCID_CaptionColor);
+  AddCaptionCell("SmartCard","CCID","This data payload represents a Smart-Card CCID Bulk-OUT message.",_MONOCOLOR);  # Will allow for the expansion of certain fields
+  RestoreCellColor();
+  AddSeparator();
+  
+  FullyDecoded = 1;            
+  out.Decoded = 0;            # Nothing has been decoded yet
+  
+  if (in.DataLength >9 )
+  {
+    messagetype = NextNBits_(8);
+    mesgM = Find(BulkOUTMesgTypeTable , messagetype );
+
+    AddShortDataHeader(mesgM[2]);    
+    FieldColor = CCIDColor;
+    if(mesgM[0] == 0xFF){
+      FieldColor = WarningColor;
+      mesgM[3] += Format("(0x%02X)\nDecoding ABORTED, see 'Data' for raw bytes.",messagetype);
+    }
+    if(SimpleShowItem())
+      AddPayLoadCell("MessageType", mesgM[2], "Header offset Byte 0. \n" + " bMessageType = " + mesgM[3], FieldColor, [_TABULARCELL, CELL_SMART_CARD_MESSAGE_TYPE]);
+    else
+      AddCell(mesgM[2],"","Header offset Byte 0. \n" + " bMessageType = " + mesgM[3],FieldColor,_MONOFIELD, [_TABULARCELL, CELL_SMART_CARD_MESSAGE_TYPE]);
+
+    if (mesgM[0] != 0xFF) 
+    {
+      dwLength= NextDataDWord_();
+      if(dwLength != in.DataLength - 10)
+      {
+        SetCellColor(WarningColor);
+        AddPayLoadCell( "MsgLen", dwLength, Format("!!!ERROR!!!\ndwLength DOES NOT MATCH length\nof data found in PayLoad!\nWill attempt to decode...\n\nHeader offset Bytes 1-4.\n dwLength = 0x%08X",dwLength),_ERROR);
+        RestoreCellColor();
+      }
+      else if(SimpleShowItem())
+        AddPayLoadCell( "MsgLen", dwLength, Format("Header offset Bytes 1-4.\n dwLength = 0x%08X",dwLength));
+
+      slotNumber = NextNBits_(8);
+      if(SimpleShowItem())
+        AddPayLoadCell( "Slot#", slotNumber, Format("Header offset Byte 5.\n bSlot = 0x%02X",slotNumber));
+      
+      seqNumber= NextNBits_(8);
+      if(SimpleShowItem())
+        AddPayLoadCell( "Seq#", seqNumber, Format("Header offset Byte 6.\n bSeq = 0x%02X\nThe host can use the sequence number in\na response message to verify that a\nparticular response is the one expected\nin reply to a particular command.",seqNumber), FieldColor, [_TABULARCELL, CELL_SMART_CARD_SEQ, "TEXT_CAPTION"]);
+      else
+        AddCell(Format("Seq: %d",seqNumber),"",Format("Header offset Byte 6.\n bSeq = 0x%02X\nThe host can use the sequence number in\na response message to verify that a\nparticular response is the one expected\nin reply to a particular command.",seqNumber),FieldColor+5000000,_MONOFIELD);
+
+      prm1=NextNBits_(8);   #Parameter 1
+      prm2=NextNBits_(8);   #Parameter 2
+      prm3=NextNBits_(8);   #Parameter 3
+
+      AddSeparator();
+      out.Decoded=10;
+      
+      decodedmore=Call(mesgM[1],[prm1,prm2,prm3,dwLength]) + 10;
+    }
+    else
+      decodedmore = 1;
+    
+    out.Decoded=decodedmore;
+    ShowDataBlockReOrder(in.DataLength-decodedmore);
+    out.Data = in.Data;
+    out.DataLength = in.DataLength;
+    out.State = "Complete";
+    return Complete();  
+  } 
+  else {
+    if (in.DataLength > 0)
+    {
+        str = "0x";
+        str2= "Byte Data:";
+        for(i = 0; i < in.DataLength; i++)
+        {
+            tmp = Format("%02X", NextNBits_(8));
+            str += tmp;
+            str2 += " " + tmp;
+        } 
+        #IncFieldOffset( in.DataLength * 8);
+        FieldColor = RED;
+        AddPayLoadCell("PayLoad Too Short", str, Format("***ERROR*** \nExpecting at least 10 bytes. \nFound only %d bytes...\n\n" + str2,in.DataLength ), _ERROR);
+        out.Decoded = in.DataLength;
+    }
+    else
+    {
+        FieldColor = WarningColor;
+        AddPayLoadCell("EMPTY PAYLOAD", "**EMPTY**", "No Data!",_ERROR);
+    }
+    AddSeparator();
+    return Complete();
+  }
+}
+
+PC_to_RDR_IccPowerOn(prm1,prm2,prm3,dwLength)
+{
+# PC_to_RDR_IccPowerOn --> ResponseMessage=RDR_to_PC_DataBlock
+
+  if (prm1==0) {
+    volts="Automatic Voltage Selection";
+  } else  if (prm1==1) {
+    volts="5.0 volts";
+  } else  if (prm1==2) {
+    volts="3.0 volts";
+  } else  if (prm1==3) {
+    volts="1.8 volts";
+  } else   {
+    volts="Invalid value";
+  }
+
+  SetFieldOffsetLen_CCID( 64, 8 );
+  AddPayLoadCell( "PowerSelect", volts, "Msg Header offset Byte 7.\n bPowerSelect = " + Format("0x%02X.\n\n",prm1) + "Voltage that is applied to the\nICC in slot " + Format("%d",slotNumber) + ". (" + volts + ")");
+  RestoreFieldOffsetLen_CCID();
+  IsReserved(prm2,8);
+  IsReserved(prm3,9);
+  CheckCCIDMsgLen();
+  return 0;
+}
+
+PC_to_RDR_SetParameters(prm1,prm2,prm3,dwLength)
+{
+# PC_to_RDR_SetParameters 61h --> ResponseMessage= RDR_to_PC_Parameters \n abortable=No
+  bProtocolNum(prm1,7);
+  IsReserved(prm2,8);
+  IsReserved(prm3,9);
+
+  if ((dwLength==5)  && (prm1==0)) 
+  {
+    if((in.DataLength - out.Decoded)<5)
+    {
+      AddCell("ERROR","Not Enough Data",Format("ERROR - NOT ENOUGH DATA\n Expecting at least 5 bytes; found %d bytes.\nDecoding Aborted.\nSee 'Data' for raw bytes.",(in.DataLength-out.Decoded)),RED,_ERROR);
+      CheckCCIDMsgLen();
+      return 0;
+    }
+      
+    FieldColor = CCIDColor-400;
+    if(in.Expanded)
+      AddCell("Protocol Data","","Protocol Data Structure for T=0",FieldColor,_MONOFIELD);
+    else
+      AddCell("Protocol Data","","Protocol Data Structure for T=0\n   (Double-Click to Expand)",FieldColor,_MONOFIELD);
+    #BEGIN bmFindexDindex
+    prm=NextNBits_(8);
+    tttxt=Format("FI = %X",(prm>>4) & 0x0F) + " (Bits 7-4) - Index into Table 7\n\tin ISO/IEC 7816-3:1997 selecting \n\ta clock rate conversion factor";
+    tttxt=tttxt + Format("\nDI = %X",prm & 0x0F) + " (Bits 3-0)  - Index into Table 8\n\tin ISO/IEC 7816-3:1997 selecting \n\ta baud rate conversion factor";
+    if(SimpleShowItem())    
+      AddPayLoadCell( "FI_DI", Format("0x%02X",prm),  Format("Msg Header offset Byte 10.\n bmFindexDindex = 0x%02X\n",prm) +tttxt);
+    #END bmFindexDindex
+
+    #BEGIN bmTCCKST0    
+    prm =NextNBits_(8);
+    if((prm != 0)&&(prm!= 0x02))
+    {
+      tempCol = FieldColor;
+      FieldColor = WarningColor;
+      if(prm&&0x02)
+        tttxt="B1=1 : Inverse\n";
+      else
+        tttxt="B1=0 : Direct\n";
+      tttxt2 = Format("!!! WARNING !!! Expected 0x00 or 0x02!\n Found 0x%02X\n For T=0, B0 and B7-2 should = 0\n  i.e. 000000x0b\n",prm);
+      AddPayLoadCell( "TCCKST0",prm, tttxt2 + Format("Msg Header offset Byte 11.\n bmTCCKSTO = 0x%02X\n",prm) +tttxt, _ERROR);
+      FieldColor = tempCol;
+    }
+    else
+    {
+      if(prm == 0)
+        tttxt="B1=0 : Direct";
+      else
+        tttxt="B1=1 : Inverse";
+      if(SimpleShowItem())    
+        AddPayLoadCell( "TCCKST0",prm,  Format("Msg Header offset Byte 11.\n bmTCCKSTO = 0x%02X\n",prm) +tttxt);
+    }
+    #END bmTCKST0
+
+    #BEGIN bGuardTimeT0
+    prm = NextNBits_(8);
+    tttxt="Extra Guardtime between two characters. \nAdd 0 to 254 etu to the normal guardtime of 12etu. \nFFh is the same as 00h.";
+    if(prm == 0xFF)
+      bGuardTimeT0_val = "0 etu";
+    else
+      bGuartTimeT0_val = Format("%d etu",prm);
+      
+    if(SimpleShowItem())    
+      AddPayLoadCell( "GuardTimeT0", bGuartTimeT0_val, Format("Msg Header offset Byte 12.\n bGuardTimeT0 = 0x%02X\n",prm) +tttxt);
+    #END bGuardTimeT0
+
+    #BEGIN bWaitingIntegerT0    
+    prm = NextNBits_(8);
+    tttxt="WI for T=0 used to define WWT";
+    if(SimpleShowItem())    
+      AddPayLoadCell( "WaitIntT0", prm, Format("Msg Header offset Byte 13.\n bWaitingIntegerT0 = 0x%02X\n",prm) +tttxt);
+    #END bWaitingIntegerT0    
+
+    #BEGIN bClockStop      
+    prm = NextNBits_(8);
+    tttxt="ICC Clock Stop Support:";
+    if(prm<4){
+      if (prm==0) { tttxt=tttxt + "\n 00h = Stopping the Clock is not allowed"; }
+      else if (prm==1) { tttxt=tttxt + "\n 01h = Stop with Clock signal Low"; }
+      else if (prm==2) { tttxt=tttxt + "\n 02h = Stop with Clock signal High"; }
+      else if (prm==3) { tttxt=tttxt + "\n 03h = Stop with Clock either High or Low"; }
+      
+      if(SimpleShowItem())    
+        AddPayLoadCell( "ClkStop", Format("0x%02X",prm), Format("Msg Header offset Byte 14.\n bClockStop = 0x%02X\n",prm) +tttxt);
+    }    
+    else {
+      tttxt=tttxt + "\n UNKNOWN";
+      tempCol = FieldColor;
+      FieldColor = WarningColor;
+      tttxt = Format("!!! WARNING !!!\nExpected 00h-03h; Found 0x%02X\n",prm) + Format("Msg Header offset Byte 14.\n bClockStop = 0x%02X\n",prm) + tttxt;
+      AddPayLoadCell( "ClkStop", Format("0x%02X",prm), tttxt,_ERROR);
+      FieldColor = tempCol;
+    }
+    #END bClockStop  
+    
+    if((in.DataLength - out.Decoded - 5) != 0)
+      AddCell("WARNING","Extra Data",Format("!!! WARNING !!!\nFound %d Bytes Un-Accounted for in Pay Load...",(in.DataLength - out.Decoded - 5)),RED,_ERROR);  
+    return 5;
+  }
+  
+  else if ((dwLength==7)&&(prm1==1)) 
+  {
+    if((in.DataLength - out.Decoded)<7)
+    {
+      AddCell("ERROR","Not Enough Data",Format("ERROR - NOT ENOUGH DATA\n Expecting at least 7 bytes; found %d bytes.\nDecoding Aborted.\nSee 'Data' for raw bytes.",(in.DataLength-out.Decoded)),RED,_ERROR);
+      CheckCCIDMsgLen();
+      return 0;
+    }
+      
+    FieldColor = CCIDColor-200;
+    if(in.Expanded)
+      AddCell("Protocol Data","","Protocol Data Structure for T=1",FieldColor,_MONOFIELD);
+    else
+      AddCell("Protocol Data","","Protocol Data Structure for T=1\n   (Double-Click to Expand)",FieldColor,_MONOFIELD);
+    #BEGIN bmFindexDindex    
+    prm=NextNBits_(8);
+    tttxt=Format("FI = %X",(prm>>4) & 0x0F) + " (Bits 7-4) – Index into Table 7\n\tin ISO/IEC 7816-3:1997 selecting \n\ta clock rate conversion factor";
+    tttxt=tttxt + Format("\nFI = %X",prm & 0x0F) + " (Bits 0-3) – Index into Table 8\n\tin ISO/IEC 7816-3:1997 selecting \n\ta baud rate conversion factor";
+    if(SimpleShowItem())    
+      AddPayLoadCell( "FI_DI", Format("0x%02X",prm),  Format("Msg Header offset Byte 10.\n bmFindexDindex = 0x%02X\n",prm) +tttxt);
+    #END bmFindexDindex
+
+    #BEGIN bmTCCKST1
+    prm =NextNBits_(8);
+    datF=Format("0x%02X",prm);
+    tttxt="";
+    if ((prm&0x01)) { tttxt=tttxt + "\nB0=1 : CRC"; datF=datF + ",CRC";}
+    else { tttxt=tttxt + "\nB0=0 : LCRC"; datF=datF + ",LCRC";}
+    if ((prm&0x02)) { tttxt=tttxt + "\nB1=1 : Inverse"; datF=datF + ",Inverse";}
+    else { tttxt=tttxt + "\nB1=0 : Direct";datF=datF + ",Direct"; }
+    
+    if((prm&0xFC)!=0x10)
+    {
+      tttxt2 = Format("!!! WARNING !!! \nExpected 0x10, 0x11, 0x12, or 0x13;\nFound 0x%02X.\n For T=1, B7-2 should = 000100\n  i.e. 000100xxb\n",prm);
+      SetCellColor(WarningColor);
+      AddPayLoadCell( "TCCKST1",datF, tttxt2 + Format("Msg Header offset Byte 11.\n bmTCCKST1 = 0x%02X",prm) +tttxt, _ERROR);
+      RestoreCellColor();
+    }
+    else if(SimpleShowItem())
+      AddPayLoadCell( "TCCKST1",datF, Format("Msg Header offset Byte 11.\n bmTCCKST1 = 0x%02X",prm) +tttxt);
+    #END bmTCCKST1
+    
+    #BEGIN bGuardTimeT1
+    prm =NextNBits_(8);
+    tttxt="Extra Guardtime between two characters. \nAdd 0 to 254 etu between 2 characters.\nIf value is FFh, then guardtime is \nreduced by 1 etu.";
+    if(prm == 0xFF)
+      bGTT1_val = "-1 etu";
+    else
+      bGTT1_val = Format("%d etu",prm);
+      
+    if(SimpleShowItem())
+      AddPayLoadCell( "GuardTimeT1", bGTT1_val, Format("Msg Header offset Byte 12.\n bGuardTimeT1 = 0x%02X\n",prm) +tttxt);
+    #END bGuardTimeT1    
+
+    #BEGIN bmWaitingIntegersT1
+    prm =NextNBits_(8);
+    tempBWI = ((prm>>4)&0x0F);  # High Nibble
+    tempCWI = (prm&0x0F);       # Low Nibble
+    if (prm < 0xA0)             # bmWaitingIntegersT1 - valid values 00-9FH
+    {
+      if(SimpleShowItem())
+        AddPayLoadCell( "WaitIntsT1", Format("0x%02X",prm), FormatEx("Msg Header offset Byte 13.\n bmWaitingIntegersT1 = 0x%02X\nBWI = %d (Bits 7-4)\nCWI = %d (Bits 3-0)",prm,tempBWI,tempCWI));
+    } 
+    else 
+    {
+      tttxt = "!!! WARNING !!!\n" + Format("BWI (Bits 7-4) - Expected 0-9; Found %d\n",tempBWI);
+      SetCellColor(WarningColor);
+      AddPayLoadCell( "WaitIntsT1", Format("0x%02X",prm), tttxt + FormatEx("Msg Header offset Byte 13.\n bmWaitingIntegersT1 = 0x%02X\nBWI = %d (Bits 7-4)\nCWI = %d (Bits 3-0)",prm,tempBWI,tempCWI),_ERROR);
+      RestoreCellColor();
+    }
+    #END bmWaitingIntegersT1
+    
+    #BEGIN bClockStop      
+    prm = NextNBits_(8);
+    tttxt="ICC Clock Stop Support:";
+    if(prm<4){
+      if (prm==0) { tttxt=tttxt + "\n 00h = Stopping the Clock is not allowed"; }
+      else if (prm==1) { tttxt=tttxt + "\n 01h = Stop with Clock signal Low"; }
+      else if (prm==2) { tttxt=tttxt + "\n 02h = Stop with Clock signal High"; }
+      else if (prm==3) { tttxt=tttxt + "\n 03h = Stop with Clock either High or Low"; }
+      
+      if(SimpleShowItem())    
+        AddPayLoadCell( "ClkStop", Format("0x%02X",prm), Format("Msg Header offset Byte 14.\n bClockStop = 0x%02X\n",prm) +tttxt);
+    }    
+    else {
+      tttxt=tttxt + "\n UNKNOWN";
+      tempCol = FieldColor;
+      FieldColor = WarningColor;
+      tttxt = Format("!!! WARNING !!!\nExpected 00h-03h; Found 0x%02X\n",prm) + Format("Msg Header offset Byte 14.\n bClockStop = 0x%02X\n",prm) + tttxt;
+      AddPayLoadCell( "ClkStop", Format("0x%02X",prm), tttxt,_ERROR);
+      FieldColor = tempCol;
+    }
+    #END bClockStop  
+
+    #BEGIN bIFSC
+    prm =NextNBits_(8);
+    tttxt="Size of negotiated IFSC (00-FEh)";
+    if(prm == 0xFF)
+    {
+      SetCellColor(WarningColor);
+      AddPayLoadCell("IFSC", prm, Format("!!! WARNING !!!\n Expected 00-FEh; Found 0xFF.\nMsg Header offset Byte 15.\n bIFSC = 0x%02X\n",prm) + tttxt,_ERROR);
+      RestoreCellColor();
+    }
+    else if(SimpleShowItem())
+      AddPayLoadCell("IFSC", prm, Format("Msg Header offset Byte 15.\n bIFSC = 0x%02X\n",prm) + tttxt);
+    #END bIFSC
+
+    #BEGIN bNadValue
+    prm =NextNBits_(8);
+    tttxt="Value = 00h if CCID doesn't support\na value other then the default \nvalue. Else, the value respects the\nISO/IEC 7816-3,9.4.2.1";
+    if(SimpleShowItem())
+      AddPayLoadCell( "NadVal", prm, Format("Msg Header offset Byte 16.\n bNadValue = 0x%02X\n\n",prm) + tttxt);
+    #END bNadValue
+
+    if((in.DataLength - out.Decoded - 7) != 0)
+      AddCell("WARNING","Extra Data",Format("!!! WARNING !!!\nFound %d Bytes Un-Accounted for in Pay Load...",(in.DataLength - out.Decoded - 7)),RED,_ERROR);  
+    return 7;
+  }
+  else
+  {
+    error_string = "!!! WARNING !!!\n";
+    if(dwLength > 0){
+      tval = ((prm1 == 0x80)||(prm1 == 0x81)||(prm1 == 0x82));
+      tval2 = ((dwLength == 5)&&(!tval));
+      tval3 = ((dwLength == 7)&&(!tval));
+      error_string += "CAN'T DECODE PROTOCOL DATA STRUCTURE\n";
+      error_string += select{
+        tval2 == 1    : Format("Expected bProtocolNum = 00h (Protocol T=0);\nFound 0x%02X.\n See 'Data' for raw bytes.",prm1);
+        tval3 == 1    : Format("Expected bProtocolNum = 01h (Protocol T=1);\nFound 0x%02X.\n See 'Data' for raw bytes.",prm1);
+        prm1 == 0     : Format("Expected dwLength = 5 (Size of T=0 structure);\nFound %d.\n See 'Data' for raw bytes.",dwLength);
+        prm1 == 1     : Format("Expected dwLength = 7 (Size of T=1 structure);\nFound %d.\n See 'Data' for raw bytes.",dwLength);
+        prm1 == 0x80  : "2-Wire Protocol Structure is Reserved for Future Use\nStructure unknown. See 'Data' for raw bytes.";
+        prm1 == 0x81  : "3-Wire Protocol Structure is Reserved for Future Use\nStructure unknown. See 'Data' for raw bytes.";
+        prm1 == 0x82  : "I2C Protocol Structure is Reserved for Future Use\nStructure unknown. See 'Data' for raw bytes.";
+        default       : FormatEx("Erroneous dwLength and Protocol\nExpected (dwLength = 5, bProtocolNum = 00h)\n      or (dwLength = 7, bProtocolNum = 01h)\n  ;\nFound dwLength = %d, bProtocolNum = 0x%02X.\n See 'Data' for raw bytes.",dwLength,prm1);
+      };
+    }
+    else
+    {
+      error_string +=  "NO PROTOCOL DATA STRUCTURE FOUND\nExpected dwLength > 0 (5 for T=0 or 7 for T=1).";
+    }
+    
+    AddCell("ERROR","Decoding Aborted",error_string,RED,_ERROR);
+    CheckCCIDMsgLen();
+    return 0;
+  }
+}
+
+PC_to_RDR_NoParams(prm1,prm2,prm3,dwLength)
+{
+# for those groups with 3 reserved fields
+  IsReserved(prm1,7);
+  IsReserved(prm2,8);
+  IsReserved(prm3,9);
+  CheckCCIDMsgLen();
+  return 0;
+}
+
+PC_to_RDR_XfrBlock(prm1,prm2,prm3,dwLength)
+{
+# PC_to_RDR_XfrBlock 6Fh --> ResponseMessage= RDR_to_PC_DataBlock\n abortable=Yes
+
+  wLvl= prm2 + (256*prm3);  #wLvl is a word consisting of prm2 (LowByte) and prm3 (HighByte)
+  tttxt="\n\nUse changes depending on the exchange\nlevel reported by CCID in the functional \ndescriptor in dwFeatures:\n• character level, size of expected data \n  to be returned by the bulk-IN endpoint.";          
+  tttxt=tttxt + "\n• TPDU level, RFU, = 0000h\n• short APDU level, RFU, = 00000h\n• extended APDU level, indicates if APDU\n  begins or ends in this command :\n";  
+  tttxt=tttxt + "\n   0000h the APDU command begins and\n    ends with this command.";            
+  tttxt=tttxt + "\n   0001h the APDU command begins with\n    this command, and continues in next\n    PC_to_RDR_XfrBlock.";                
+  tttxt=tttxt + "\n   0002h this abData field continues\n    an APDU command and ends the APDU\n    command";                          
+  tttxt=tttxt + "\n   0003h the abData field continues\n    an APDU command and another block\n    is to follow";                      
+  tttxt=tttxt + "\n   0010h empty abData field,\n    continuation of APDU response\n    is expected in the next\n    RDR_to_PC_DataBlock";
+
+  SetFieldOffsetLen_CCID( 64, 8 );
+  AddPayLoadCell( "BWI", prm1, Format("Msg Header offset Byte 7.\n bBWI =0x%02X",prm1) +  "\nOnly used by CCIDs using character or\nTPDU level exchange.\nUsed to extend the CCIDs Block Waiting\nTimeout for this current transfer. The\nCCID will timeout the block after\n(bBWI * Block Waiting) Time has expired.");
+  RestoreFieldOffsetLen_CCID();
+  
+  SetFieldOffsetLen_CCID( 80, 16 );
+  AddPayLoadCell( "LevelParameter",Format("0x%04X",wLvl), Format("Msg Header offset Byte 8.\n wLevelParameter = 0x%04X",wLvl) + tttxt);
+  RestoreFieldOffsetLen_CCID();
+  
+  CheckCCIDMsgLen();
+  return 0;
+}
+
+PC_to_RDR_Escape(prm1,prm2,prm3,dwLength)
+{
+# PC_to_RDR_Escape
+  IsReserved(prm1,7);
+  IsReserved(prm2,8);
+  IsReserved(prm3,9);
+  CheckCCIDMsgLen();
+  return 0;
+}
+
+PC_to_RDR_IccClock(prm1,prm2,prm3,dwLength)
+{
+# PC_to_RDR_IccClock 6Eh --> ResponseMessage= RDR_to_PC_SlotStatus \n abortable=No
+  tttxt="bClockCommand:\n";
+  tttxt=tttxt + " • 00h Restarts Clock\n";
+  tttxt=tttxt + " • 01h Stops Clock in the state\n    shown in the bClockStop field\n    of the PC_to_RDR_SetParameters\n    command & RDR_to_PC_Parameters\n    message.";
+  bClkCom_val = "UNKNOWN";
+  SetFieldOffsetLen_CCID( 64, 8 );
+  if (prm1>1) {
+    SetCellColor(WarningColor);
+    AddPayLoadCell( "ClkCommand", bClkCom_val, FormatEx("!!! WARNING !!!\nExpected 00h or 01h; Found 0x%02X.\n\nMsg Header offset Byte 7. \n bClockCommand = 0x%02X\n\n",prm1,prm1) + tttxt,_ERROR);
+    RestoreCellColor();
+  } 
+  else
+  { 
+    if(prm1==0)
+      bClkCom_val = "Restart Clk";
+    else if (prm1==1)
+      bClkCom_val = "Stop Clk";
+  
+      AddPayLoadCell( "ClkCommand", bClkCom_val, Format("Msg Header offset Byte 7. \n bClockCommand = 0x%02X\n\n",prm1) + tttxt);
+  }    
+  RestoreFieldOffsetLen_CCID();
+  
+  IsReserved(prm2,8);
+  IsReserved(prm3,9);
+  CheckCCIDMsgLen();
+  return 0;
+}
+
+PC_to_RDR_T0APDU(prm1,prm2,prm3,dwLength)
+{
+# PC_to_RDR_T0APDU 6Ah --> ResponseMessage= RDR_to_PC_SlotStatus \n abortable=No
+  #BEGIN bmChanges (prm1)
+  datf="";
+  bCGRF = 0;  #bClassGetResponse Flag
+  bEnvF = 0;  #bClassEnvelope Flag
+  tttxt="The value is a bitwise OR operation.\nThe value is a bitwise OR operation.\n";
+  if (prm1 & 0x01) { 
+    datF="Response=T ";
+    bCGRF = 1;
+    tttxt +="Bit 0 = 1 : bClassGetResponse is significant\n";
+  } else {
+    datF="Response=F ";
+    tttxt +="Bit 0 = 0 : default Get Response behavior (CCID class descriptor)\n            - bClassGetResponse is insignificant -\n";
+  }
+  if (prm1 & 0x02) { 
+    datF=datF+"Envelope=T";
+    bEnvF = 1;
+    tttxt +="Bit 1 = 1 : bClassEnvelope is significant\n";
+  } else {
+    datF=datF+"Envelope=F";
+    tttxt +="Bit 1 = 1 : default Envelope behavior (CCID class descriptor)\n            - bClassEnvelope is insignificant -\n";
+  }
+  tttxt+="Other bits are RFU.";
+  
+  SetFieldOffsetLen_CCID( 64, 8 );
+  if(prm1&0xFC)
+  {
+    SetCellColor(WarningColor);
+    AddPayLoadCell( "Changes", datF, Format("!!! WARNING !!!\n Bits 7-2 are RESERVED (i.e. 000000xxb)\n\nMsg Header offset Byte 7. bmChanges = 0x%02X\n",prm1) + tttxt,_ERROR);
+    RestoreCellColor();
+  }
+  else  
+    AddPayLoadCell( "Changes", datF, Format("Msg Header offset Byte 7.\n bmChanges = 0x%02X\n",prm1) + tttxt);
+  RestoreFieldOffsetLen_CCID();
+  #END bmChanges (prm1)
+  
+  #BEGIN bClassGetEnvelope (prm2)
+  bCGR_val = Format("%d",prm2);                                
+  if(prm2==0xFF){bCGR_val = "Echoes APDU";}
+
+  tttxt=Format("Msg Header offset Byte 8.\n bClassGetResponse = 0x%02X\n",prm2) + "Value to force the class byte of the\nheader in a Get Response command.\nFFh indicates that the class byte of\nthe Get Response command echoes the\nclass byte of the APDU.\n";
+  if(!bCGRF)
+  { 
+    FieldColor = GreyColor;
+    bCGR_val = "Default";
+    tttxt = "Field is IGNORED (bmChanges B0=0)\n" + tttxt;
+  }
+  
+  SetFieldOffsetLen_CCID( 72, 8 );
+  AddPayLoadCell( "CGetResponse", bCGR_val, tttxt);
+  RestoreFieldOffsetLen_CCID();
+  FieldColor = CCIDColor;
+  #END bClassGetResponse (prm2)
+  
+  #BEGIN bClassEnvelope (prm3)
+  bEnv_val = Format("%d",prm3);                                
+  if(prm3==0xFF){bEnv_val = "Echoes APDU";}
+  
+  tttxt=Format("Msg Header offset Byte 9.\n bClassEnvelope = 0x%02X\n",prm3) + "Value to force the class byte of the\nheader in an Envelope command.\nFFh indicates that the class byte of\nthe Envelope command echoes the\nclass byte of the APDU.";
+  if(!bEnvF)
+  { 
+    FieldColor = GreyColor;
+    bEnv_val = "Default";
+    tttxt = "Field is IGNORED (bmChanges B1=0)\n" + tttxt;
+  }
+  
+  SetFieldOffsetLen_CCID( 80, 8 );
+  AddPayLoadCell( "CEnvelope", bEnv_val, tttxt);
+  RestoreFieldOffsetLen_CCID();
+  FieldColor = CCIDColor;
+  #END bClassEnvelope (prm3)
+  
+  CheckCCIDMsgLen();
+  return 0;  
+}
+
+PC_to_RDR_Secure(prm1,prm2,prm3,dwLength)
+{
+# PC_to_RDR_Secure 69h --> ResponseMessage= RDR_to_PC_DataBlock \n abortable=Yes
+  tttxt="\nOnly used by CCIDs using character or TPDU level\nexchange. Extends CCID's Block Waiting Timeout\nfor this current transfer. The CCID will timeout\nthe block after (bBWI * Block Waiting) Time has\nexpired.";
+  SetFieldOffsetLen_CCID( 64, 8 );
+  AddPayLoadCell( "BWI", prm1, Format("Msg Header offset Byte 7.\n bBWI = 0x%02X",prm1)+ tttxt );
+  RestoreFieldOffsetLen_CCID();
+  
+  wLvl = prm2+(256*prm3);  #wLvl is a word consisting of prm2 (LowByte) and prm3 (HighByte)
+  tttxt="\n\nUse changes depending on the exchange\nlevel reported by CCID in the functional \ndescriptor in dwFeatures:\n• character level, size of expected data \n  to be returned by the bulk-IN endpoint.";          
+  tttxt=tttxt + "\n• TPDU level, RFU, = 0000h\n• short APDU level, RFU, = 00000h\n• extended APDU level, indicates if APDU\n  begins or ends in this command :\n";  
+  tttxt=tttxt + "\n   0000h the APDU command begins and\n    ends with this command.";            
+  tttxt=tttxt + "\n   0001h the APDU command begins with\n    this command, and continues in next\n    PC_to_RDR_Secure.";                
+  tttxt=tttxt + "\n   0002h this abData field continues\n    an APDU command and ends the APDU\n    command";                          
+  tttxt=tttxt + "\n   0003h the abData field continues\n    an APDU command and another block\n    is to follow";                      
+  tttxt=tttxt + "\n   0010h empty abData field,\n    continuation of APDU response\n    is expected in the next\n    RDR_to_PC_DataBlock";
+  SetFieldOffsetLen_CCID( 80, 16 );
+  AddPayLoadCell( "LevelParameter", Format("0x%04X",wLvl), Format("Msg Header offset Byte 8.\n wLevelParameter = 0x%04X",wLvl) + tttxt );
+  RestoreFieldOffsetLen_CCID();
+
+  DataStructType ="PIN Verification Data Structure";
+  if(wLvl < 2)
+  {
+    if((in.DataLength - out.Decoded)<1)
+    {
+      AddCell("ERROR","No Data","ERROR - NO DATA\n Expecting bPINOperation and PINDataStruct; found 0 bytes.\nDecoding Aborted.\nSee 'Data' for raw bytes.",RED,_ERROR);
+      CheckCCIDMsgLen();
+      return 0;
+    }
+    prm=NextNBits_(8);
+    tttxt="";
+    datF = select{
+      prm==0  : {
+                  FieldColor = PINDataColor-7500; 
+                  "PIN Verification";
+                }
+      prm==1  : {
+                  DataStructType ="PIN Modification Data Structure";
+                  FieldColor = PINDataColor-9500; 
+                  "PIN Modification";
+                }
+      prm==2  : {
+                  tttxt="\n\nIn a character level exchange CCID,\nwhen the ICC responds to the ICC\ncommand header with the standard\nINS, the host will send this\noperation to tell the CCID to\nsend the formatted PIN to the ICC.";
+                  "Transfer PIN";
+                }
+      prm==3  : {
+                  tttxt="\n\nIn a character level exchange CCID\nusing protocol T=0, the ICC could\nrespond to the ICC command header\nwith 60h (indicating that the ICC\nis requesting an extended time)\nand that another status byte will\nbe sent by the ICC. The host will\nsend this operation to tell the\nCCID to wait for the response from\nthe ICC. After getting the response,\n the 'Transfer PIN from secure CCID\nbuffer' operation would be used to\ncomplete the PIN sequence.";
+                  "Wait ICC response";
+                }
+      prm==4  :  "Cancel PIN";
+      prm==5  : {
+                  tttxt= "\n Valid ONLY if protocol in use is T=1.";
+                  "Re-send last I-Block";
+                }
+      prm==6  : {
+                  tttxt = "\n Valid ONLY if protocol in use is T=1.";  
+                  "Send next part of APDU"; 
+                }
+      default : "Invalid";
+    };
+
+    if(prm>6)
+    {
+      SetCellColor(WarningColor);
+      AddPayLoadCell( "PINOperation", datF, FormatEx("!!! WARNING !!!\nExpected 00-06h; Found 0x%02X.\n\nMsg Header offset Byte 10.\n bPINOperation = 0x%02X",prm,prm)+ "\n" + datF  + "\n" + tttxt,_ERROR);
+      RestoreCellColor();
+    }
+    else
+      AddPayLoadCell( "PINOperation", datF, Format("Msg Header offset Byte 10.\n bPINOperation = 0x%02X",prm)+ "\n" + datF  + tttxt);
+    
+    bytesdecoded =1;
+    DatLength = in.DataLength - (out.Decoded + bytesdecoded);
+    if(DatLength<1)
+    {
+      AddCell("ERROR","No Data","ERROR - NO DATA\n Expecting PINDataStruct; found 0 bytes.\nDecoding Aborted.\nSee 'Data' for raw bytes.",RED,_ERROR);
+      return bytesdecoded;
+    }
+    
+    if (prm<2)  
+    {
+      if((prm==0)&&(DataLength<14))
+      {
+        AddCell("ERROR","Not Enough Data",Format("ERROR - NOT ENOUGH DATA\n Expecting at least 14 bytes for PINDataStruct; found %d bytes.\nDecoding will be attempted.\n",(in.DataLength-out.Decoded)),RED,_ERROR);
+      }
+      else if((prm==1)&&(DatLength<17))
+      {
+        AddCell("ERROR","Not Enough Data",Format("ERROR - NOT ENOUGH DATA\n Expecting at least 17 bytes for PINDataStruct; found %d bytes.\nDecoding will be attempted.\n",(in.DataLength-out.Decoded)),RED,_ERROR);
+      }
+      
+      if(in.Expanded)
+        AddCell( "PIN Data", "", DataStructType, FieldColor,_MONOFIELD );
+      else
+        AddCell( "PIN Data", "", DataStructType + "\n    (Double Click to Expand)", FieldColor,_MONOFIELD );
+
+      #BEGIN bTimeOut
+      if(DatLength > 0)
+      {  
+        prm11=NextNBits_(8);
+        DatLength--;
+        bytesdecoded++;
+      }
+      else
+        return bytesdecoded;
+        
+      tttxt="\nNumber of seconds. If 00h\nthen CCID default value is\nused.";
+      if(prm11 == 0)
+        bTOval = "DEFAULT";
+      else
+        bTOval = Format("%d",prm11);
+      
+      if(SimpleShowItem())
+        AddPayLoadCell("TimeOut",bTOval,Format("Msg Header offset Byte 11.\n bTimeOut = 0x%02X",prm11)+ tttxt);
+      #END bTimeOut
+      
+      #BEGIN bmFormatString
+      if(DatLength > 0)
+      {  
+        prm11=NextNBits_(8);
+        DatLength--;
+        bytesdecoded++;
+      }
+      else
+        return bytesdecoded;
+      func_bmFormatString(prm11);
+      #END bmFormatString
+      
+      #BEGIN bmPINBlockString
+      if(DatLength > 0)
+      {  
+        prm11=NextNBits_(8);
+        DatLength--;
+        bytesdecoded++;
+      }
+      else
+        return bytesdecoded;
+      if(SimpleShowItem())
+        AddPayLoadCell("PINBlockStr",Format("0x%02X",prm11),FormatEx("Msg Header offset Byte 13.\n bmPINBlockString = 0x%02X\n\nBits 7-4: %X - Size in bits of the PIN length\n              inserted in the APDU command.\n              (If 0 - effecitve PIN length\n              not inserted)\nBits 3-0: %X - PIN block size in bytes after\n              justification and formatting.",prm11,((prm11>>4)&0xF),(prm11&0xF)));
+      #END bmPINBlockString
+  
+      #BEGIN bmPINLengthFormat
+      if(DatLength > 0)
+      {  
+        prm11=NextNBits_(8);
+        DatLength--;
+        bytesdecoded++;
+      }
+      else
+        return bytesdecoded;
+      errorflag = 0;
+      tempval = (prm11>>4)&0x0E;
+      if(tempval > 0)
+        errorflag = 1;
+      str1 = "\nBits 7-5: " + ToBitString(tempval,3) + "  - Reserved for Future Use";
+      tempval = (prm11>>4)&0x01;
+      if(tempval)
+        str1 += "\nBit 4   : 1    - System units = bytes";
+      else
+        str1 += "\nBit 4   : 0    - System units = bits";
+        
+      tempval = prm11&0xF;
+      str1 += "\nBits 3-0: " + ToBitString(tempval,4) + Format(" - PINLength position in\n                 the APDU command = %d",tempval);
+      
+      if(errorflag)
+      {
+        SetCellColor(WarningColor);
+        AddPayLoadCell("PINLenFmt",Format("0x%02X",prm11),Format("!!! WARNING !!!\nBits 7-5 are RESERVED, found value.\n\nMsg Header offset Byte 14.\n bmPINLengthFormat = 0x%02X",prm11)+ str1,_ERROR);
+        ResetCellColor();
+      }
+      else if(SimpleShowItem())
+        AddPayLoadCell("PINLenFmt",Format("0x%02X",prm11),Format("Msg Header offset Byte 14.\n bmPINLengthFormat = 0x%02X",prm11)+ str1);
+      #END bmPINLengthFormat
+    }
+    if (prm==0) 
+    {
+      #BEGIN wPINMaxExtraDigit
+      if(DatLength > 0)
+      {  
+        prm11=NextDataWord_();
+        DatLength-=2;
+        bytesdecoded+=2;
+      }
+      else
+        return bytesdecoded;
+        
+      if(SimpleShowItem())
+        AddPayLoadCell("PINMaxExDig",Format("0x%04X",prm11),FormatEx("Msg Header offset Byte 15.\n wPINMaxExtraDigit = 0x%04X\nMinimum PIN size in digit (High Byte) = %d\nMaximum PIN size in digit (Low Byte)  = %d",prm11,(prm11>>8)&0xFF,prm11&0xFF));
+      #END wPINMaxExtraDigit
+      
+      #BEGIN bEntryValidationCondition
+      if(DatLength > 0)
+      {  
+        prm11=NextNBits_(8);
+        DatLength--;
+        bytesdecoded++;
+      }
+      else
+        return bytesdecoded;
+        
+      tttxt = "";
+      if(prm11&0x01)
+        tttxt += "Bit0=1 : Max size reached\n";
+      else
+        tttxt += "Bit0=0\n";
+      if(prm11&0x02)
+        tttxt += "Bit1=1 : Validation key pressed\n";
+      else
+        tttxt += "Bit1=0\n";      
+      if(prm11&0x04)
+        tttxt += "Bit2=1 : Timeout occurred\n";
+      else
+        tttxt += "Bit2=0\n";        
+      if(prm11&0xF8)
+        tttxt += "Bits3-7: WARNING->RESERVED BITS";
+      else
+        tttxt += "Bit3-7=00000";        
+      
+      if(prm11&0xF8)
+      {
+        SetCellColor(WarningColor);
+        AddPayLoadCell("EntryValidCond",Format("0x%02X",prm11),Format("!!! WARNING !!!\nBits 3-7 RESERVED, Found value\n\nMsg Header offset Byte 17.\n bEntryValidationCondition = 0x%02X\n",prm11)+ "\n" + tttxt,_ERROR);
+        RestoreCellColor();
+      }
+      else if(SimpleShowItem())
+        AddPayLoadCell("EntryValidCond",Format("0x%02X",prm11),Format("Msg Header offset Byte 17.\n bEntryValidationCondition = 0x%02X\n",prm11)+ "\n" + tttxt);
+      #END bEntryValidationCondition
+  
+      #BEGIN bNumberMessage
+      if(DatLength > 0)
+      {  
+        prm11=NextNBits_(8);
+        DatLength--;
+        bytesdecoded++;
+      }
+      else
+        return bytesdecoded;
+        
+      errorflag = 0;
+      if(prm11 == 0)
+        tttxt = "00h = No string\n";
+      else if(prm11 == 1)
+        tttxt = "01h = Message which index is\n      indicated in bMsgIndex.";
+      else if(prm11 == 0xFF)
+        tttxt = "FFh = Default CCID Message\n";
+      else 
+        errorflag = 1;
+        
+      if(errorflag)
+      {
+        tttxt = Format("0x%02X = INVALID",prm11);
+        SetCellColor(WarningColor);
+        AddPayLoadCell("NumMsg",Format("0x%02X",prm11),FormatEx("!!! WARNING !!!\nExpected 00,01,or FFh; Found 0x%02X.\n\nMsg Header offset Byte 18.\n bNumberMessage = 0x%02X\n",prm11,prm11) + tttxt, _ERROR);
+        RestoreCellColor();
+      }
+      else if(SimpleShowItem())
+        AddPayLoadCell("NumMsg",Format("0x%02X",prm11),Format("Msg Header offset Byte 18.\n bNumberMessage = 0x%02X\n",prm11) + tttxt);
+      #END bNumberMessage
+      
+      #BEGIN wLangId
+      if(DatLength > 0)
+      {  
+        prm11= NextDataWord_();
+        DatLength-=2;
+        bytesdecoded+=2;
+      }
+      else
+        return bytesdecoded;      
+      
+      tttxt="\nLanguage used to display the messages.\nThe 16 bit value is the same value\nused to select a language when getting\na USB string descriptor.";
+      if(SimpleShowItem())
+        AddPayLoadCell("LangId",Format("0x%04X",prm11),Format("Msg Header offset Byte 19.\n wLangId = 0x%04X",prm11) + tttxt);
+      #END wLangId
+      
+      #BEGIN bMsgIndex
+      if(DatLength > 0)
+      {  
+        prm11=NextNBits_(8);
+        DatLength--;
+        bytesdecoded++;
+      }
+      else
+        return bytesdecoded;
+        
+      tttxt="\nMessage index in the Reader\nCCID message table (should\nbe 00h). The message is the\nprompt for the user to enter\ntheir PIN.";
+      if(SimpleShowItem())
+        AddPayLoadCell("MsgInd",Format("0x%02X",prm11),Format("Msg Header offset Byte 21.\n bMsgIndex = 0x%02X",prm11)+ tttxt);
+      #ENG bMsgIndex
+      
+      #BEGIN bTeoPrologue
+      if(DatLength > 0)
+      {  
+        prm11=NextData3Bytes_();
+        DatLength-=3;
+        bytesdecoded+=3;
+      }
+      else
+        return bytesdecoded;
+              
+      tttxt="\nT=1 I-block prologue field to use.\nSignificant only if protocol in use is T=1.";
+      if(SimpleShowItem())
+        AddPayLoadCell("TeoPrologue",Format("0x%06X",prm11),Format("Msg Header offset Byte 22.\n bTeoPrologue = 0x%06X",prm11) + tttxt);
+      #END bTeoPrologue
+      
+      #BEGIN abPINApdu
+      if(DatLength > 0)
+      {  
+        prm11=GetByteStrFld_CCID( DatLength );
+        bytesdecoded+= DatLength;
+        DatLength = 0;
+      }
+      else
+        return bytesdecoded;
+
+      if(SimpleShowItem())
+        AddPayLoadCell("PINApdu",prm11,"Msg Header offset Byte 25.\n abPINApdu ByteArray\nThis is the APDU to send to the ICC.");
+      
+      CheckCCIDMsgLen();
+      return bytesdecoded;
+      #END abPINApdu
+    } 
+    else if (prm==1) 
+    {
+      #BEGIN bInsertionOffsetOld
+      if(DatLength > 0)
+      {  
+        prm11=NextNBits_(8);
+        DatLength--;
+        bytesdecoded++;
+      }
+      else
+        return bytesdecoded;
+      tttxt="\nInsertion position offset (in\nbytes) for the current PIN.";
+      if(SimpleShowItem())
+        AddPayLoadCell("InsOffOld",Format("%d",prm11),Format("Msg Header offset Byte 15.\n bInsertionOffsetOld = 0x%04X",prm11)+ tttxt);
+      #END bInsertionOffsetOld
+      
+      #BEGIN bInsertionOffsetNew
+      if(DatLength > 0)
+      {  
+        prm11=NextNBits_(8);
+        DatLength--;
+        bytesdecoded++;
+      }
+      else
+        return bytesdecoded;
+      tttxt="\nInsertion position offset (in\nbytes) for the new PIN.";
+      if(SimpleShowItem())
+        AddPayLoadCell("InsOffNew",Format("%d",prm11),Format("Msg Header offset Byte 16.\n bInsertionOffsetNew = 0x%04X",prm11)+ tttxt);
+      #END bInsertionOffsetNew
+      
+      #BEGIN wPINMaxExtraDigit
+      if(DatLength > 0)
+      {  
+        prm11=NextDataWord_();
+        DatLength-=2;
+        bytesdecoded+=2;
+      }
+      else
+        return bytesdecoded;
+        
+      if(SimpleShowItem())
+        AddPayLoadCell("PINMaxExDig",Format("0x%04X",prm11),FormatEx("Msg Header offset Byte 17.\n wPINMaxExtraDigit = 0x%04X\nMinimum PIN size in digit (High Byte) = %d\nMaximum PIN size in digit (Low Byte)  = %d",prm11,(prm11>>8)&0xFF,prm11&0xFF));
+      #END wPINMaxExtraDigit      
+  
+      #BEGIN bConfirmPIN
+      if(DatLength > 0)
+      {  
+        prm11=NextNBits_(8);
+        DatLength--;
+        bytesdecoded++;
+      }
+      else
+        return bytesdecoded;
+      
+      bConfirmPIN_val = prm11;  
+      tttxt = "";
+      if(prm11&0x01)
+        tttxt += "Bit0=1 : Confirmation requested\n";
+      else
+        tttxt += "Bit0=0 : No confirmation requested\n";
+      if(prm11&0x02)
+        tttxt += "Bit1=1 : Current PIN entry requested\n";
+      else
+        tttxt += "Bit1=0 : No current PIN entry requested.\n";        
+      if(prm11&0xFC)
+        tttxt += "Bits2-7: WARNING->RESERVED BITS";
+      else
+        tttxt += "Bit2-7=000000\n\n";        
+      
+      tttxt += "Indicates if a confirmation is requested\nbefore acceptance of a new PIN (meaning\nthat the user has to enter this new PIN\ntwice before it is accepted) & indicates\nif the current PIN must be entered and\nset in the same APDU field or not.";
+      if(prm11&0xFC)
+      {
+        SetCellColor(WarningColor);
+        AddPayLoadCell("ConfirmPIN",Format("0x%02X",prm11),Format("!!! WARNING !!!\nBits 2-7 RESERVED, Found value\n\nMsg Header offset Byte 19.\n bConfirmPIN = 0x%02X\n",prm11)+ "\n" + tttxt,_ERROR);
+        RestoreCellColor();
+      }
+      else if(SimpleShowItem())
+        AddPayLoadCell("ConfirmPIN",Format("0x%02X",prm11),Format("Msg Header offset Byte 19.\n bConfirmPIN = 0x%02X\n",prm11)+ "\n" + tttxt);
+      #END bConfirmPIN            
+            
+      #BEGIN bEntryValidationCondition
+      if(DatLength > 0)
+      {  
+        prm11=NextNBits_(8);
+        DatLength--;
+        bytesdecoded++;
+      }
+      else
+        return bytesdecoded;
+        
+      tttxt = "";
+      if(prm11&0x01)
+        tttxt += "Bit0=1 : Max size reached\n";
+      else
+        tttxt += "Bit0=0\n";
+      if(prm11&0x02)
+        tttxt += "Bit1=1 : Validation key pressed\n";
+      else
+        tttxt += "Bit1=0\n";      
+      if(prm11&0x04)
+        tttxt += "Bit2=1 : Timeout occurred\n";
+      else
+        tttxt += "Bit2=0\n";        
+      if(prm11&0xF8)
+        tttxt += "Bits3-7: WARNING->RESERVED BITS";
+      else
+        tttxt += "Bit3-7=00000";        
+      
+      if(prm11&0xF8)
+      {
+        SetCellColor(WarningColor);
+        AddPayLoadCell("EntryValidCond",Format("0x%02X",prm11),Format("!!! WARNING !!!\nBits 3-7 RESERVED, Found value\n\nMsg Header offset Byte 20.\n bEntryValidationCondition = 0x%02X\n",prm11)+ "\n" + tttxt,_ERROR);
+        RestoreCellColor();
+      }
+      else if(SimpleShowItem())
+        AddPayLoadCell("EntryValidCond",Format("0x%02X",prm11),Format("Msg Header offset Byte 20.\n bEntryValidationCondition = 0x%02X\n",prm11)+ "\n" + tttxt);
+      #END bEntryValidationCondition
+        
+      #BEGIN bNumberMessage
+      if(DatLength > 0)
+      {  
+        prm11=NextNBits_(8);
+        DatLength--;
+        bytesdecoded++;
+      }
+      else
+        return bytesdecoded;
+      
+      bNumMsg_val = prm11;  
+      errorflag = 0;
+      tttxt = select{
+        prm11 == 0x00 : "00h = No message";
+        prm11 == 0x01 : {
+                          if(bConfirmPIN_val != 0x00)
+                            errorflag = 1;
+                          "01h = Message which index is indicated\n      in bMsgIndex1.\n     (case where bConfirmPIN = 00h)";
+                        }
+        prm11 == 0x02 : {
+                          if((bConfirmPIN_val != 0x01)&&(bConfirmPIN_val != 0x02))
+                            errorflag = 2;
+                          "02h = Messages which index are indicated\n      in bMsgIndex1, and bMsgIndex2.\n     (case where ConfirmPIN = 01h or 02h)";
+                        }
+        prm11 == 0X03 : {
+                          if(bConfirmPIN_val != 0x03)
+                            errorflag = 3;
+                          "03h = Messages which index are indicated\n      in bMsgIndex1, bMsgIndex2, and\n      bMsgIndex3.\n     (case where bConfirmPIN = 03h)";
+                        }
+        prm11 == 0xFF : "FFh = Default CCID Message(s).";
+        default       : {
+                          errorflag = 4;
+                          Format("0x%02X = INVALID!",prm11);
+                        }            
+      };
+      
+      if(errorflag>0)
+      {
+        error_txt = "!!! WARNING !!!\n";
+        error_txt += select{
+          errorflag == 1 :  "For 01h, Expect bConfirmPIN = 00h\n\n";
+          errorflag == 2 :  "For 02h, Expect bConfirmPIN = 01h or 02h\n\n";
+          errorflag == 3 :  "For 01h, Expect bConfirmPIN = 03h\n\n";
+          errorflag == 4 :  Format("Expected 00-03h or FFh; Found 0x%02X\n\n",prm11);
+        };
+                  
+        SetCellColor(WarningColor);
+        AddPayLoadCell("NumMsg",Format("0x%02X",prm11),error_txt + Format("Msg Header offset Byte 21.\n bNumberMessage = 0x%02X\n",prm11) + tttxt, _ERROR);
+        RestoreCellColor();
+      }
+      else if(SimpleShowItem())
+        AddPayLoadCell("NumMsg",Format("0x%02X",prm11),Format("Msg Header offset Byte 21.\n bNumberMessage = 0x%02X\n",prm11) + tttxt);
+      #END bNumberMessage
+  
+      #BEGIN wLangId
+      if(DatLength > 0)
+      {  
+        prm11= NextDataWord_();
+        DatLength-=2;
+        bytesdecoded+=2;
+      }
+      else
+        return bytesdecoded;      
+      
+      tttxt="\nLanguage used to display the messages.\nThe 16 bit value is the same value\nused to select a language when getting\na USB string descriptor.";
+      if(SimpleShowItem())
+        AddPayLoadCell("LangId",Format("0x%04X",prm11),Format("Msg Header offset Byte 22.\n wLangId = 0x%04X",prm11) + tttxt);
+      #END wLangId
+      
+      #BEGIN bMsgIndex1
+      if(DatLength > 0)
+      {  
+        prm11=NextNBits_(8);
+        DatLength--;
+        bytesdecoded++;
+      }
+      else
+        return bytesdecoded;
+        
+      tttxt="\nMessage index in the Reader message table\n(should be 00h or 01h). The message is the\nprompt for the user to enter its new PIN\n(if bConfirmPIN=00h) or its current PIN.";
+      if(SimpleShowItem())
+        AddPayLoadCell("MsgInd_1",Format("0x%02X",prm11),Format("Msg Header Byte offset 24.\n bMsgIndex1 = 0x%02X",prm11)+ tttxt);
+      #END bMsgIndex1
+      
+      #BEGIN bMsgIndex2, bMsgIndex3, bTeoPrologue, abPINApdu
+      tempoffset = 0;
+      if( bNumMsg_val > 1)
+      {
+        #BEGIN bMsgIndex2
+        if(DatLength > 0)
+        {  
+          prm11=NextNBits_(8);
+          DatLength--;
+          bytesdecoded++;
+        }
+        else
+          return bytesdecoded;
+        
+        tempoffset++;
+        tttxt="\nMessage index in the Reader message table\n(should be 01h or 02h). The message is the\nprompt for the user to enter its NEW PIN\nvalue if bConfirm = 02h or 03h, and to\nre-enter its new PIN if bConfirm=01h.";
+        if(SimpleShowItem())
+          AddPayLoadCell("MsgInd_2",Format("0x%02X",prm11),Format("Msg Header offset Byte 25.\n bMsgIndex2 = 0x%02X",prm11)+ tttxt);
+        #END bMsgIndex2
+        
+        #BEGIN bMsgIndex3
+        if( bNumMsg_val == 3)
+        {
+          if(DatLength > 0)
+          {  
+            prm11=NextNBits_(8);
+            DatLength--;
+            bytesdecoded++;
+          }
+          else
+            return bytesdecoded;
+        
+          tempoffset++;
+          tttxt="\nMessage index in the Reader message table\n(should be 02h). The message is the prompt\nfor the user to re-enter its NEW PIN value\nfor confirmation purposes (only present if\nbNumberMessage = 3)"; 
+          if(SimpleShowItem())
+            AddPayLoadCell("MsgInd_3",Format("0x%02X",prm11),Format("Msg Header offset Byte 26.\n bMsgIndex3 = 0x%02X",prm11)+ tttxt);
+        }
+        #END bMsgIndex3
+      }
+      
+      #BEGIN bTeoPrologue
+      if(DatLength > 0)
+      {  
+        prm11=NextData3Bytes_();
+        DatLength-=3;
+        bytesdecoded+=3;
+      }
+      else
+        return bytesdecoded;
+              
+      tttxt="\nT=1 I-block prologue field to use.\nSignificant only if protocol in use is T=1.";
+      if(SimpleShowItem())
+        AddPayLoadCell("TeoPrologue",Format("0x%06X",prm11),FormatEx("Msg Header offset Byte %d.\n bTeoPrologue = 0x%06X",(tempoffset+25),prm11) + tttxt);
+      #END bTeoPrologue
+      
+      #BEGIN abPINApdu
+      if(DatLength > 0)
+      {  
+        prm11=GetByteStrFld_CCID( DatLength );
+        bytesdecoded+= DatLength;
+        DatLength = 0;
+      }
+      else
+        return bytesdecoded;
+
+      if(SimpleShowItem())
+        AddPayLoadCell("PINApdu",prm11,Format("Msg Header offset Byte %d.\n abPINApdu ByteArray\nThis is the APDU to send to the ICC.",tempoffset+28));
+      
+      CheckCCIDMsgLen();
+      return bytesdecoded;
+      #END abPINApdu
+    } 
+    else
+    {
+      CheckCCIDMsgLen();
+      return 1;
+    }
+  }
+  else
+  {
+    AddCell( "CONTINUED DATA","","Continuation of the previously\n sent PC_to_RDR_Secure.",PINDataColor-5000,_MONOFIELD );    
+    return 0;
+  }
+}
+
+
+
+
+PC_to_RDR_Mechanical(prm1,prm2,prm3,dwLength)
+{
+# PC_to_RDR_Mechanical --> ResponseMessage= RDR_to_PC_SlotStatus \n abortable=Yes
+
+  tttxt="Mechanical function being requested:\n";
+  datf="INVALID";
+  if (prm1==1) {
+    tttxt += "\t01h – Accept Card\n(NOTE* Feature NOT covered by specification)";
+    datf="Accept";
+  }
+  else if (prm1==2) {  
+    tttxt += "\t02h – Eject Card\n(NOTE* Feature NOT covered by specification)";
+    datf="Eject";
+  }
+  else if (prm1==3) {
+    tttxt += "\t03h – Capture Card\n(NOTE* Feature NOT covered by specification)";
+    datf="Capture";
+  } 
+  else if (prm1==4) {
+    tttxt += "\t04h – Lock Card";
+    datf="Lock";
+  } 
+  else if (prm1==5) {
+    tttxt += "\t05h – Unlock Card";
+    datf="Unlock";
+  }
+  else
+    tttxt += "\t" + Format("0x%02X - INVALID",prm1);
+  
+  SetFieldOffsetLen_CCID( 64, 8 );  
+  if(datf=="INVALID")
+  {
+    SetCellColor(WarningColor);
+    AddPayLoadCell( "Function",datf, FormatEx("!!! WARNING !!!\nExpected 01-05h; Found 0x%02X.\n\nMsg Header offset Byte 7.\n bFunction = 0x%02X\n",prm1,prm1)+ tttxt,_ERROR);
+    RestoreCellColor();
+  }
+  else 
+    AddPayLoadCell( "Function",datf, Format("Msg Header offset Byte 7.\n bFunction = 0x%02X\n",prm1)+ tttxt);
+  
+  RestoreFieldOffsetLen_CCID();
+    
+  IsReserved(prm2,8);
+  IsReserved(prm3,9);
+  CheckCCIDMsgLen();
+  return 0;
+}
+
+PC_to_RDR_SetDRateNClockF(prm1,prm2,prm3,dwLength)
+{
+# PC_to_RDR_SetDataRateAnd ClockFrequency 73h --> RDR_to_PC_DataRateAndClockFrequency No"]
+  IsReserved(prm1,7);
+  IsReserved(prm2,8);
+  IsReserved(prm3,9);
+  DatLength = in.DataLength - out.Decoded;
+  
+  #BEGIN dwClockFrequency
+  if(DatLength > 3)
+  {
+    tttxt="\nICC clock frequency in KHz.\nThis is an integer value.";
+    dwClockFrequency= NextDataDWord_();
+    ClkFreq_val = Format("%u KHz",dwClockFrequency);
+    AddPayLoadCell( "ClkFreq",ClkFreq_val, Format("Msg Header offset Byte 10.\n dwClockFrequency = 0x%08X",dwClockFrequency)+ tttxt);
+  }
+  else
+  {
+    AddCell("ERROR","Not Enough Data",Format("ERROR - NOT ENOUGH DATA\n Expecting 8 bytes; found %d bytes.\nDecoding Aborted.\nSee 'Data' for raw bytes.",(in.DataLength-out.Decoded)),RED,_ERROR);
+    CheckCCIDMsgLen();
+    return 0;
+  }
+  #END dwClockFrequency
+  
+  #BEGIN dwDataRate
+  if(DatLength > 7)
+  {
+    tttxt="\nICC data rate in bps.\nThis is an integer value.";
+    dwDataRate= NextDataDWord_();
+    DR_val = Format("%u bps",dwDataRate);
+    AddPayLoadCell( "DataRate",DR_val, Format("Msg Header offset Byte 14.\n dwDataRate = 0x%08X",dwDataRate)+ tttxt);
+  }
+  else
+  {
+    AddCell("ERROR","Not Enough Data",Format("ERROR - NOT ENOUGH DATA\n Expecting 4 bytes; found %d bytes.\nDecoding Aborted.\nSee 'Data' for raw bytes.",(in.DataLength-out.Decoded)),RED,_ERROR);
+    CheckCCIDMsgLen();
+    return 4;
+  }
+  #END dwDataRate
+
+  CheckCCIDMsgLen();
+  return 8;
+}
+
+IsReserved(bits,offset)
+{
+  tempstr = Format("Header offset Byte %d.",offset);
+  SetFieldOffsetLen_CCID( offset*8+8, 8 );
+  
+  if (bits==0) 
+  {
+    SetCellColor(GreyColor);
+    if(SimpleShowItem())
+      AddPayLoadCell( "R", bits, tempstr + Format("\n Reserved: 0x%02X",bits));
+    RestoreCellColor();
+  } 
+  else 
+  {
+    SetCellColor(WarningColor);
+    AddPayLoadCell( "R", bits, Format("!!! WARNING !!! \nRESERVED - Found Value: 0x%02X\n",bits) + tempstr,_ERROR);
+    RestoreCellColor();
+  }
+
+  RestoreFieldOffsetLen_CCID();
+}
+
+CheckCCIDMsgLen()
+{
+  if(dwLength != (in.DataLength - out.Decoded))
+    AddCell("ERROR","Data Discrepancy",Format("ERROR\nDifference of %d Bytes Found!\n [(Data in PayLoad - Header) - dwLength]",((in.DataLength-out.Decoded)-dwLength)),RED,_ERROR);
+}  
+
+func_bmFormatString( value, prefix_string, title )
+{
+    errorflag = 0;
+    
+    if(!in.PrepareFldsForDlg)
+      tttxt="<p><font size=6>" + Format("Msg Header offset Byte 12.\n bmFormatString = 0x%02X",value) + "\nPIN format options:</font></p>";
+    else
+      tttxt= Format("Msg Header offset Byte 12.\n bmFormatString = 0x%02X",value) + "<br>PIN format options:";
+
+    strhead = "<HTML>";
+    str1 = "";
+    if( title != null )
+       str1 += "<b>" + title + "</b>";
+    
+    str1 += tttxt;
+    str1 += "<table cellspacing=0 cellpadding=1 border=1>";
+    bit7_val = (value >> 7) & 0x01;
+    bit6_3_val = (value >> 3) & 0x0F;
+    bit6_3_str = ToBitString(bit6_3_val, 4);
+    bit2_val = (value >> 2) & 0x01;
+    bit1_0_val = (value) & 0x03;
+       
+    str1 += "<tr align=center><td><b>Bit</b></td><td><b>Name</b></td><td><b>Value</b></td><td><b>Setting</b></td></tr>";
+    if(!bit7_val)
+      str1 += "<tr><td><font color=#0000FF>Bit 7</font></td><td>System Units</td><td align=center>0</td><td>bits</td></tr>";     
+    else
+      str1 += "<tr><td><font color=#0000FF>Bit 7</font></td><td>System Units</td><td align=center>1</td><td>bytes</td></tr>";     
+      
+    str1 += "<tr><td><font color=#0000FF>Bits 6-3</font></td><td>PIN Position</td><td align=center>" + bit6_3_str + Format("</td><td>%d</td></tr>",bit6_3_val);     
+       
+    if(!bit2_val)
+      str1 += "<tr><td><font color=#0000FF>Bit 2</font></td><td>PIN Justification</td><td align=center>0</td><td>Left</td></tr>";     
+    else
+      str1 += "<tr><td><font color=#0000FF>Bit 2</font></td><td>PIN Justification</td><td align=center>1</td><td>Right</td></tr>";
+     
+    if(bit1_0_val == 0)
+      str1 += "<tr><td><font color=#0000FF>Bits 1-0</font></td><td>PIN Format</td><td align=center>00</td><td>binary</td></tr>";     
+    else if(bit1_0_val == 1)
+      str1 += "<tr><td><font color=#0000FF>Bits 1-0</font></td><td>PIN Format</td><td align=center>01</td><td>BCD</td></tr>";     
+    else if(bit1_0_val == 2)
+      str1 += "<tr><td><font color=#0000FF>Bits 1-0</font></td><td>PIN Format</td><td align=center>10</td><td>ASCII</td></tr>";     
+    else{
+      str1 += "<tr><td><font color=#FF0000>Bits 1-0</font></td><td><font color=#FF0000>PIN Format</font></td><td align=center><font color=#FF0000>11</font></td><td><font color=#FF0000>INVALID</font></td></tr>";
+      errorflag = 1;
+      if(!in.PrepareFldsForDlg)
+        strhead += "<p><font size=6>!!! WARNING !!!\nExpected Bits 1-0 = 00-10b; Found 11b\n</font></p>";
+      else
+        strhead += "!!! WARNING !!!<br>&nbsp&nbspExpected Bits 1-0 = 00-10b; Found 11b<br>&nbsp&nbsp";
+    }
+    
+    str1 = strhead + str1 + "</table></HTML>";
+    if(errorflag){
+      SetCellColor(WarningColor);
+      AddPayLoadCell("FmtStr",Format("0x%02X",value), str1, _ERROR);
+      RestoreCellColor();
+    }
+    else if (SimpleShowItem())
+      AddPayLoadCell("FmtStr",Format("0x%02X",value), str1);
+}
+
+# Helper Functions
+
+SetFieldOffsetLen_CCID( offset, len )
+{
+    RestoreBitCurrentFieldOffset = BitCurrentFieldOffset;
+    RestoreBitCurrentFieldLength = BitCurrentFieldLength;
+    BitCurrentFieldOffset = offset;
+    BitCurrentFieldLength = len;
+}
+
+RestoreFieldOffsetLen_CCID()
+{
+    BitCurrentFieldOffset = RestoreBitCurrentFieldOffset;
+    BitCurrentFieldLength = RestoreBitCurrentFieldLength;
+}  
+
+GetByteStrFld_CCID( len_in_bytes )
+{
+    tmp = "0x";        
+    for(i = 0; i < len_in_bytes; i++) 
+        tmp += Format("%02X", NextNBits_(8));    
+    return tmp;
+}
+
+####################################################################################
+#                       USBTracer specific caption cell                            #
+####################################################################################
+
+AddSpecCaptionCell(caption, text, tooltip, FieldColor, addparam, addparam1, addparam2 )
+{   
+    AddCell(caption, text, tooltip, FieldColor, _USBBULK_HEADER, addparam, addparam1, addparam2 );        
+    return 1;        
+}

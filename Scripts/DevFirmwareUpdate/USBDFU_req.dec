@@ -1,0 +1,463 @@
+ 
+# Copyright (c) 2010, LeCroy Corp PSG. - All Rights Reserved
+ 
+#   DFU.dec
+
+#   Test and Measurement Class Decoder
+ 
+
+%include "CATCScriptAPI.inc"             #.inc files that are included
+%include "UsbCommon.inc" 
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block 
+#
+#----  Output
+# out.Decoded   - amount of data has been decoded
+#
+
+#############################################################################
+#                               View Settings                               #
+#############################################################################
+#
+#-----------------------------------------------------------------------------
+
+set usbDFU_colour = 0xAE8830;
+
+set OutputType      = "USB DeviceFirmwareUpdate";      
+set UsbDecodeType   = "Request";
+set UsbReqType      = "Class";
+set UsbClassCode    = 0xFE;    # Application Specific
+set UsbSubClass     = 0x01;    # USBDFU
+#set UsbProtocol     = 0x02;    # According to USB.Org defined codes
+set UsbScriptDecodeType = 1;   # Combined decoding for Cells and Text decoding 
+#set UsbSpecVersion 	= 0x0002;
+
+
+set bReqType = 0;     #Declaring global variables
+set bRequest = 0;
+set wValue   = 0;
+set wIndex   = 0;
+set wLength  = 0;
+set EntiyId  = 0;
+set AttributeString = "";
+set BaseColor = 0;
+set EntityString = "";
+set FullyDecoded = 1;  # Variable that will determine if request has been fully decoded
+set decoded = 0;
+
+
+set USBDFUBreqest = [
+[0xff,"Rsvd","rsvd",""],
+[0x00, "DFU_DETACH",  "0x00=DFU_DETACH", ""],
+[0x01, "DFU_DOWNLOAD","0x01=DFU_DOWNLOAD.",""],
+[0x02, "DFU_UPLOAD",  "0x02=DFU_UPLOAD",""],
+[0x03, "DFU_GET_STATUS","0x03=DFU_GET_STATUS",""],
+[0x04, "DFU_CLEAR_STATUS","0x04=DFU_CLEAR_STATUS",""],
+[0x05, "DFU_GET_STATE","0x05=DFU_GET_STATE",""],
+[0x06, "DFU_ABORT","0x06=DFU_ABORT",""],
+[0xff,"Rsvd","rsvd",""]
+];
+
+ProcessData()
+{
+    CommonDecoderInit();    
+    
+    UnitDecoderInit("DFU");
+    
+    SetCellColor(usbDFU_colour);
+    
+    AddCaptionCell("DFU","Class","In order to view comments in text field, user must expand this caption cell",_MONOCOLOR);  # will allow for the expansion of certain fields
+    RestoreCellColor();
+    AddSeparator();
+    
+    FullyDecoded = 1;
+    
+    
+    out.Decoded = 0;      
+
+    GetNBits( in.Data, 0, 0 );      #Initialize pointer/counter for NextNBits_()    
+    bReqType_Direction = NextNBits_(1);
+    bReqType_Type = NextNBits_(2);
+    bReqType_recipient = NextNBits_(5);
+
+    bReqType= bReqType_Direction*128 + bReqType_Type*32 + bReqType_recipient;
+
+    select  {
+         bReqType_recipient >= 4: rtext = "Reserved";
+         bReqType_recipient == 0: rtext = "Device";
+         bReqType_recipient == 1: rtext = "Interface";
+         bReqType_recipient == 2: rtext = "Endpoint";
+         bReqType_recipient == 3: rtext = "Other";
+    };
+    tttext="bReqType\nB0-4 Recipient       =" + bReqType_recipient + " - " + rtext;
+
+    select  {
+         bReqType_Type== 0: typetext = "Standard";
+         bReqType_Type== 1: typetext = "Class";
+         bReqType_Type== 2: typetext = "Vendor";
+         bReqType_Type== 3: typetext = "Reserved";
+    };
+    tttext=tttext + "\nB5-6 Type             =" + bReqType_Type + " - " + typetext;
+
+    select  {
+         bReqType_Direction == 0: {dtext = "Host-to-dev"; dtxt="H->D";}
+         bReqType_Direction == 1: {dtext = "Dev-to-Host"; dtxt="D->H";}
+
+    };
+    tttext=tttext + "\nB7 Data tfer direction=" + bReqType_Direction + " - " + dtext;
+
+    if (IsExpanded()) {
+      AddCell("D",dtxt,"Transfer Direction " + dtext,0xa0a0a0);
+      AddCell("Tp",typetext, typetext + " request type",0xB060B0);
+      AddCell("R",rtext, "Recipient is a " + rtext,0x000050);
+    }
+
+    #AddPayLoadCell("bmRequestType", Format("0x%02X", bReqType), tttext);
+    bRequest = NextNBits_(8);
+          #AddPayLoadCell("bmRequest", Format("0x%02X", bRequest ), "Request Type bitmap");
+
+
+        wValue = NextDataWord_();
+        wIndex = NextDataWord_();
+        wLength = NextDataWord_();
+
+
+    _row = Find(USBDFUBreqest, bRequest);  # will determine which request is being used 
+          #AddCell("bmRequest",_row[1],Format("0x%02X",_row[0]));
+    AddRequestCell (_row[1]);
+    
+	decoded = 0;
+    if (bRequest >= 0x00 || bRequest <= 0x06) # CUR and RANGE
+    {
+        Call(_row[1]);  	    		
+    }
+    else
+    {
+        # bRequest that's unknown, so we use standard stuff
+        AddPayLoadCell("wValue", Format("0x%04X", wValue), Format("wValue = 0x%04X", wValue), FieldColor, [_TABULARCELL, CELL_WVALUE, "TEXT_CAPTION"]);
+        AddPayLoadCell("wIndex", Format("0x%04X", wIndex), Format("wIndex = 0x%04X", wIndex));
+        AddPayLoadCell("wLength", Format("%d", wLength), Format("Length of the payload = 0x%04X", wLength));        
+    }
+    out.Decoded = 8 + decoded;
+    
+    ############ for Debug purposes#########
+    # GetNBits(in.Data, 0, 0);             #
+    # ShowDataBlock(in.DataLength);        #
+    ########################################       
+
+    return Complete();
+}
+
+####################################################################################
+# DFU_DETACH      : Detach Request
+#
+# bmRequestType   : 0x21
+# bRequest        : 0x00
+# wValue          : wTimeout
+# wIndex          : Interface
+# wLength         : 0x00
+# Data            : None
+####################################################################################
+# start DFU_DETACH
+
+
+
+####################################################################################
+####################################################################################
+
+
+
+####################################################################################
+####################################################################################
+
+
+
+####################################################################################
+####################################################################################
+# DFU_GET_STATUS  : Get Status Request
+#
+# bmRequestType   : 0xA1
+# bRequest        : 0x03
+# wValue          : 0x0000
+# wIndex          : Interface
+# wLength         : 0x0006
+# Data            : bStatus       ( 1 byte )
+#                   bwPollTimeout ( 3 bytes )
+#                   bState        ( 1 byte )
+#                   iString       ( 1 byte )
+#*******************************************************************************
+# start DFU_GET_STATUS
+
+DFU_GET_STATUS() {
+if (bRequest==0x03) {
+   DataByteHeaderOffset =0;
+   save_endian = LittleEndian;
+   LittleEndian = 1;
+        AddCell("Interface #",wIndex,Format("wIndex holds Interface #%i",wIndex),usbDFU_colour );
+   if (in.DataLength >8) {
+        DFUStat = GetDataByte(8);
+
+    DFU_Status_Text = Format("0x%02X",DFUStat);
+    select {
+ 
+        DFUStat == 0x00: DFU_Status_Text =  "No error condition present";
+        DFUStat == 0x01: DFU_Status_Text =  "File not targeted for this device";
+        DFUStat == 0x02: DFU_Status_Text =  "File fails some vendor specific tests";
+        DFUStat == 0x03: DFU_Status_Text =  "Device is unable to write memory";
+        DFUStat == 0x04: DFU_Status_Text =  "Memory erase function failed";
+        DFUStat == 0x05: DFU_Status_Text =  "Memory erase check failed";
+        DFUStat == 0x06: DFU_Status_Text =  "Program memory function failed";
+        DFUStat == 0x07: DFU_Status_Text =  "Programmed memory failed verification";
+        DFUStat == 0x08: DFU_Status_Text =  "Cannot program memory - address out of range";
+        DFUStat == 0x09: DFU_Status_Text =  "DFU_DNLOAD with length 0 but not done yet";
+        DFUStat == 0x0A: DFU_Status_Text =  "Device firmware is corrupt - stay in DFU";
+        DFUStat == 0x0B: DFU_Status_Text =  "iString indicates a vendor specific error";
+        DFUStat == 0x0C: DFU_Status_Text =  "Unexpected USB reset detected";
+        DFUStat == 0x0D: DFU_Status_Text =  "Unexpected power on reset detected";
+        DFUStat == 0x0E: DFU_Status_Text =  "Unknown error - something went wrong";
+        DFUStat == 0x0F: DFU_Status_Text =  "Device stalled an unexpected request";
+
+    };
+    AddCell("DFU Status",DFU_Status_Text,"DFU Status",usbDFU_colour);
+    decoded++;
+   }
+
+  if (in.DataLength >10) {
+     valTimeout= GetData3Bytes(9);
+      AddCell("Poll TimeOut",valTimeout,"Poll TimeOut",usbDFU_colour);
+    decoded++;
+    decoded++;
+
+    decoded++;
+  }
+
+     vDFUState=GetDataByte(12);
+     select {
+        vDFUState== 0x00: vDFUStateText ="Application Idle";
+        vDFUState== 0x01: vDFUStateText ="Application Detach";
+        vDFUState== 0x02: vDFUStateText ="Dfu Idle";
+        vDFUState== 0x03: vDFUStateText ="Dfu Download Sync";
+        vDFUState== 0x04: vDFUStateText ="Dfu Download Busy";
+        vDFUState== 0x05: vDFUStateText ="Dfu Download Idle";
+        vDFUState== 0x06: vDFUStateText ="Dfu Manifest Sync";
+        vDFUState== 0x07: vDFUStateText ="Dfu Manifest";
+        vDFUState== 0x08: vDFUStateText ="Dfu Manifest Wait Reset";
+        vDFUState== 0x09: vDFUStateText ="Dfu Upload Idle";
+        vDFUState== 0x0A: vDFUStateText ="Dfu Error";
+   
+     };
+      AddCell("DFU State",vDFUStateText ,Format("DFU State %d",vDFUState),usbDFU_colour);
+    decoded++;
+
+  if (in.DataLength >10) {
+     viString=GetDataByte(13);
+      AddCell("iString",Format("value=%d",viString),"iString",usbDFU_colour);
+    decoded++;
+
+   }
+
+
+  }
+  LittleEndian = save_endian;    
+}
+#; end DFU_GET_STATUS
+#
+
+
+
+####################################################################################
+# DFU_UPLOAD      : Upload Request
+#
+# bmRequestType   : 0xA1
+# bRequest        : 0x02
+# wValue          : Progressive Block Number
+# wIndex          : Interface
+# wLength         : Uploaded Data Length
+# Data            : Uploaded Data
+#*******************************************************************************
+DFU_UPLOAD() {
+#Request(0x02)={
+   AddCell("Interface #",wIndex,Format("wIndex holds Interface #%i",wIndex),usbDFU_colour );
+   AddCell("Block #",wValue,Format("wValue holds current Block#%i",wValue),usbDFU_colour );
+   AddCell("Length",wLength,Format("Size of upload in WlEngth#%i",wLength),usbDFU_colour );
+
+}
+# end DFU_UPLOAD
+####################################################################################
+
+
+####################################################################################
+# DFU_DETACH      : Detach Request
+#;
+#; bmRequestType   : 0x21
+#; bRequest        : 0x00
+#; wValue          : wTimeout
+#; wIndex          : Interface
+#; wLength         : 0x00
+#; Data            : None
+#;*******************************************************************************
+DFU_DETACH () {
+#Request(0x00)={
+   AddCell("Interface #",wIndex,Format("wIndex holds Interface #%i",wIndex),usbDFU_colour );
+   AddCell("Timeout",wValue,Format("wValue holds timeout value#%i",wValue),usbDFU_colour );
+    decoded++;
+
+}
+#end DFU_DETACH
+####################################################################################
+
+
+####################################################################################
+# DFU_DOWNLOAD    : Download Request
+#
+# bmRequestType   : 0x21
+# bRequest        : 0x01
+# wValue          : Progressive Block Number
+# wIndex          : Interface
+# wLength         : Downloaded Data Length
+# Data            : Downloaded Data
+#*******************************************************************************
+
+DFU_DOWNLOAD() {
+
+   AddCell("Interface #",wIndex,Format("wIndex holds Interface #%i",wIndex),usbDFU_colour );
+   AddCell("Block #",wValue,Format("wValue holds current Block#%i",wValue),usbDFU_colour );
+   AddCell("Length",wLength,Format("Size of upload in WlEngth#%i",wLength),usbDFU_colour );
+
+}
+
+####################################################################################
+# DFU_CLEAR_STATUS: Clear Status Request
+#
+# bmRequestType   : 0x21
+# bRequest        : 0x04
+# wValue          : 0x0000
+# wIndex          : Interface
+# wLength         : 0x0000
+# Data            : None
+#*******************************************************************************
+DFU_CLEAR_STATUS() {
+#Request(0x04)={
+   AddCell("Interface #",wIndex,Format("wIndex holds Interface #%i",wIndex),usbDFU_colour );
+}
+# end DFU_CLEAR_STATUS
+
+
+#*******************************************************************************
+# DFU_GET_STATE   : Get State Request
+#
+# bmRequestType   : 0xA1
+# bRequest        : 0x05
+# wValue          : 0x0000
+# wIndex          : Interface
+# wLength         : 0x0001
+# Data            : State ( 0x00 - 0x0A )
+#*******************************************************************************
+DFU_GET_STATE() {
+#Request(0x05)={
+   AddCell("Interface #",wIndex,Format("wIndex holds Interface #%i",wIndex),usbDFU_colour );
+    vDFUState = GetNBits(in.Data,8*8,8);
+   vDFUStateText  = Format("Undefined 0x%02X",DFUStat);
+
+     select {
+        vDFUState== 0x00: vDFUStateText ="Application Idle";
+        vDFUState== 0x01: vDFUStateText ="Application Detach";
+        vDFUState== 0x02: vDFUStateText ="Dfu Idle";
+        vDFUState== 0x03: vDFUStateText ="Dfu Download Sync";
+        vDFUState== 0x04: vDFUStateText ="Dfu Download Busy";
+        vDFUState== 0x05: vDFUStateText ="Dfu Download Idle";
+        vDFUState== 0x06: vDFUStateText ="Dfu Manifest Sync";
+        vDFUState== 0x07: vDFUStateText ="Dfu Manifest";
+        vDFUState== 0x08: vDFUStateText ="Dfu Manifest Wait Reset";
+        vDFUState== 0x09: vDFUStateText ="Dfu Upload Idle";
+        vDFUState== 0x0A: vDFUStateText ="Dfu Error";
+   
+     };
+      AddCell("DFU State",vDFUStateText ,Format("DFU State %d",vDFUState),usbDFU_colour);
+    decoded++;
+
+}
+# end DFU_GET_STATE
+
+
+#*******************************************************************************
+# DFU_ABORT       : Abort Request
+#
+# bmRequestType   : 0x21
+# bRequest        : 0x06
+# wValue          : 0x0000
+# wIndex          : Interface
+# wLength         : 0x0000
+# Data            : None
+#*******************************************************************************
+DFU_ABORT() {
+#Request(0x06)={
+   AddCell("Interface #",wIndex,Format("wIndex holds Interface #%i",wIndex),usbDFU_colour );
+
+}
+# end DFU_ABORT
+
+####################################################################################
+
+DecodeRequestToText()
+{
+    return DecodeRequestToTextCommon( AudioCSRequesCodes_v2_Table );    
+}
+
+
+
+####################################################################################
+#                       USBTracer specific caption cell                            #
+####################################################################################
+
+AddSpecCaptionCell(caption, text, tooltip, FieldColor, addparam, addparam1, addparam2 )
+{
+    AddCell(caption, text, tooltip, FieldColor, _USBBULK_HEADER, addparam, addparam1, addparam2 );
+    return 1;
+}
+
+ShowNextBytes() {
+ctr=0;
+abt=NextNBits(8);
+ctr++;
+AddCell(Format("B%d",ctr),Format("0x%02X",abt));
+abt=NextNBits(8);
+ctr++;
+AddCell(Format("B%d",ctr),Format("0x%02X",abt));
+abt=NextNBits(8);
+ctr++;
+AddCell(Format("B%d",ctr),Format("0x%02X",abt));
+abt=NextNBits(8);
+ctr++;
+AddCell(Format("B%d",ctr),Format("0x%02X",abt));
+abt=NextNBits(8);
+ctr++;
+AddCell(Format("B%d",ctr),Format("0x%02X",abt));
+abt=NextNBits(8);
+ctr++;
+AddCell(Format("B%d",ctr),Format("0x%02X",abt));
+abt=NextNBits(8);
+ctr++;
+AddCell(Format("B%d",ctr),Format("0x%02X",abt));
+abt=NextNBits(8);
+ctr++;
+AddCell(Format("B%d",ctr),Format("0x%02X",abt));
+abt=NextNBits(8);
+ctr++;
+AddCell(Format("B%d",ctr),Format("0x%02X",abt));
+abt=NextNBits(8);
+ctr++;
+AddCell(Format("B%d",ctr),Format("0x%02X",abt));
+abt=NextNBits(8);
+ctr++;
+AddCell(Format("B%d",ctr),Format("0x%02X",abt));
+abt=NextNBits(8);
+ctr++;
+AddCell(Format("B%d",ctr),Format("0x%02X",abt));
+abt=NextNBits(8);
+ctr++;
+AddCell(Format("B%d",ctr),Format("0x%02X",abt));
+
+}

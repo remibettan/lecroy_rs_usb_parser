@@ -1,0 +1,1961 @@
+;*******************************************************************************
+;*
+;*  FILENAME: comrequest.req
+;*
+;*  Copyright (C) 1999 Computer Access Technology Corporation
+;*
+;*  DESCRIPTION
+;*    This is the request file for USB Class Definition for Communication Devices. 
+;*    This file is prepared as per the Specification Revision 1.0.
+;*
+;*  REVISION HISTORY
+;*    13MAY99 First created -ag-
+;*    08AUG99 Modified as per Revision 1.1 -ag-
+;*    May00   Added notifications -ag- -mp-
+;*
+;*******************************************************************************
+
+;*******************************************************************************
+; Specify the name for this set of requests as GroupName. This name is listed 
+; under Decode Vendor/Class Request menu depending on the GroupType specified 
+; and the Type field of the request you are trying to decode. 
+;*******************************************************************************
+GroupName=Communication Class
+GroupType=Class
+ClassCode=0x02
+
+DEFINES={
+  Ethernet Statistics Feature Selector Codes
+  0x01=XMIT_OK
+  0x02=RCV_OK
+  0x03=XMIT_ERROR
+  0x04=RCV_ERROR
+  0x05=RCV_NO_BUFFOR
+  0x06=DIRECTED_BYTES_XMIT
+  0x07=DIRECTED_FRAMES_XMIT
+  0x08=MULTICAST_BYTES_XMIT
+  0x09=MULTICAST_FRAMES_XMIT
+  0x0A=BROADCAST_BYTES_XMIT 
+  0x0B=BROADCAST_FRAMES_XMIT
+  0x0C=DIRECTED_BYTES_RCV
+  0x0D=DIRECTED_FRAMES_RCV
+  0x0E=MULTICAST_BYTES_RCV
+  0x0F=MULTICAST_FRAMES_RCV
+  0x10=BROADCAST_BYTES_RCV
+  0x11=BROADCAST_FRAMES_RCV
+  0x12=RCV_CRC_ERROR
+  0x13=TRANSMIT_QUEUE_LENGTH
+  0x14=RCV_ERROR_ALLIGNMENT
+  0x15=XMIT_ONE_COLLISION
+  0x16=XMIT_MORE_COLLISIONS
+  0x17=XMIT_DEFERRED
+  0x18=XMIT_MAX_COLLISIONS
+  0x19=RCV_OVERRUN
+  0x1A=XMIT_UNDERRUN
+  0x1B=XMIT_HEARTBEAT_FAILURE
+  0x1C=XMIT_TIMES_CRS_LOST
+  0x1D=XMIT_LATE_COLLISIONS
+     
+  ATM Device Statistics Feature Selector Codes
+  0x01=US_CELLS_SENT
+  0x02=DS_CELLS_RECEIVED
+  0x03=DS_CELLS_USB_CONGESTION
+  0x04=DS_CELLS_AAL5_CRC_ERROR
+  0x05=DS_CELLS_HEC_ERROR
+  0x06=DS_CELLS_HEC_ERROR_CORRECTED
+}
+
+AllRequests={
+  0x00=SEND_ENCAPSULATED_COMMAND
+  0x01=GET_ENCAPSULATED_RESPONSE
+  0x02=SET_COMM_FEATURE
+  0x03=GET_COMM_FEATURE
+  0x04=CLEAR_COMM_FEATURE
+  0x10=SET_AUX_LINE_STATE
+  0x11=SET_HOOK_STATE
+  0x12=PULSE_SETUP
+  0x13=SEND_PULSE
+  0x14=SET_PULSE_TIME
+  0x15=RING_AUX_JACK
+  0x20=SET_LINE_CODING
+  0x21=GET_LINE_CODING
+  0x22=SET_CONTROL_LINE_STATE
+  0x23=SEND_BREAK
+  0x30=SET_RINGER_PARMS
+  0x31=GET_RINGER_PARMS
+  0x32=SET_OPERATION_PARMS
+  0x33=GET_OPERATION_PARMS
+  0x34=SET_LINE_PARMS
+  0x35=GET_LINE_PARMS
+  0x36=DIAL_DIGITS
+  0x37=SET_UNIT_PARAMETER
+  0x38=GET_UNIT_PARAMETER
+  0x39=CLEAR_UNIT_PARAMETER
+  0x3A=GET_PROFILE
+  0x40=SET_ETHERNET_MULTICAST_FILTERS
+  0x41=SET_ETHERNET_POWER_MANAGEMENT_PATTERN_FILTER
+  0x42=GET_ETHERNET_POWER_MANAGEMENT_PATTERN_FILTER
+  0x43=SET_ETHERNET_PACKET_FILTER
+  0x44=GET_ETHERNET_STATISTIC
+  0x50=SET_ATM_DATAFORMAT
+  0x51=GET_ATM_DEVICE_STATISTICS
+  0x52=SET_ATM_DEFAULT_VC
+  0x53=GET_ATM_VC_STATISTICS
+}
+
+;*******************************************************************************
+; SEND_ENCAPSULATED_COMMAND : 
+;                 This request is used to issue a command in the form of the 
+;                 supported control protocol of the communication class interface
+; bmRequestType : 0x21/0x22
+; bRequest      : 0x00
+; wValue        : 0x0000
+; wIndex        : Interface / Endpoint
+; wLength       : Amount of data in bytes associated with this recipient
+; Data          : Control Protocol-based Command
+;*******************************************************************************
+; start SEND_ENCAPSULATED_COMMAND
+Request(0x00)={
+
+  wIndex={
+    Depends(bmRequestType)={
+      0x21={
+        FormatValue=Interface %d
+      }
+      0x22={
+        FormatValue=Endpoint %d
+      }
+    }
+  }
+
+  Data={
+    Length=?
+    Bytes(0,?)={
+       Name=Control protocol-based Command :
+    }
+  }
+}
+; end SEND_ENCAPSULATED_COMMAND
+
+;*******************************************************************************
+; GET_ENCAPSULATED_RESPONSE : 
+;                 This request is used to request a response in the form of the 
+;                 supported control protocol of the communication class interface
+; bmRequestType : 0xA1/0xA2
+; bRequest      : 0x00
+; wValue        : 0x0000
+; wIndex        : Interface / Endpoint
+; wLength       : Amount of data in bytes associated with this recipient
+; Data          : Protocol Dependent Data
+;*******************************************************************************
+; start GET_ENCAPSULATED_RESPONSE
+Request(0x01)={
+
+  wIndex={ 
+    Depends(bmRequestType)={
+      0xA1={
+        FormatValue=Interface %d
+      }
+      0xA2={
+        FormatValue=Endpoint %d
+      }
+    }
+  }
+
+  Data={
+    Length=?
+    Bytes(0,?)={
+       Name=Control protocol-based Command :
+    }
+  }
+}
+; end GET_ENCAPSULATED_RESPONSE
+
+;*******************************************************************************
+; SET_COMM_FEATURE : This request controls the settings for a particular 
+;                 communication feature of a particular target
+; bmRequestType : 0x21/0x22
+; bRequest      : 0x02
+; wValue        : Feature Selector
+; wIndex        : Interface / Endpoint
+; wLength       : Length of State Data
+; Data          : State
+;*******************************************************************************
+; start SET_COMM_FEATURE & GET_COMM_FEATURE
+Request(0x02)={
+Request(0x03)={
+
+  wValue={   
+    WordValue={
+      0x0000=RESERVED
+      0x0001=ABSTRACT_STATE
+      0x0002=COUNTRY_SETTING
+    }
+    FormatValue=Unknown feature 0x%04X
+  }
+
+  wIndex={
+    Depends(bmRequestType)={
+      0x21={
+        FormatValue=Interface %d
+      }
+      0x22={
+        FormatValue=Endpoint %d
+      }
+    }
+  }
+
+  Data={
+    Depends(wValue)={
+      0x0001={
+        Length=2
+        Bytes(0,1)={
+          Name=Data Multiplexed State and Idle setting
+          Bitmap={
+            0=Endpoints DO NOT accept data
+            1=Command Multiplexing enabled
+          }
+        }
+      }
+      0x0002={
+        Length=2
+        Bytes(0,1)={
+           Name=Country code
+           FormatValue=  0x%04X
+        }
+      }
+    }
+  }
+}
+}
+; end SET_COMM_FEATURE
+
+
+;*******************************************************************************
+; CLEAR_COMM_FEATURE : This request controls the settings for a particular 
+;                 communication feature of a particular target, setting the selected
+;                 feature to its default state
+; bmRequestType : 0x21/0x22
+; bRequest      : 0x04
+; wValue        : Feature Selector
+; wIndex        : Interface / Endpoint
+; wLength       : 0x0000
+; Data          : None
+;*******************************************************************************
+; start CLEAR_COMM_FEATURE
+Request(0x04)={
+
+  wValue={   
+    WordValue={
+      0x0000=RESERVED
+      0x0001=ABSTRACT_STATE
+      0x0002=COUNTRY_SETTING
+    }
+    FormatValue=Unknown feature 0x%04X
+  }
+
+  wIndex={ 
+    Depends(bmRequestType)={
+      0x21={
+        FormatValue=Interface %d
+      }
+      0x22={
+        FormatValue=Endpoint %d
+      }
+    }
+  }
+}
+; end CLEAR_COMM_FEATURE
+
+;*******************************************************************************
+; SET_AUX_LINE_STATE : This request is used to connect or disconnect a secondary 
+;                    jack to PORTS circuit or CODEC, depending on hook state
+; bmRequestType : 0x21/0x22
+; bRequest      : 0x10
+; wValue        : Disconnect/Connect
+; wIndex        : Interface / Endpoint
+; wLength       : 0x0000
+; Data          : None
+;*******************************************************************************
+; start SET_AUX_LINE_STATE
+Request(0x10)={
+
+  wValue={    
+    WordValue={
+      0x0000=Disconnect Secondary jack
+      0x0001=Connect Secondary jack
+    }
+  }
+
+  wIndex={ 
+    Depends(bmRequestType)={
+      0x21={
+        FormatValue=Interface %i
+      }
+      0x22={
+        FormatValue=Endpoint %d
+      }
+    }
+  }
+}
+; end SET_AUX_LINE_STATE
+
+;*******************************************************************************
+; SET_HOOK_STATE : This request is used to set the necessary POTS line relay code
+;                  for on-hook, off-hook, and clear ID states
+; bmRequestType : 0x21/0x22
+; bRequest      : 0x11
+; wValue        : Relay Config
+; wIndex        : Interface / Endpoint
+; wLength       : 0x0000
+; Data          : None
+;*******************************************************************************
+; start SET_HOOK_STATE
+Request(0x11)={
+
+  wValue={    
+    WordValue={
+      0x0000=ON_HOOK 
+      0x0001=OFF_HOOK
+      0x0002=SNOOPING
+    }
+    FormatValue=Unknown hook state 0x%04X
+  }
+
+  wIndex={
+    Depends(bmRequestType)={
+      0x21={
+        FormatValue=Interface %i
+      }
+      0x22={
+        FormatValue=Endpoint %d
+      }
+    }
+  }
+}
+; end SET_HOOK_STATE
+
+;*******************************************************************************
+; PULSE_SETUP   : This request is used to prepare for a pulse-dialing
+; bmRequestType : 0x21/0x22
+; bRequest      : 0x12
+; wValue        : Enable/Disable
+; wIndex        : Interface / Endpoint
+; wLength       : 0x0000
+; Data          : None
+;*******************************************************************************
+; start PULSE_SETUP
+Request(0x12)={
+
+  wValue={
+    WordValue={
+      0xFFFF=Disengage Holdig Circuit
+    }
+    FormatValue=Prepare pulse-dialing cycle
+  }
+  wIndex={ 
+    Depends(bmRequestType)={
+      0x21={
+        FormatValue= Interface is # %i
+      }
+      0x22={
+        FormatValue= Endpoint is %d
+      }
+    }
+  }
+}
+; end PULSE_SETUP
+
+;*******************************************************************************
+; SEND_PULSE    : This request is used to generate a specified number of make/break 
+;                 pulses
+; bmRequestType : 0x21/0x22
+; bRequest      : 0x13
+; wValue        : Cycles
+; wIndex        : Interface / Endpoint
+; wLength       : 0x0000
+; Data          : None
+;*******************************************************************************
+; start SEND_PULSE
+Request(0x13)={
+
+  wValue={
+    FormatValue=%d make/break pulse cycles
+  }
+  wIndex={ 
+    Depends(bmRequestType)={
+      0x21={
+        FormatValue=Interface %d
+      }
+      0x22={
+        FormatValue=Endpoint %d
+      }
+    }
+  }
+}
+; end SEND_PULSE
+
+;*******************************************************************************
+; SET_PULSE_TIME : This request sets the timing of make/break periods for pulse 
+;                  dialing
+; bmRequestType : 0x21/0x22
+; bRequest      : 0x14
+; wValue        : Timing
+; wIndex        : Interface / Endpoint
+; wLength       : 0x0000
+; Data          : None
+;*******************************************************************************
+; start SET_PULSE_TIME
+Request(0x14)={
+
+  wValue={
+    HIBYTE={
+      FormatValue=Break Time %d ms
+    }
+    LOBYTE={
+      FormatValue=Make Time %d ms
+    }
+  }
+
+  wIndex={ 
+    Depends(bmRequestType)={
+      0x21={
+        FormatValue=Interface %i
+      }
+      0x22={
+        FormatValue=Endpoint %d
+      }
+    }
+  }
+}
+; end SET_PULSE_TIME
+
+;*******************************************************************************
+; RING_AUX_JACK : This request is used to generate a ring signal on a secondary 
+;                 phone jack
+; bmRequestType : 0x21/0x22
+; bRequest      : 0x15
+; wValue        : Number of Rings
+; wIndex        : Interface / Endpoint
+; wLength       : 0x0000
+; Data          : None
+;*******************************************************************************
+; start RING_AUX_JACK
+Request(0x15)={
+
+  wValue={
+    FormatValue=%d Rings
+  }
+
+  wIndex={ 
+    Depends(bmRequestType)={
+      0x21={
+        FormatValue=Interface %i
+      }
+      0x22={
+        FormatValue=Endpoint %d
+      }
+    }
+  }
+}
+; end RING_AUX_JACK
+
+;*******************************************************************************
+; SET_LINE_CODING : This request allows the host to specify typical asynchronous
+;                   line-character formatting properties
+; bmRequestType : 0x21/0x22
+; bRequest      : 0x20
+; wValue        : 0x0000
+; wIndex        : Interface / Endpoint
+; wLength       : Size of Structure
+; Data          : Line Coding Structure
+;*******************************************************************************
+; start SET_LINE_CODING & GET_LINE_CODING
+Request(0x20)={
+Request(0x21)={
+
+  wIndex={
+    Depends(bmRequestType)={
+      0x21={
+        FormatValue=Interface %i
+      }
+      0x22={
+        FormatValue=Endpoint %d
+      }
+    }
+  }
+
+  Data={
+    Length=7
+    Bytes(0,3)={
+      Name=Data Terminal rate
+      FormatValue=  %i bits per second
+    }
+    Bytes(4,4)={
+      Name=Stop bits
+      WordValue={
+        0x00=  1 Stop bit
+        0x01=  1.5 Stop bits
+        0x02=  2 Stop bits
+      }
+      FormatValue=  Undefined Number of Stop Bits: %d
+    }
+    Bytes(5,5)={
+      Name=Parity
+      WordValue={
+        0x00=  No Parity
+        0x01=  Odd Parity
+        0x02=  Even Parity
+        0x03=  Mark Parity
+        0x04=  Space Parity
+      }
+      FormatValue=  Undefined parity type %d
+    }
+    Bytes(6,6)={
+      Name=Data bits
+      FormatValue=%d bits
+    }
+  }
+}
+}
+; end SET_LINE_CODING
+
+
+;*******************************************************************************
+; SET_CONTROL_LINE_STATE : 
+;                 This request generates RS-232/V.24 style control signals
+; bmRequestType : 0x21/0x22
+; bRequest      : 0x22
+; wValue        : Control Signal Bitmap
+; wIndex        : Interface / Endpoint
+; wLength       : 0x0000
+; Data          : None
+;*******************************************************************************
+; start SET_CONTROL_LINE_STATE
+Request(0x22)={
+
+  wValue={
+    Name=Control Signal Bitmap
+    Bitmap={
+      0=DTE present
+      1=Activate Carrier
+    }
+  }
+
+  wIndex={
+    Depends(bmRequestType)={
+      0x21={
+        FormatValue=Interface %i
+      }
+      0x22={
+        FormatValue=Endpoint %d
+      }
+    }
+  }
+}
+; end SET_CONTROL_LINE_STATE
+
+;*******************************************************************************
+; SEND_BREAK    : This request sends special carrier modulation that generates 
+;                 RS-232/V.24 style break
+; bmRequestType : 0x21/0x22
+; bRequest      : 0x23
+; wValue        : Duration of break
+; wIndex        : Interface / Endpoint
+; wLength       : 0x0000
+; Data          : None
+;*******************************************************************************
+; start SEND_BREAK
+Request(0x23)={
+
+  wValue={
+    WordValue={
+      0xFFFF=Send until another SendBreak
+      0x0000=Stop sending break
+    }
+    FormatValue=Break for %d ms
+  }
+
+  wIndex={ 
+    Depends(bmRequestType)={
+      0x21={
+        FormatValue=Interface %i
+      }
+      0x22={
+        FormatValue=Endpoint %d
+      }
+    }
+  }
+}
+; end SEND_BREAK
+
+;*******************************************************************************
+; SET_RINGER_PARMS : This request configures the ringer for the communication 
+;                    device, either on a global basis or on a per-line basis 
+;                    for multiple line devices
+; bmRequestType : 0x21/0x22
+; bRequest      : 0x30
+; wValue        : 0x0000
+; wIndex        : Interface / Endpoint
+; wLength       : 0x04
+; Data          : Ringer configuration bitmap
+;*******************************************************************************
+; start SET_RINGER_PARMS & GET_RINGER_PARMS
+Request(0x30)={
+Request(0x31)={
+
+  wIndex={ 
+    Depends(bmRequestType)={
+      0x21={
+        FormatValue=Interface %i
+      }
+      0x22={
+        FormatValue=Endpoint %d
+      }
+    }
+  }
+
+  Data={
+    Length=4
+    Bytes(0,0)={
+      Name=Ringer Pattern Type Selection
+      FormatValue=  0x%02X
+    }
+    Bytes(1,1)={
+      Name=Ringer Volume Setting
+      WordValue={
+          0=  Ringer Volume Off (0)
+        255=  Maximum Ringer Volume (255)
+      }
+      FormatValue=  %d
+    }
+    Bytes(2,2)={
+      Name=Reserved
+      FormatValue=  0x%02X (should be zero)
+    }
+    Bytes(3,3)={
+      Name=Ringer Status
+      Bitmap={
+        7=Ringer Exists
+      }
+    }
+  }
+}
+}
+; end SET_RINGER_PARMS
+
+
+;*******************************************************************************
+; SET_OPERATION_PARMS : 
+;                  This request sets the operational mode for the device, 
+;                  between a simple mode, standalone mode and a host centric mode.
+;                  Standalone mode means no controls from host, host centric mode 
+;                  means all controls from host
+; bmRequestType : 0x21/0x22
+; bRequest      : 0x32
+; wValue        : Operation Mode
+; wIndex        : Interface / Endpoint
+; wLength       : 0x0000
+; Data          : None
+;*******************************************************************************
+; start SET_OPERATION_PARMS
+Request(0x32)={
+
+  wValue={
+    WordValue={
+      0x0000=Simple Mode
+      0x0001=Standalone Mode
+      0x0002=Host Centric Mode
+    }
+    FormatValue=Unknown Operation mode 0x%04X
+  }
+
+  wIndex={ 
+    Depends(bmRequestType)={
+      0x21={
+        FormatValue=Interface %i
+      }
+      0x22={
+        FormatValue=Endpoint %d
+      }
+    }
+  }
+}
+; end SET_OPERATION_PARMS
+
+;*******************************************************************************
+; GET_OPERATION_PARMS : 
+;                  This request gets the operational mode from the device.
+; bmRequestType : 0xA1/0xA2
+; bRequest      : 0x33
+; wValue        : Operation Mode
+; wIndex        : Interface / Endpoint
+; wLength       : 0x0000
+; Data          : Operation Mode
+;*******************************************************************************
+; start GET_OPERATION_PARMS
+Request(0x33)={
+
+  wIndex={ 
+    Depends(bmRequestType)={
+      0x21={
+        FormatValue=Interface %i
+      }
+      0x22={
+        FormatValue=Endpoint %d
+      }
+    }
+  }
+
+  Data={
+    Length=2
+    Bytes(0,1)={
+      Name=Operation mode
+      WordValue={
+        0x0000=Simple Mode
+        0x0001=Standalone Mode
+        0x0002=Host Centric Mode
+      }
+      FormatValue=Unknown Operation mode 0x%04X
+    }
+  }
+}
+; end GET_OPERATION_PARMS
+
+
+;*******************************************************************************
+; SET_LINE_PARMS : This request is used to change the state of the line, 
+;                  corresponding to the interface or master interface of a union 
+;                  to which the command was sent
+; bmRequestType : 0x21/0x22
+; bRequest      : 0x34
+; wValue        : Line State Change
+; wIndex        : Interface / Endpoint
+; wLength       : Length of Data
+; Data          : Data
+;*******************************************************************************
+; start SET_LINE_PARMS
+Request(0x34)={
+
+  wValue={
+    WordValue={
+      0x0000=Drop active call
+      0x0001=Start new call
+      0x0002=Apply ringing
+      0x0003=Remove ringing
+      0x0004=Switch to specific call
+    }
+    FormatValue=Undefined Line State Change Value 0x%04X
+  }
+
+  wIndex={ 
+    Depends(bmRequestType)={
+      0x21={
+        FormatValue=Interface %i
+      }
+      0x22={
+        FormatValue=Endpoint %d
+      }
+    }
+  }
+
+  Data={  
+    Depends(wValue)={
+      0x0004={
+        Length=1
+        Bytes(0,0)={
+          Name=Call Index
+          FormatValue=  0x%02X
+        }
+      }
+    }
+  }
+}
+; end SET_LINE_PARMS
+
+;*******************************************************************************
+; GET_LINE_PARMS : This request is used to report the state of the line, that
+;                  corresponds to the interface or master interface of a union 
+;                  to which the command was sent
+; bmRequestType : 0xA1/0xA2
+; bRequest      : 0x35
+; wValue        : 0x0000
+; wIndex        : Interface / Endpoint
+; wLength       : Size of Structure
+; Data          : Line Status Information Structure
+;*******************************************************************************
+; start GET_LINE_PARMS
+Request(0x35)={
+
+  wIndex={ 
+    Depends(bmRequestType)={
+      0xA1={
+        FormatValue=Interface %i
+      }
+      0xA2={
+        FormatValue=Endpoint %d
+      }
+    }
+  }
+
+  Data={
+    Length=?
+    Bytes(0,1)={
+      Name=Size of the structure
+      FormatValue=  %d bytes
+    }
+    Bytes(2,2)={
+      Name=Ringer pattern type selection
+      FormatValue=  0x%02X
+    }
+    Bytes(3,3)={
+      Name=Ringer Volume Setting
+      FormatValue=  0x%02X
+    }
+    Bytes(4,4)={
+      Name=Reserved
+      FormatValue=  0x%02X
+    }
+    Bytes(5,5)={
+      Name=Ringer Status
+      Bitmap={
+        7=Ringer Exist
+      }
+    }
+    Bytes(6,6)={
+      Name=Line State Bitmap
+      WordValue={
+        0xFF=No call on this line
+      }
+      FormatValue=Index of active call %d
+    }
+    Bytes(7,8)={
+      Name=Reserved
+      FormatValue=  0x%04X
+    }
+    Bytes(9,9)={
+      Name=Active Flag
+      Bitmap={
+        7=Line Active
+      }
+    }
+    Bytes(10,10)={
+      Name=Call State Value
+      WordValue={
+        0x00=Call is idle
+        0x01=Typical dial tone
+        0x02=Interrupted dial tone
+        0x03=Dialing is in progress
+        0x04=Ringback
+        0x05=Connected
+        0x06=Incoming call
+      }
+      FormatValue=Unknown 0x%02X 
+    }
+    Bytes(11,11)={
+      Name=Call State Change Value
+      FormatValue=  0x%02X
+    }
+    Bytes(12,12)={
+      Name=Reserved
+      FormatValue=  0x%02X
+    }
+    Bytes(13,13)={
+      Name=Active Flag
+      Bitmap={
+        7=Call is active
+      }
+    }
+    Bytes(14,?)={
+      Name=Additional line status bytes
+    }
+  }
+}
+; end GET_LINE_PARMS
+
+;*******************************************************************************
+; DIAL_DIGITS   : This request dials the DTMF digits over the specified line
+; bmRequestType : 0x21/0x22
+; bRequest      : 0x36
+; wValue        : Line State Change
+; wIndex        : Interface / Endpoint
+; wLength       : Length of Dialing String
+; Data          : Dialing String
+;*******************************************************************************
+; start DIAL_DIGITS
+Request(0x36)={
+
+  wIndex={ 
+    Depends(bmRequestType)={
+      0x21={
+        FormatValue=Interface %d
+      }
+      0x22={
+        FormatValue=Endpoint %d
+      }
+    }
+  }
+
+  Data={
+    Length=?
+    Bytes(0,?)={
+      FormatValue=Dialing String
+    }   
+  }
+}
+; end DIAL_DIGITS
+
+;*******************************************************************************
+; SET_UNIT_PARAMETER : This request sets the value of a parameter belonging to a 
+;                 Unit identified by Unit Parameter Structure.
+; GET_UNIT_PARAMETER : This request returns the current value of a parameter 
+;                 belonging to a Unit pointed out by a Unit Parameter Structure.
+; bmRequestType : 0x21/0xA1
+; bRequest      : 0x37/0x38
+; wValue        : Unit Parameter Structure
+; wIndex        : Interface
+; wLength       : Length of Unit Parameter
+; Data          : Unit Parameter
+;
+;*******************************************************************************
+; start SET_UNIT_PARAMETER/GET_UNIT_PARAMETER
+Request(0x37)={
+Request(0x38)={
+
+  wValue={
+    HIBYTE={
+      FormatValue=Unit ID 0x%02X,
+    }
+    LOBYTE={
+      FormatValue=Unit Parameter Index 0x%02X
+    }
+  }
+
+  wIndex={ 
+    FormatValue=Interface %i
+  }
+
+  Data={
+    Length=?
+    Bytes(0,?)={
+      FormatValue=Unit Parameter Structure
+    }
+  }
+}
+}
+; end SET_UNIT_PARAMETER/GET_UNIT_PARAMETER
+
+;*******************************************************************************
+; CLEAR_UNIT_PARAMETER : This request restores the default value of a parameter 
+;                 belonging to a Unit identified by Unit Parameter Structure.
+; bmRequestType : 0x21
+; bRequest      : 0x39
+; wValue        : Unit Parameter Structure
+; wIndex        : Interface
+; wLength       : 0x00
+; Data          : None
+;*******************************************************************************
+; start CLEAR_UNIT_PARAMETER
+Request(0x39)={
+
+  wValue={
+    HIBYTE={
+      FormatValue=Unit ID 0x%02X,
+    }
+    LOBYTE={
+      FormatValue=Unit Parameter Index 0x%02X
+    }
+  }
+
+  wIndex={ 
+    FormatValue=Interface %i
+  }
+}
+; end CLEAR_UNIT_PARAMETER
+
+;*******************************************************************************
+; GET_PROFILE   : This request returns the profile information as defined by CAPI2.0.
+;                 The profile describes the implemented capabilities of the device.
+; bmRequestType : 0xA1
+; bRequest      : 0x3A
+; wValue        : 0x00
+; wIndex        : Interface
+; wLength       : 64
+; Data          : Profile Information according to CAPI2.0 chapter8
+;*******************************************************************************
+; start GET_PROFILE
+Request(0x3A)={
+
+  wIndex={ 
+    FormatValue=Interface %i
+  }
+
+  Data={  
+    Length=?
+    Bytes(0,?)={
+      FormatValue=Profile Information according to CAPI2.0
+    }   
+  }  
+}
+; end GET_PROFILE
+
+;*******************************************************************************
+; SET_ETHERNET_MULTICAST_FILTERS : 
+;                 This request sets the Ethernet Device multicast filters as 
+;                 specified in the sequential list of 48 bit Ethernet multicast address.
+; bmRequestType : 0x21
+; bRequest      : 0x40
+; wValue        : Number of Filters(N)
+; wIndex        : Interface
+; wLength       : N*6
+; Data          : List of N 48bit multicast addresses, in network byte order
+;*******************************************************************************
+; start SET_ETHERNET_MULTICAST_FILTERS
+Request(0x40)={
+
+  wValue={
+    FormatValue=%d Filters
+  }
+  wIndex={ 
+    FormatValue=Interface %i
+  }
+
+  Data={
+    Length=?
+    Bytes(0,?)={
+      FormatValue=List of N 48bit Multicast addresses, in network byte order
+    }   
+  }
+}
+; end SET_ETHERNET_MULTICAST_FILTERS
+
+;*******************************************************************************
+; SET_ETHERNET_POWER_MANAGEMENT_PATTERN_FILTERS : 
+;                 This request sets up the specified Ethernet power management 
+;                 pattern filter as described in the data structure.
+; bmRequestType : 0x21
+; bRequest      : 0x41
+; wValue        : Filter Number
+; wIndex        : Interface
+; wLength       : Size of Structure
+; Data          : Power management pattern filter structure
+;*******************************************************************************
+; start SET_ETHERNET_POWER_MANAGEMENT_PATTERN_FILTERS
+Request(0x41)={
+
+  wValue={
+    FormatValue=Filter Number %i
+  }
+
+  wIndex={ 
+    FormatValue=Interface %i
+  }
+
+  Data={
+    Length=?
+    Bytes(0,1)={
+      Name=Size of the mask
+      FormatValue=  %d bytes
+    }
+    Bytes(2,?)={
+       Name=The string of bytes to perform pattern matching 
+    }    
+  }
+}
+; end SET_ETHERNET_POWER_MANAGEMENT_PATTERN_FILTERS
+
+;*******************************************************************************
+; GET_ETHERNET_POWER_MANAGEMENT_PATTERN_FILTERS : 
+;                 This request retrieves the status of the specified Ethernet 
+;                 power management pattern filter from the device.
+; bmRequestType : 0xA1
+; bRequest      : 0x42
+; wValue        : Filter Number
+; wIndex        : Interface
+; wLength       : 0x02
+; Data          : Patteren active boolean
+;*******************************************************************************
+; start GET_ETHERNET_POWER_MANAGEMENT_PATTERN_FILTERS
+Request(0x42)={
+
+  wValue={
+    FormatValue=Filter Number %i
+  }
+
+  wIndex={ 
+    FormatValue=Interface %i
+  }
+
+  Data={
+    Length=2
+    Bytes(0,1)={
+      Name=Pattern active
+      WordValue={
+        0x0000=  Device doesn't have an active pattern for the filter
+        0x0001=  Device has an active pattern set for the filter
+      }
+      FormatValue=  Undefined ( 0x%04X )
+    }
+  }
+}
+; end GET_ETHERNET_POWER_MANAGEMENT_PATTERN_FILTERS
+
+;*******************************************************************************
+; SET_ETHERNET_PACKET_FILTER : This request is used to configure device packet 
+;                 filter settings.
+; bmRequestType : 0x21
+; bRequest      : 0x43
+; wValue        : Packet Filter Bitmap
+; wIndex        : Interface
+; wLength       : 0x00
+; Data          : None
+;*******************************************************************************
+; start SET_ETHERNET_PACKET_FILTER
+Request(0x43)={
+
+  wValue={    
+    Name=Packet Filter Bitmap
+    Bitmap={
+      0=PACKET_TYPE_PROMISCUOUS
+      1=PACKET_TYPE_ALL_MULTICAST
+      2=PACKET_TYPE_DIRECTED
+      3=PACKET_TYPE_BROADCAST
+      4=PACKET_TYPE_MULTICAST
+    }
+  }
+
+  wIndex={ 
+    FormatValue=Interface %i
+  }  
+}
+; end SET_ETHERNET_PACKET_FILTER
+
+;*******************************************************************************
+; GET_ETHERNET_STATISTIC : 
+;                 This request is used to retrieve a statistic based on the 
+;                 feature selector.
+; bmRequestType : 0xA1
+; bRequest      : 0x44
+; wValue        : Feature Selector
+; wIndex        : Interface
+; wLength       : 0x04
+; Data          : 32 bit unsigned integer
+;*******************************************************************************
+; start GET_ETHERNET_STATISTIC
+Request(0x44)={
+
+  wValue={
+    WordValue={
+      XMIT_OK    =  Feature Selector is XMIT_OK
+      RCV_OK     =  Feature Selector is RCV_OK
+      XMIT_ERROR =  Feature Selector is XMIT_ERROR
+      RCV_ERROR  =  Feature Selector is RCV_ERROR
+      RCV_NO_BUFFOR         =  Feature Selector is RCV_NO_BUFFOR
+      DIRECTED_BYTES_XMIT   =  Feature Selector is DIRECTED_BYTES_XMIT
+      DIRECTED_FRAMES_XMIT  =  Feature Selector is DIRECTED_FRAMES_XMIT
+      MULTICAST_BYTES_XMIT  =  Feature Selector is MULTICAST_BYTES_XMIT
+      MULTICAST_FRAMES_XMIT =  Feature Selector is MULTICAST_FRAMES_XMIT
+      BROADCAST_BYTES_XMIT  =  Feature Selector is BROADCAST_BYTES_XMIT
+      BROADCAST_FRAMES_XMIT =  Feature Selector is BROADCAST_FRAMES_XMIT
+      DIRECTED_BYTES_RCV   =  Feature Selector is DIRECTED_BYTES_RCV
+      DIRECTED_FRAMES_RCV  =  Feature Selector is DIRECTED_FRAMES_RCV
+      MULTICAST_BYTES_RCV  =  Feature Selector is MULTICAST_BYTES_RCV
+      MULTICAST_FRAMES_RCV =  Feature Selector is MULTICAST_FRAMES_RCV
+      BROADCAST_BYTES_RCV  =  Feature Selector is BROADCAST_BYTES_RCV
+      BROADCAST_FRAMES_RCV =  Feature Selector is BROADCAST_FRAMES_RCV
+      RCV_CRC_ERROR        =  Feature Selector is RCV_CRC_ERROR
+      TRANSMIT_QUEUE_LENGTH =  Feature Selector is TRANSMIT_QUEUE_LENGTH
+      RCV_ERROR_ALLIGNMENT =  Feature Selector is RCV_ERROR_ALLIGNMENT
+      XMIT_ONE_COLLISION   =  Feature Selector is XMIT_ONE_COLLISION
+      XMIT_MORE_COLLISIONS =  Feature Selector is XMIT_MORE_COLLISIONS
+      XMIT_DEFERRED        =  Feature Selector is XMIT_DEFERRED
+      XMIT_MAX_COLLISIONS  =  Feature Selector is XMIT_MAX_COLLISIONS
+      RCV_OVERRUN          =  Feature Selector is RCV_OVERRUN
+      XMIT_UNDERRUN        =  Feature Selector is XMIT_UNDERRUN
+      XMIT_HEARTBEAT_FAILURE =  Feature Selector is XMIT_HEARTBEAT_FAILURE
+      XMIT_TIMES_CRS_LOST   =  Feature Selector is XMIT_TIMES_CRS_LOST
+      XMIT_LATE_COLLISIONS  =  Feature Selector is XMIT_LATE_COLLISIONS
+    }
+  }
+
+  wIndex={ 
+    FormatValue=Interface %i
+  }
+
+  Data={
+    Depends(wValue)={
+      XMIT_OK={
+        Length=4
+        Bytes(0,3)={
+          Name=Frames transmitted without errors 
+          FormatValue=  %i
+        }
+      }         
+      RCV_OK={
+        Length=4
+        Bytes(0,3)={
+          Name=Frames received without errors
+          FormatValue=  %i
+        }
+      }      
+      XMIT_ERROR={
+        Length=4
+        Bytes(0,3)={
+          Name=Frames not transmitted, or transmitted with errors 
+          FormatValue=  %i
+        }
+      }      
+      RCV_ERROR={
+        Length=4
+        Bytes(0,3)={
+          Name=Frames received with errors
+          FormatValue=  %i
+        }
+      }      
+      RCV_NO_BUFFOR={
+        Length=4
+        Bytes(0,3)={
+          Name=Frames missed, no buffers
+          FormatValue=  %i
+        }
+      }      
+      DIRECTED_BYTES_XMIT={
+        Length=4
+        Bytes(0,3)={
+          Name=Direct bytes transmitted without errors
+          FormatValue=  %i
+        }
+      }      
+      DIRECTED_FRAMES_XMIT={
+        Length=4
+        Bytes(0,3)={
+          Name=Direct frames transmitted without errors
+          FormatValue=  %i
+        }
+      }      
+      MULTICAST_BYTES_XMIT={
+        Length=4
+        Bytes(0,3)={
+          Name=Multicast bytes transmitted without errors
+          FormatValue=  %i
+        }
+      }      
+      MULTICAST_FRAMES_XMIT={
+        Length=4
+        Bytes(0,3)={
+          Name=Multicast frames transmitted without errors
+          FormatValue=  %i
+        }
+      }      
+      BROADCAST_BYTES_XMIT={
+        Length=4
+        Bytes(0,3)={
+          Name=Broadcast bytes transmitted without errors
+          FormatValue=  %i
+        }
+      }       
+      BROADCAST_FRAMES_XMIT={
+        Length=4
+        Bytes(0,3)={
+          Name=Broadcast frames transmitted without errors
+          FormatValue=  %i
+        }
+      }      
+      DIRECTED_BYTES_RCV={
+        Length=4
+        Bytes(0,3)={
+          Name=Direct bytes received without errors
+          FormatValue=  %i
+        }
+      }      
+      DIRECTED_FRAMES_RCV={
+        Length=4
+        Bytes(0,3)={
+          Name=Direct frames received without errors
+          FormatValue=  %i
+        }
+      }      
+      MULTICAST_BYTES_RCV={
+        Length=4
+        Bytes(0,3)={
+          Name=Multicast bytes received without errors
+          FormatValue=  %i
+        }
+      }      
+      MULTICAST_FRAMES_RCV={
+        Length=4
+        Bytes(0,3)={
+          Name=Multicast frames received without errors
+          FormatValue=  %i
+        }
+      }      
+      BROADCAST_BYTES_RCV={
+        Length=4
+        Bytes(0,3)={
+          Name=Broadcast bytes received without errors
+          FormatValue=  %i
+        }
+      }      
+      BROADCAST_FRAMES_RCV={
+        Length=4
+        Bytes(0,3)={
+          Name=Broadcast frames received without errors
+          FormatValue=  %i
+        }
+      }      
+      RCV_CRC_ERROR={
+        Length=4
+        Bytes(0,3)={
+          Name=Frames received with Cyclic Redundancy Check(CRC) or Frame check sequence(FCS)
+          FormatValue=  %i
+        }
+      }      
+      TRANSMIT_QUEUE_LENGTH={
+        Length=4
+        Bytes(0,3)={
+          Name=Length of transmit queue
+          FormatValue=  %i
+        }
+      }      
+      RCV_ERROR_ALLIGNMENT={
+        Length=4
+        Bytes(0,3)={
+          Name=Frames received with alignment error
+          FormatValue=  %i
+        }
+      }      
+      XMIT_ONE_COLLISION={
+        Length=4
+        Bytes(0,3)={
+          Name=Frames transmitted with one collision
+          FormatValue=  %i
+        }
+      }      
+      XMIT_MORE_COLLISIONS={
+        Length=4
+        Bytes(0,3)={
+          Name=Frames transmitted with more than one collision
+          FormatValue=  %i
+        }
+      }      
+      XMIT_DEFERRED={
+        Length=4
+        Bytes(0,3)={
+          Name=Frames transmitted after deferral
+          FormatValue=  %i
+        }
+      }      
+      XMIT_MAX_COLLISIONS={
+        Length=4
+        Bytes(0,3)={
+          Name=Frames not transmitted due to collisions
+          FormatValue=  %i
+        }
+      }      
+      RCV_OVERRUN={
+        Length=4
+        Bytes(0,3)={
+          Name=Frames not received due to overrun
+          FormatValue=  %i
+        }
+      }      
+      XMIT_UNDERRUN={
+        Length=4
+        Bytes(0,3)={
+          Name=Frames not transmitted due to underrun
+          FormatValue=  %i
+        }
+      }      
+      XMIT_HEARTBEAT_FAILURE={
+        Length=4
+        Bytes(0,3)={
+          Name=Frames transmitted with heartbeat failure
+          FormatValue=  %i
+        }
+      }      
+      XMIT_TIMES_CRS_LOST={
+        Length=4
+        Bytes(0,3)={
+          Name=The carrier sense signal lost during transmission
+          FormatValue=  %i
+        }
+      }      
+      XMIT_LATE_COLLISIONS={
+        Length=4
+        Bytes(0,3)={
+          Name=Late collision detected
+          FormatValue=  %i
+        }
+      }
+    }
+  }
+}
+; end GET_ETHERNET_STATISTIC
+
+;*******************************************************************************
+; SET_ATM_DATAFORMAT : This request is used to set the data format selected by 
+;                 the host in the wValue field.
+; bmRequestType : 0x21
+; bRequest      : 0x50
+; wValue        : Data Format
+; wIndex        : Interface
+; wLength       : 0x00
+; Data          : None
+;*******************************************************************************
+; start SET_ATM_DATAFORMAT
+Request(0x50)={
+
+  wValue={    
+    WordValue={
+      0x0001=Type 1 Format:concatenated ATM cells
+      0x0002=Type 2 Format:ATM Header template + concatenated ATM cell payloads
+      0x0003=Type 3 Format:AAL 5 SDU
+    }
+  }
+
+  wIndex={ 
+    FormatValue=Interface %i
+  }  
+}
+; end SET_ATM_DATAFORMAT
+
+;*******************************************************************************
+; GET_ATM_DEVICE_STATISTICS : This request is used to retrieve the device 
+;                 statistics based on the feature selector.
+; bmRequestType : 0xA1
+; bRequest      : 0x51
+; wValue        : Feature Selector
+; wIndex        : Interface
+; wLength       : 0x04
+; Data          : 32 bit unsigned integer
+;*******************************************************************************
+; start GET_ATM_DEVICE_STATISTICS
+Request(0x51)={
+
+  wValue={    
+    WordValue={
+      US_CELLS_SENT           =  Feature Selector is US_CELLS_SENT
+      DS_CELLS_RECEIVED       =  Feature Selector is DS_CELLS_RECEIVED
+      DS_CELLS_USB_CONGESTION =  Feature Selector is DS_CELLS_USB_CONGESTION
+      DS_CELLS_AAL5_CRC_ERROR =  Feature Selector is DS_CELLS_AAL5_CRC_ERROR
+      DS_CELLS_HEC_ERROR      =  Feature Selector is DS_CELLS_HEC_ERROR
+      DS_CELLS_HEC_ERROR_CORRECTED =  Feature Selector is DS_CELLS_HEC_ERROR_CORRECTED
+    }
+  }
+
+  wIndex={ 
+    FormatValue=Interface %i
+  }  
+
+  Data={
+    Depends(wValue)={
+      US_CELLS_SENT={
+        Length=4
+        Bytes(0,3)={
+          Name=No.of cells sent upstream to the WAN link by the ATM layer
+          FormatValue=  %i
+        }
+      }         
+      DS_CELLS_RECEIVED={
+        Length=4
+        Bytes(0,3)={
+          Name=No.of cells received downstream from the WAN link by the ATM layer
+          FormatValue=  %i
+        }
+      }      
+      DS_CELLS_USB_CONGESTION={
+        Length=4
+        Bytes(0,3)={
+          Name=No.of cells received and discarded due to congestion on USB link
+          FormatValue=  %i
+        }
+      }      
+      DS_CELLS_AAL5_CRC_ERROR={
+        Length=4
+        Bytes(0,3)={
+          Name=No.of cells received and discarded due to AAL5 CRC error
+          FormatValue=  %i
+        }
+      }      
+      DS_CELLS_HEC_ERROR={
+        Length=4
+        Bytes(0,3)={
+          Name=No.of cells received and discarded due to HEC errors in the cell header
+          FormatValue=  %i
+        }
+      }      
+      DS_CELLS_HEC_ERROR_CORRECTED={
+        Length=4
+        Bytes(0,3)={
+          Name=No.of cells received with HEC errors in the cell header and successfully corrected
+          FormatValue=  %i
+        }
+      }      
+    }
+  }
+}
+; end GET_ATM_DEVICE_STATISTICS
+
+;*******************************************************************************
+; SET_ATM_DEFAULT_VC : This request is used to pre-select the VPI/VCI value for 
+;                 subsequent GET_ATM_VC_STATISTICS requests.
+; bmRequestType : 0x21
+; bRequest      : 0x52
+; wValue        : 0x00
+; wIndex        : Interface
+; wLength       : 0x03
+; Data          : 1-byte VPI followed by 2-byte VCI value
+;*******************************************************************************
+; start SET_ATM_DEFAULT_VC
+Request(0x52)={
+
+  wIndex={ 
+    FormatValue=Interface %i
+  }  
+
+  Data={
+    Length=3
+    Bytes(0,0)={
+       Name=VPI value
+       FormatValue=  0x%02X
+    }
+    Bytes(1,2)={
+       Name=VCI value
+       FormatValue=  0x%04X
+    }
+  }
+}
+; end SET_ATM_DEFAULT_VC
+
+;*******************************************************************************
+; GET_ATM_VC_STATISTICS : This request is used to retrieve the ATM device statistics 
+;                 based on the feature selector for a pre-selected VPI/VCI as
+;                 stipulated in the latest preceding SET_ATM_DEFAULT_VC request.
+; bmRequestType : 0xA1
+; bRequest      : 0x53
+; wValue        : Feature Selector
+; wIndex        : Interface
+; wLength       : 0x04
+; Data          : 32 bit unsigned integer
+;*******************************************************************************
+; start GET_ATM_VC_STATISTICS
+Request(0x53)={
+
+  wValue={    
+    WordValue={
+      VC_US_CELLS_SENT=VC_US_CELLS_SENT
+      VC_DS_CELLS_RECEIVED=VC_DS_CELLS_RECEIVED
+    }
+    FormatValue=Undefined Feature Selector 0x%04X
+  }
+
+  wIndex={ 
+    FormatValue=Interface %i
+  }  
+
+  Data={
+    Depends(wValue)={
+      US_CELLS_SENT={
+        Length=4
+        Bytes(0,3)={
+          Name=No.of cells sent upstream to the WAN link for the specified VPI/VCI
+          FormatValue=  %i
+        }
+      }         
+      DS_CELLS_RECEIVED={
+        Length=4
+        Bytes(0,3)={
+          Name=No.of cells received downstream from the WAN link for the specified VPI/VCI
+          FormatValue=  %i
+        }
+      }
+    }
+  }
+}
+; end GET_ATM_VC_STATISTICS
+
+;***************************************************************************
+;                 Communication Interface Class Notifications
+; Device uses these to notify the host of interface or endpoint events
+;***************************************************************************
+
+EndpointData={
+; Global definitions
+  Caption=Communication Class Notification
+  
+  EndpointDirection=IN
+  MaxPacketSize=16
+  MaxTransferSize=3573
+    
+  Data={
+
+    Length=?
+
+    ;bmRequestType 
+    Bytes(0,0)={
+     Name=bmRequestType
+     FormatValue=  0x%02X
+    }
+    
+    Bytes(1,1)={
+      Name=Notification Code
+      WordValue={
+       0x00=  NETWORK_CONNECTION
+       0x01=  RESPONSE_AVAILABLE
+       0x08=  AUX_JACK_HOOK_STATE
+       0x09=  RING_DETECT
+       0x20=  SERIAL_STATE
+       0x28=  CALL_STATE_CHANGE
+       0x29=  LINE_STATE_CHANGE
+       0x2A=  CONNECTION_SPEED_CHANGE
+      }
+      FormatValue=  0x%02X (bRequest not defined by the spec)
+    }
+    
+    Depends(Databytes(1,1))={
+
+      ;*******************************************************************************
+      ; NETWORK_CONNECTION : 
+      ;                 This notification allows the device to notify the host about 
+      ;                 network connection status
+      ; bmRequestType : 0xA1
+      ; bRequest      : 0x00
+      ; wValue        : 0x0000
+      ; wIndex        : Interface
+      ; wLength       : 0x0000
+      ; Data          : None
+      ;*******************************************************************************
+      ; start NETWORK_CONNECTION
+
+      0x00={
+        Bytes(2,3)={
+          Name=wValue - Connection Status 
+          WordValue={
+            0x00=  Disconnected from Network 
+            0x01=  Connected to the Network
+          }
+          FormatValue=  0x%04X
+        }
+        Bytes(4,5)={
+          Name=wIndex
+          FormatValue=  Interface # %i
+        }
+        Bytes(6,7)={
+          Name=wLength
+          WordValue={
+            0x00=  No parameters
+          }
+          FormatValue=  %d bytes of parameters
+        }
+      }
+      ; end NETWORK_CONNECTION
+
+     ;*******************************************************************************
+     ; RESPONSE_AVAILABLE : This notification allows the device to notify the host 
+     ;                      that a response is available. This response can be retrieved 
+     ;                      with a subsequent GetEncapsulated Response request
+     ; bmRequestType : 0xA1
+     ; bRequest      : 0x01
+     ; wValue        : 0x0000
+     ; wIndex        : Interface
+     ; wLength       : 0x0000
+     ; Data          : None
+     ;*******************************************************************************
+     ; start RESPONSE_AVAILABLE
+
+      0x01={
+        Bytes(2,3)={
+          Name=wValue
+          FormatValue=  Response is available 0x%04X
+        }
+        Bytes(4,5)={
+          Name=wIndex
+          FormatValue=  Interface is # %i
+        }
+        Bytes(6,7)={
+          Name=wLength
+          WordValue={
+            0x00=  No parameters
+          }
+          FormatValue=  %d bytes of parameters
+        }
+      }
+      ; end RESPONSE_AVAILABLE
+      
+      ;*******************************************************************************
+      ; AUX_JACK_HOOK_STATE : 
+      ;                 This notification indicates the loop has changed on the 
+      ;                 auxilary phone interface of the USB device.
+      ; bmRequestType : 0xA1
+      ; bRequest      : 0x08
+      ; wValue        : On Hook/Off Hook
+      ; wIndex        : Interface
+      ; wLength       : 0x0000
+      ; Data          : None
+      ;*******************************************************************************
+      ; start AUX_JACK_HOOK_STATE
+
+      0x08={
+        Bytes(2,3)={
+          Name=wValue - Loop has changed on the auxilary phone interface
+          WordValue={
+            0x00=  Status : On hook 
+            0x01=  Status : Off hook 
+          }
+          FormatValue= 0x%04X
+        }
+        Bytes(4,5)={
+          Name=wIndex
+          FormatValue=  Interface is # %i
+        }
+        Bytes(6,7)={
+          Name=wLength
+          WordValue={
+            0x00=  No parameters
+          }
+          FormatValue=  %d bytes of parameters
+        }
+      }
+      ; end AUX_JACK_HOOK_STATE
+      
+      ;*******************************************************************************
+      ; RING_DETECT   : This notification indicates ring voltage on the POTS line 
+      ;                 interface of the USB device
+      ; bmRequestType : 0xA1
+      ; bRequest      : 0x09
+      ; wValue        : 0x0000
+      ; wIndex        : Interface
+      ; wLength       : 0x0000
+      ; Data          : None
+      ;*******************************************************************************
+      ; start RING_DETECT
+
+      0x09={
+        Bytes(2,3)={
+          Name=wValue
+          FormatValue=  Notification of the Ring voltage on the POTS line interface of the USB device 0x%04X
+        }
+        Bytes(4,5)={
+          Name=wIndex
+          FormatValue=  Interface is # %i
+        }
+        Bytes(6,7)={
+          Name=wLength
+          WordValue={
+            0x00=  No parameters
+          }
+          FormatValue=  %d bytes of parameters
+        }
+      }        
+      ; end RING_DETECT
+      
+      ;*******************************************************************************
+      ; SERIAL_STATE  : This notification sends asynchronous notification of UART status
+      ; bmRequestType : 0xA1
+      ; bRequest      : 0x20
+      ; wValue        : 0x0000
+      ; wIndex        : Interface
+      ; wLength       : 0x02
+      ; Data          : UART State bitmap
+      ;*******************************************************************************
+      ; start SERIAL_STATE
+
+      0x20={
+        Bytes(2,3)={
+          Name=wValue
+          FormatValue=  0x%04X
+        }
+        Bytes(4,5)={
+          Name=wIndex
+          FormatValue=  Interface is # %i
+        }
+        Bytes(6,7)={
+          Name=wLength
+          WordValue={
+            0x00=  No parameters
+          }
+          FormatValue=  %d bytes of parameters
+        }      
+        Bytes(8,9)={           
+           FormatValue= UART State Bitmap Values 0x%04X
+           Endian=Little
+           Bitmap={
+             0=bRxCarrier(Receiver carrier detection mechanism)
+             1=bTxCarrier(State of Transmission carrier)
+             2=bBreak(Break detection mechanism)
+             3=bRingSignal(Ring signal detection mechanism)
+             4=bFraming(A Framing error occured)
+             5=bParity(A Parity error occured)
+             6=bOverRun(Overrun occured)
+           }
+         }
+      }
+      ; end SERIAL_STATE
+
+      ;*******************************************************************************
+      ; CALL_STATE_CHANGE : This notification indicates a changed has occured to the 
+      ;                 state of a call on the line corresponding to the interface or 
+      ;                 union for the line
+      ; bmRequestType : 0xA1
+      ; bRequest      : 0x28
+      ; wValue        : Call Index and Call change state value
+      ; wIndex        : Interface
+      ; wLength       : Length of Data
+      ; Data          : Additional Information for call state change
+      ;*******************************************************************************
+      ; start CALL_STATE_CHANGE
+      0x28={
+        Bytes(2,2)={
+          Name=wValue 
+          FormatValue=  Call Index is 0x%02X
+        }
+        Bytes(3,3)={
+          Name=  Call State Change Value
+          WordValue={
+            0x00=  Reserved
+            0x01=  Call has become idle
+            0x02=  Dialing
+            0x03=  Ring Back
+            0x04=  Connected
+            0x05=  Incoming Call
+          }
+        }
+        Bytes(4,5)={
+          Name=wIndex
+          FormatValue=  Interface is # %i
+        }
+        Bytes(6,7)={
+          Name=wLength
+          WordValue={
+            0x00=  No parameters
+          }
+          FormatValue=  %d bytes of parameters
+        }      
+        Depends(Databytes(3,3))={
+          0x03={
+            Bytes(8,8)={
+              Name= Type of Ringback signalling is 
+              WordValue={
+                0x00=  Normal
+                0x01=  busy
+                0x02=  fast busy
+                0xff=  Unknown Ring back type
+              }
+              FormatValue=  Reserved for future use 0x%02X
+            }
+          }
+          0x04={
+            Bytes(8,8)={
+              Name= Type of connection:
+              WordValue={
+                0x00=  Voice Connection
+                0x01=  Answering Machine Connection
+                0x02=  Fax Machine Connection
+                0x03=  Data Modem Connection
+                0xff=  Unknown Connection Type
+              }
+              FormatValue=  Reserved for future use 0x%02X
+            }
+          }
+          0x05={
+            Bytes(8,8)={
+              Name= The Ringing Pattern present is 
+              WordValue={
+                0x00=  Ringing Pattern 1 (default/normal)
+                0x01=  Ringing Pattern 2
+                0x02=  Ringing Pattern 3
+                0x03=  Ringing Pattern 4
+              }
+              FormatValue=  Reserved for future use 0x%02X
+            }
+            Bytes(9,9)={
+              Name= Size of the String (next n bytes)
+              FormatValue=  Time of the incoming call as delivered via Caller ID 0x%02X
+            }
+          }
+        }
+      }
+      ; end CALL_STATE_CHANGE
+
+      ;*******************************************************************************
+      ; LINE_STATE_CHANGE : This notification identifies that a change has occured to 
+      ;                 the state of the line corresponding to the interface or 
+      ;                 master interface of an union sending the notification message
+      ; bmRequestType : 0xA1
+      ; bRequest      : 0x29
+      ; wValue        : Line State Change Values
+      ; wIndex        : Interface
+      ; wLength       : Length of Data
+      ; Data          : Line State structure
+      ;*******************************************************************************
+      ; start LINE_STATE_CHANGE
+      0x29={
+        Bytes(2,3)={
+         Name=wValue
+         FormatValue=  Value is 0x%02X
+        }
+        Bytes(4,5)={
+          Name=wIndex
+          FormatValue=  Interface is # %i
+        }
+        Bytes(6,7)={
+          Name=wLength
+          WordValue={
+            0x00=  No parameters
+          }
+          FormatValue=  %d bytes of parameters
+        }      
+        Bytes(8,9)={
+         Name= Line State Change
+         WordValue={
+          0x0000= Line has become idle
+          0x0001= Line connected to hold position
+          0x0008= Hook-Switch has gone off hook
+          0x0009= Hook-Switch has gone on hook
+         }
+         FormatValue=  0x%02X
+        }        
+      }     
+      ; end LINE_STATE_CHANGE
+
+      ;*******************************************************************************
+      ; CONNECTION_SPEED_CHANGE : This notification allows the device to inform the 
+      ;                 host-networking deriver that a change in either the upstream 
+      ;                 or the downstream bit rate of the connection has occured.
+      ; bmRequestType : 0xA1
+      ; bRequest      : 0x2A
+      ; wValue        : 0x00
+      ; wIndex        : Interface
+      ; wLength       : 0x08
+      ; Data          : Connection Speed Change Data Structure
+      ;*******************************************************************************
+      ; start CONNECTION_SPEED_CHANGE
+      0x2A={
+        Bytes(2,3)={
+         Name=wValue
+         FormatValue=  0x%02X
+        }
+        Bytes(4,5)={
+          Name=wIndex
+          FormatValue=  Interface is # %i
+        }
+        Bytes(6,7)={
+          Name=wLength
+          WordValue={
+            0x00=  No parameters
+          }
+          FormatValue=  %d bytes of parameters
+        }      
+        Bytes(8,11)={
+          Name= Upstream bit rate, in bits per second
+          FormatValue=  0x%08X
+        }
+        Bytes(12,15)={
+          Name= Downstream bit rate, in bits per second
+          FormatValue=  0x%08X
+        }
+      }     
+      ; end CONNECTION_SPEED_CHANGE
+    }
+  }
+}

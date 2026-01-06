@@ -1,0 +1,204 @@
+#
+#  Copyright (c) 1998 - 2009, LeCroy Corp. PSG. - All Rights Reserved
+#
+#   zExampleXfer.vse
+#
+#   Verification script
+#
+#   Brief Description: 
+#   A generic example of processing for USB transfers.
+#
+
+
+######################################################################################################
+#                                         Module info                                                #
+######################################################################################################
+#       Filling of this block is necessary for proper verification script operation...               #
+######################################################################################################
+#
+# Specify here the brief description for your verification script.
+# This name will be shown in the verification script dialog.
+#
+set DecoderDesc = "Test USB Suite VSE event sending capabilities and processing for USB transfers";
+
+######################################################################################################
+
+
+#
+# include main Verification Script Engine definitions
+#
+%include  "VSTools.inc"
+
+
+######################################################################################
+#                            Global Variables and Constants                          #
+######################################################################################
+
+const MAX_NUMBER_OF_EVENTS = 100;
+set   EventCount = 0;
+
+######################################################################################
+
+
+
+######################################################################################
+#   OnStartScript()                                                                  #
+######################################################################################
+#                                                                                    #
+# It is a main intialization routine for setting up all necessary                    #
+# script parameters before running the script.                                       #
+#                                                                                    #
+# Specify in the body of this function initial values for global variables           #
+# and what kind of trace events should be sent to the script.                        #
+# ( By default, only all frames and Link state change events from both channels      #
+#  will be passed to the script.                                                     #
+#                                                                                    #
+#  Please see CATC Verification Script Engine Manual for more details about          #
+#  recorded trace "events" passed to verification scripts.                           #
+#                                                                                    #
+######################################################################################
+#
+OnStartScript()
+{  
+    EventCount = 0;    
+    
+    #############################################
+    # Specify which channel/level/event         #
+    # should be sent to the script              #
+    #############################################  
+    
+    # Please see VSE manual for details about VSE sending capabilities.
+           
+    SendAllChannels();             # sends trace events of all channels
+    
+    #SendChannel( _USB2 );         # sends trace events for USB2 channel only   
+        
+    
+    SendLevelOnly ( _XFER );       # sends trace events of TRANSFER level only    
+    
+    # Send all transactions
+    SendAllTraceEvents(); 
+    
+    # Send CONTROL transfers
+    #SendTraceEvent( _X_CONTROL );
+    
+    # Send BULK IN transfers
+    #SendDirection( _IN );
+    #SendTraceEvent( _X_BULK );
+    
+    # Send Iso transfers
+    #SendTraceEvent( _X_ISO );
+    
+    # Send Interrupt transfers
+    #SendTraceEvent( X_INTERRUPT );    
+    
+    # Send OTHER transfers
+    #SendTraceEvent( _X_OTHER );
+    
+    # Examples of using SendTransfer primitive
+    #SendTransfer( transfer_type, address, endpoint, completed, only_with_erros )
+    
+    # Send BULK transfers for any for address 1
+    #SendTransfer( _X_BULK, 1 );    
+        
+    
+    # Uncomment the line below - if you want don't care about result of script running
+    #
+    ScriptForDisplayOnly();
+    
+    
+    # Uncomment the line below - if you want to disable output from
+    # ReportText()-functions. 
+    #
+    # DisableOutput();
+}
+
+
+######################################################################################
+#   ProcessEvent()                                                                   #
+######################################################################################
+#                                                                                    #
+# It is a main script function called by the application when the next waited event  #
+# occured in the evaluated trace.                                                    #
+#                                                                                    #
+######################################################################################
+#
+ProcessEvent()
+{        
+    #
+    # Using reporting functions defined in VSTools.inc 
+    # This functions print out the values of most input context variables for USB transfers.
+    #
+    
+    ReportEventInfo();        
+    ReportXferEventInfo();    
+    
+    if( in.TraceEvent == _X_CONTROL )
+    {
+        # Example of using script-decoded information for control transfers.
+        # String value
+        str = FormatEx( "wValue(str) = '%s'", GetDecodedScriptField ( "wValue" ) );
+        ReportText( str );
+        
+        # Hex Value
+        val = GetHexScriptField ( "wValue" );
+        str = FormatEx( "wValue(hex) = 0x%04X\n", val );
+        ReportText( str );
+    }
+      
+    if( in.TraceEvent == _X_BULK )
+    {
+        # Example of using script-decoded information for bulk transfers.
+        # We assume that the payload decoded by the script decoder has a field named 'Code' (i.e. PTP transfers)
+        
+        # String value
+        str = FormatEx( "Code(str) = '%s'", GetDecodedScriptField ( "Code" ) );
+        ReportText( str );
+        
+        # Hex Value
+        val = GetHexScriptField ( "Code" );
+        str = FormatEx( "Code(hex) = 0x%X\n", val );
+        ReportText( str );
+    }           
+    
+    # ScriptPassed() - is a shortcut to out.Result = _VERIFICATION_PASSED;
+    # defined in VSTools.inc
+    #
+    if( EventCount == MAX_NUMBER_OF_EVENTS ) ScriptPassed(); 
+        
+    EventCount++;
+          
+    return Complete();
+}
+
+
+
+
+######################################################################################
+#   OnFinishScript()                                                                 #
+######################################################################################
+#                                                                                    #
+# It is a main script function called by the application when the script completed   #
+# running. Specify in this function some resetting procedures for a successive run   #
+# of this script.                                                                    #
+#                                                                                    #
+######################################################################################
+#
+OnFinishScript()
+{
+    return 0;
+}
+
+
+######################################################################################
+######################################################################################
+######################################################################################
+
+
+######################################################################################
+#   Additional script functions.                                                     #
+######################################################################################
+#                                                                                    #
+# Write your own script-specific functions here...                                   #
+#                                                                                    #
+######################################################################################

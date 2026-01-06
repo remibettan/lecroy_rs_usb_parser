@@ -1,0 +1,184 @@
+#
+#  Copyright (c) 2002- 2006, LeCroy Corp. PSG  - All Rights Reserved
+#
+#
+#  PTPStillImageInterrupt.dec 
+#
+#  This file map to the interrupt pipe
+#
+%include "CATCScriptAPI.inc"  
+%include "UsbCommon.inc" 
+%include "PTPStillImage_Common.inc"
+%include "PTPStillImageTables.inc"       #has all the tables that are accessed in this file
+%include "PTPStillImageCellColors.inc"
+%include "PTPStillImageDeviceInfoDataset.inc"
+%include "PTPStillImageStorageInfo.inc"
+%include "PTPStillImageObjectInfoDataset.inc"
+%include "PTPStillIImageDevicePropDescDataset.inc"
+%include "PictBridgeTables.inc"
+%include "XML.inc"
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block 
+#
+#----  Output
+# out.Decoded   - amount of data has been decoded
+#
+
+set CellsCount = 0;
+set IsDumpPayLoadOccurs = 0;
+set OutputType      = "Still Image/PTP/MTP/PictBridge Interrupt";
+set UsbDecodeType = "Endpoint";
+set UsbEndpId = 4; # just a unique value for each endpoint of the same Class/Vendor/Product to distinguish them
+set UsbClassCode = 0x06;
+set UsbEndpType = "Interrupt";
+set UsbEndpDir = "In";
+set UsbMaxXferSize = 0xFFFFFF;   
+set UsbDecHdrType = 4; # This type references decoder byte containing the PTP Opcode  
+set UsbDecHdrLen  = 2; # This 2 byte is passed in to this via the in context
+
+
+set UsbScriptDecodeType = 2; # explicit text decoding processing 
+
+#
+# Parsing entry point
+#
+
+set wDecodeCellColor    = 0x494949; 
+
+set InterruptDataLength = 0;
+set ContainerType = 0;
+set EventCode = 0;
+set TransactionID = 0;
+#set InterruptDataLengthColor = 0x740A0A;
+#set ContainerTypeColor = 0x7555;
+#set EventCodeColor = 0x79;
+#set TransactionIDColor = 0x885555;
+#set EventParamColor = 0x9910;
+
+
+
+#set IsUsb2Hub = 1; # default value
+
+ProcessData()
+{
+    
+    CellsCount = 0;
+    Code = GetNBits(in.DecodeParams,0, 16);   
+
+    CommonDecoderInit(); 
+    
+    InitTables();
+    AddSeparator();
+    FieldColor = StillImageCaptionColor;
+    AddCaptionCell("Still","Image","In order to view comments in text field, user must expand this caption cell",_MONOCOLOR);  # will allow for the expansion of certain fields
+    AddSeparator();
+    isEnoughData = 1; # true
+    out.Decoded = 0;
+    if (Code == null || Code == 0)
+    {
+        if (in.DataLength >= out.Decoded + 4)
+        {
+            ContainerLength = NextDataDWord_();
+            FieldColor = ContainerLengthColor;
+            if (ContainerLength == 0xFFFFFFFF)
+            {
+                AddLimitedPayLoadCell("ConLen", "Unknown Length", Format("ContainerLength HexVal: 0x%08X. Special value for unknown length", ContainerLength));
+                ContainerLength = in.DataLength;
+            }
+            else
+            {
+                AddLimitedPayLoadCell("ConLen", Format("%d", ContainerLength), Format("ContainerLength: %d bytes in the container(decimal)", ContainerLength)+Format("\nContainerLength HexVal: 0x%08X", ContainerLength));
+            }
+            out.Decoded += 4;
+        }
+        else
+            isEnoughData = 0;
+        
+        if (isEnoughData == 1 && in.DataLength >= out.Decoded + 2)
+        {
+            FieldColor = ContainerTypeColor;
+            ContainerType = NextDataWord_();
+            _row = Find(PTPBulkTable, ContainerType);
+            AddLimitedPayLoadCell("ConType", _row[1], _row[3], FieldColor, [_TABULARCELL, CELL_STILL_IMAGE_CON_TYPE]);
+            out.Decoded += 2;
+        }
+        else
+            isEnoughData = 0;
+        
+        if (isEnoughData == 1 && in.DataLength >= out.Decoded + 2)
+        {
+            Code = NextDataWord_();
+            FieldColor = CodeColor;
+            if (_row[2] != null)
+            {
+                _subCode = Find( _row[2], Code);
+                keyBit = Code >> 15;
+                if (_subCode[0] == 0xFFFF && keyBit == 0b1)
+                {
+                    keyBit = Code >> 11;
+                    keyBit = keyBit & 0b00001;   # check the 11th bit
+                    if (keyBit == 0b00001)
+                    {
+                        _subCode[1] = "MTP Extension";
+                    }
+                    else
+                    {
+                        _subCode[1] = "Vendor Extension";
+                    }
+                }
+                if (_row[0] == 3)
+                    AddLimitedPayLoadCell("Code", _subCode[1], _subCode[2], FieldColor, [_TABULARCELL, CELL_STILL_IMAGE_CODE]);
+                else
+                    AddLimitedPayLoadCell("Code", _subCode[1], FormatEx("Code for %s: 0x%04X.", _row[1], Code), FieldColor, [_TABULARCELL, CELL_STILL_IMAGE_CODE]);
+            }
+            else
+            {
+                AddLimitedPayLoadCell("Code", Format("0x%04X", Code), "Code Hex value", FieldColor, [_TABULARCELL, CELL_STILL_IMAGE_CODE]);
+            }
+            out.Decoded += 2;
+        }
+        else
+            isEnoughData = 0;
+        
+        if (isEnoughData == 1 && in.DataLength >= out.Decoded + 4)
+        {        
+            FieldColor = TransactionIDColor;
+            TransactionID = NextDataDWord_();
+            if (TransactionID == 0xFFFFFFFF)
+            {
+                AddLimitedPayLoadCell("TransID", "Invalid", Format("HexVal of TransactionID: 0x%08X", TransactionID));
+            }
+            else
+            {
+                AddLimitedPayLoadCell("TransID", Format("%u", TransactionID), Format("HexVal of TransactionID: 0x%08X", TransactionID));
+            }
+            out.Decoded +=4;
+        }
+        else
+            isEnoughData = 0;
+        if (isEnoughData == 1 && _row[1] != null && in.DataLength > out.Decoded)
+            isEnoughData = Call (_row[1]);
+    }
+    else
+    {
+        #AddLimitedCell( "Code", Format("0x%04X", Code) , FieldColor, [_TABULARCELL, CELL_STILL_IMAGE_CODE]);
+        
+        if ( (Code & 0x7000) == 0x4000 )
+        {
+            # This is an Event code
+            isEnoughData = Event();
+        }
+        else
+        {
+            isEnoughData = Data();
+        }
+    }
+
+    if (isEnoughData == 0 && IsDumpPayLoadOccurs == 0)
+        AddNoEnoughDataCell(); 
+
+    return Complete();
+}
+

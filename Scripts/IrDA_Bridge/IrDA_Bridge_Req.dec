@@ -1,0 +1,222 @@
+
+
+#########################################################
+#   Copyright (c) 2005, LeCroy - All Rights Reserved    #
+#   IrDA_Req.inc                                         #
+#########################################################
+
+
+%include "CATCScriptAPI.inc"             #.inc files that are included
+%include "UsbCommon.inc" 
+%include "IrDA_Bridge_descr.inc"
+%include "..\Standard\StandardDescriptors.inc"
+
+
+const Tabular_Def_Table = Map( 
+[   
+    #-----------------------------------------------------------------------------------------------------
+    #       id            ,      colId                          , 		containerCellId
+    #-----------------------------------------------------------------------------------------------------
+    [ CELL_REQUEST        , TABULAR_SCRIPT_COLUMN_ID_SUBTYPE   , TABULAR_SCRIPT_CONTAINER_CELL_ID_NONE ]
+    
+] );
+
+
+ #----  Input
+ # in.Data       - Data_block to decode
+ # in.DataLength - Length of Data_block 
+ 
+ #----  Output
+ # out.Decoded   - amount of data has been decoded
+ 
+
+set OutputType      = "IrDA Bridge Class Requests";      
+set UsbDecodeType   = "Request";
+set UsbReqType      = "Class";
+set UsbClassCode    = 0xFE;    # Class code for IrDA ???
+set UsbSubClass     = 0x02;    # Common class
+set UsbProtocol     = 0x00;    # 
+set UsbScriptDecodeType = 1;   # Combined decoding for Cells and Text decoding 
+
+set bReqType = 0xFF;
+set bRequest = 0xFF;
+set wValue   = 0xFFFF;
+set wIndex   = 0xFFFF;
+set wLength  = 0;
+set Base = 0;
+set sizeOf_w = 2;
+set sizeOf_b = 1;
+set CurrentIndex = 0;
+set ReqType = 0xFFFF;
+
+# User can select the colors for the fields he chooses
+set wDecodeCellColor = 0x898989; 
+set RequestFieldColor  = 0x842A2A;
+set RequestDataFieldColor  = 0x002A2A;
+
+set bFindbmRequest = 0;
+set bTableRegType = 0x0;
+set strExpectedRequestTypes = "";
+
+
+#set IrDA_bmRequestTypes = [0xA1, 0x21]; # OK
+set IrDA_bmRequestTypes = [0xA1, 0x21];
+
+set IrDA_ClassReqType = 
+[
+    [0xFF, "Illegal"                        ],
+    [0x01, "GET_RECEIVING"                  ],
+    [0x03, "SET_CHECK_MEDIA_BUSY"           ],
+    [0x04, "SET_IRDA_RATE_SNIFF"            ],
+    [0x05, "SET_IRDA_UNICAST_LIST"          ],
+    [0x06, "GET_CLASS_SPECIFIC_DESCRIPTORS" ]  #??? FE
+];
+
+
+ProcessData()
+{    
+    ProcessDataInit();
+    InitType2Decoder();      
+    CurrentFldInit();  
+    bReqType = 0xFF;
+    bRequest = 0xFF;
+    wValue   = 0xFFFF;
+    wIndex   = 0xFFFF;   
+    out.Decoded = IrDABridgeClassRequest();
+    return Complete();
+}
+
+
+IrDABridgeClassRequest ()
+{
+    
+    FieldColor = RequestDataFieldColor;
+    CurrentIndex = 0;
+    CurrentFldInit();
+    
+    if (in.DataLength < 6) # we need at least to have wValue + wIndex + wLength.
+        return 0;
+
+    bReqType = GetDataByte(CurrentIndex); CurrentIndex = CurrentIndex + sizeOf_b;
+    AddPayLoadCell("bmRequestType", Format("0x%02X", bReqType), "For Debug", _WARNING);
+
+    bFindbmRequest = 0;
+    strExpectedRequestTypes = "";
+
+    # Check that bReqType is legal value.
+    for( nIndex = 0; nIndex < sizeof(IrDA_bmRequestTypes); nIndex = nIndex + 1 )
+    {
+       tableRegType = IrDA_bmRequestTypes[nIndex];
+
+       strExpectedRequestTypes +=  Format("0x%02X ", tableRegType);
+
+       if(bReqType == tableRegType)
+       {
+          bFindbmRequest = 1;
+          #AddPayLoadCell("Trace", Format("0x%02X", tableRegType), "For Debug", _ERROR);
+       }
+    }
+      
+    # expect class request here.
+    if(bFindbmRequest == 0)
+    {
+        #AddPayLoadCell("Not Found", Format("bReqType: 0x%02X", bReqType), "For Debug", _WARNING);
+        AddPayLoadCell("bReqType", Format("Error: 0x%02X", bReqType), Format("Expected bRequestType %s", strExpectedRequestTypes), _ERROR);
+        return 0;
+    }
+
+    bDataByte = GetDataByte(CurrentIndex); CurrentIndex = CurrentIndex + sizeOf_b;
+
+    _row = Find (IrDA_ClassReqType, bDataByte);
+
+    bRequest = _row[1];
+
+    AddCaptionCell("bRequest", bRequest , Format("bRequest HexVal: 0x%04X", bDataByte)); #_row[0]), FieldColor, [_TABULARCELL, CELL_REQUEST] );   
+        
+    return Call(bRequest);
+}
+
+InvokeDescriptor()
+{
+    if((wValue == 0xFFFF) && (wIndex == 0xFFFF)) # just to make sure if they are not been read.
+    {         
+        wValue = GetDataWord(CurrentIndex); CurrentIndex = CurrentIndex + sizeOf_w; 
+        wIndex = GetDataWord(CurrentIndex); CurrentIndex = CurrentIndex + sizeOf_w;  
+    }
+    DecodeIrDADescriptor();
+}
+
+
+GET_RECEIVING()
+{    
+    if( bReqType == IrDA_bmRequestTypes[0] ) # class req
+    {
+        Call("InvokeDescriptor");
+    }
+    else
+    {
+        AddIllegalTypeCell( "GET_RECEIVING" ); 
+    }
+    out.Decoded = in.DataLength;
+}
+
+
+SET_CHECK_MEDIA_BUSY()
+{    
+   
+    if( bReqType == IrDA_bmRequestTypes[1] ) # class req
+    {
+        Call("InvokeDescriptor");
+    }
+    else
+    {
+        AddIllegalTypeCell( "SET_CHECK_MEDIA_BUSY" ); 
+    }
+    out.Decoded = in.DataLength;
+}
+
+
+SET_IRDA_RATE_SNIFF()
+{    
+   
+    if( bReqType == IrDA_bmRequestTypes[1] ) # class req
+    {
+        Call("InvokeDescriptor");
+    }
+    else
+    {
+        AddIllegalTypeCell( "SET_IRDA_RATE_SNIFF" ); 
+    }
+    out.Decoded = in.DataLength;
+}
+
+
+SET_IRDA_UNICAST_LIST()
+{    
+   
+    if( bReqType == IrDA_bmRequestTypes[1] ) # class req
+    {
+        Call("InvokeDescriptor");
+    }
+    else
+    {
+        AddIllegalTypeCell( "SET_IRDA_UNICAST_LIST" ); 
+    }
+    out.Decoded = in.DataLength;
+}
+
+
+GET_CLASS_SPECIFIC_DESCRIPTORS()
+{    
+    if( bReqType == IrDA_bmRequestTypes[0] ) # class req
+    {
+        Call("InvokeDescriptor");
+    }
+    else
+    {
+        AddIllegalTypeCell( "GET_CLASS_SPECIFIC_DESCRIPTORS" ); 
+    }
+    out.Decoded = in.DataLength;
+}
+
+

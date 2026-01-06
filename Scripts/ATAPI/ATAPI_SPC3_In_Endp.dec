@@ -1,0 +1,25 @@
+
+#
+#  ATAPI SPC3 (SCSI Primary Commands - 3) Class In Endpoint Decoder
+#
+
+%include "ATAPI_SPC3_Endp.inc"
+
+#------------------------  Common Globals -----------------------------------
+set OutputType    = "ATAPI SPC3 In Endp";
+set UsbClassCode  = 0x08; # Mass Storage Class
+set UsbSubClass   = 0x02; # ATAPI
+set UsbProtocol   = 0x50; # Bulk-Only
+set UsbEndpDir    = "In";
+set UsbEndpId     = 4; # just a unique value for each endpoint of the same Class/Vendor/Product to distinguish them
+set UsbMainSpec   = 0x01; # 0x01 value shows it is main spec among all ATAPI spec(MMC, SPC, SSC)
+
+#-------------------------------------------------------------------------------
+
+
+
+#~~~~ Parsing entry point ~~~~
+ProcessData()
+{
+	return ProcessData_ATAPI("SPC3", "SCSI Primary Commands - 3");
+}

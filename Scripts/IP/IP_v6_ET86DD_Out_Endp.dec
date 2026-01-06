@@ -1,0 +1,21 @@
+
+#
+#  Internet Protocol v6 Class Out Endpoint Decoder
+#
+
+%include "IP_v6_ET86DD_Endp.inc"
+
+#------------------------  Common Globals -----------------------------------
+set OutputType    = "IPv6_ET86DD (Internet Protocol) Out Endp";
+set UsbClassCode  = 0xFF; # Vendor Specific
+set UsbEndpDir    = "Out";
+set UsbEndpId     = 5; # just a unique value for each endpoint of the same Class/Vendor/Product to distinguish them
+#-------------------------------------------------------------------------------
+
+
+
+#~~~~ Parsing entry point ~~~~
+ProcessData()
+{
+    return ProcessData_IP();
+}

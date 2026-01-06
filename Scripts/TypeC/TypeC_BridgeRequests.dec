@@ -1,0 +1,330 @@
+#*******************************************************************************
+#*
+#*  FILENAME: TypeC_BridgeRequests.dec
+#*
+#*  Copyright (C) 2016 Teledyn LeCroy
+#*
+#*  DESCRIPTION
+#*    This is the request file for TypeC Bridge device requests.
+#*******************************************************************************
+
+%include "CATCScriptAPI.inc"
+%include "ErrorHandlingMessages.inc"
+%include "UsbCommon.inc"
+%include "TypeC_Common.inc"
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block 
+#
+#----  Output
+# out.Decoded   - amount of data has been decoded
+#
+
+set UsbDecodeType   = "Request";
+set UsbReqType      = "Class";
+set OutputType      = "USB Type-C Bridge Requests";
+set ModuleType      = "DataBlock Decoder";
+set UsbClassCode    = 0x12;
+set UsbSubClass     = 0x00;
+set UsbProtocol     = 0x00;
+set UsbScriptDecodeType = 1; # explicit text decoding processing
+
+const ErrorColor = 0x0000FF;
+
+set ErrorFlag       = 0;
+set bReqType        = 0;
+set bRequest        = 0;
+set wValue          = 0;
+set wIndex          = 0;
+set wLength         = 0;
+set bLength         = 0;
+set bDescriptorType = 0;
+
+set TypeC_BridgeRequestTable = [
+    [ 0xff, "Reserved"                 , "Reserved Value" ],
+    [ 0x01, "SEND_PPM_COMMAND"         , "Send PPM Command Request" ],
+    [ 0x02, "SEND_PD_DATA"             , "Used to transmit an Authentication or Firmware Update Request or Response" ],
+    [ 0x03, "GET_PD_DATA"              , "Used to fetch an Authentication Request or Response" ],
+    [ 0x04, "ENABLE_BB_NOTIFICATION"   , "Used to enable or disable Billboard Notifications from the USB Type-C Bridge" ]
+];
+
+ProcessData()
+{
+    out.Decoded = 0;
+    if (in.DataLength < 8)      # Checking for Illegal Payload
+    {
+        if (!AddSpecPLCellMonoNoDlg("Error", "Illegal Payload", "Nothing is being decoded", __ERROR))
+            AddErrorMonoCell("Error", "Illegal Payload", "Nothing is being decoded");
+        return Complete();
+    }
+    
+    bReqType = GetDataByte(0);
+    bRequest = GetDataByte(1);
+    wValue   = GetDataWord(2);
+    wIndex   = GetDataWord(4);
+    wLength  = GetDataWord(6);
+    
+    _row = Find(TypeC_BridgeRequestTable, bRequest);
+    
+    AddSeparator();
+        
+    AddRequestCell( _row[1] );
+
+    if ( _row[0] != 0xff )
+    {
+        Call ( _row[1], [ in.DataLength ] );
+        out.Decoded = in.DataLength+8;
+    }
+    else
+    {
+        AddPayLoadCell("bReqType", Format("0x%02X", bReqType), "");
+        AddWValueCell(   Format("0x%04X", wValue),  "");
+        AddWIndexCell(   Format("%d", wIndex),      "");
+        AddWLengthCell(  Format("%d", wLength),     "");
+        out.Decoded = 8;
+    }
+
+    AddSeparator();
+
+   return Complete();
+}
+
+set Target_Cell_Values = [
+    [0xff,  "Invalid",  "Invalid Target"],
+    [0,     "SOP",      "Target is SOP"],
+    [1,     "SOP'",     "Target is SOP Prime"],
+    [2,     "SOP''",    "Target is SOP Double Prime"]
+];
+
+SEND_PD_DATA()
+{
+    FieldColor = SEND_PD_DATA_COLOR;
+    if (wValue == 1)
+        AddWValueCell( "AUTH", "Authentication Request\n0x1", 0 );
+    else if (wValue == 2)
+        AddWValueCell( "FWU", "Firmware Update Request\n0x2", 0 );
+    else
+        AddWValueCell( wValue, FormatEx(_err_Illegal_2Values, "wValue", wValue, 1, 2 ), 1 );
+    
+    target = GetDataByte(4);
+    conn_number = GetDataByte(5);
+    
+    AddSelectCell("Target", target, Target_Cell_Values);
+    AddPayLoadCell("Connector Num", FormatEx("%d", conn_number), "Connector Number");
+        
+    AddWLengthCell(FormatEx("PD Data Length: %d", wLength));
+}
+
+GET_PD_DATA()
+{
+    FieldColor = GET_PD_DATA_COLOR;
+    if (wValue == 1)
+        AddWValueCell( "AUTH(0x1)", "Authentication Request", 0 );
+    else
+        AddWValueCell( wValue, FormatEx(_err_Illegal_Value, "wValue", wValue, 1 ), 1 );
+    
+    target = GetDataByte(4);
+    conn_number = GetDataByte(5);
+    
+    AddSelectCell("Target", target, Target_Cell_Values);
+    AddPayLoadCell("Connector Num", FormatEx("%d", conn_number), "Connector Number");
+        
+    AddWLengthCell();
+}
+
+ENABLE_BB_NOTIFICATION()
+{
+    FieldColor = BB_NOTIFICATION_COLOR;
+    if (wValue == 0)
+        AddWValueCell("Disable", "Disable Billboard Notification", 0 );
+    else if (wValue == 1)
+        AddWValueCell("Enable", "Enable Billboard Notification", 0 );
+    else
+        AddWValueCell(wValue, FormatEx(_err_Illegal_2Values, "wValue", wValue, 0, 1 ), 1 );
+    
+    if (wIndex == 0)
+        AddWIndexCell(wIndex, "Correct Value of 0", 0 );
+    else
+        AddWIndexCell(wIndex, FormatEx(_err_Illegal_Value, "wIndex", wIndex, 0 ) , 1 );
+    
+    if (wLength == 0)
+        AddWLengthCell("Correct Value of 0", 0 );
+    else
+        AddWLengthCell(FormatEx(_err_Illegal_Value, "wLength", wLength, 0 ) , 1 );
+}
+
+set PPMCommandTable =
+[
+    [0x00, "RESERVED"                 , "Command is reserved and shall not be used."                                                                                                                ],
+    [0x01, "PPM_RESET"                , "The PPM_RESET Command is used to reset the PPM."                                                                                                           ],
+    [0x02, "CANCEL"                   , "The CANCEL Command is used to cancel a PPM Command previously sent to the PPM."                                                                            ],
+    [0x03, "CONNECTOR_RESET"          , "The CONNECTOR_RESET Command is reserved in the current version of the specification."                                                                      ],
+    [0x04, "ACK_PCR_PAN"              , "The ACK_PCR_PAN Command is used to acknowledge to the PPM that the OSPM received and processed a PPM Command Response or PPM Asynchronous Notification."   ],
+    [0x05, "SET_NOTIFICATION_ENABLE"  , "The SET_NOTIFICATION_ENABLE Command is used to set the list of Asynchronous Events that the PPM may send PPM Asynchronous Notifications about to the OSPM."],
+    [0x06, "GET_CAPABILITY"           , "The GET_CAPABILITY Command is used to get the PPM capabilities."                                                                                           ],
+    [0x07, "GET_CONNECTOR_CAPABILITY" , "The GET_CONNECTOR_CAPABILITY Command is used to get the capabilities of a Connector."                                                                      ],
+    [0x12, "GET_CONNECTOR_STATUS"     , "The GET_CONNECTOR_STATUS Command is used to get the current status of a Connector."                                                                        ],
+    [0x13, "GET_ERROR_STATUS"         , "The GET_ERROR_STATUS Command is used to get details about an error, if one is reported by the PPM."                                                        ]
+];
+
+SEND_PPM_COMMAND()
+{
+    if (wValue == 0)
+        AddWValueCell(wValue, "Correct Value of 0", 0 );
+    else
+        AddWValueCell(wValue, FormatEx(_err_Illegal_Value, "wValue", wValue, 0 ), 1 );
+    
+    if (wIndex == 0)
+        AddWIndexCell(wIndex, "Correct Value of 0", 0 );
+    else
+        AddWIndexCell(wIndex, FormatEx(_err_Illegal_Value, "wLength", wLength, 0 ) , 1 );
+        
+    AddWLengthCell();
+    
+    if (wLength < 8){
+        AddErrorMonoCell("Error", "PPM Command Error", "PPM Command Length is illegal.");
+        return 0;
+    }
+    
+    command_type = GetDataByte(8);
+    cmd_data_byte_offset = 8;
+    
+    cmd = Find(PPMCommandTable, command_type);
+    
+    AddSeparator();
+    
+    FieldColor = PPM_NOTIFICATION_COLOR;
+    
+    AddPayLoadCell("Command", cmd[1], cmd[2]);
+    
+    AddPayLoadCell("Data Length", GetDataByte(9), "");
+    
+    AddSeparator();
+    
+    DECODE_ABORTED_FLAG = 0;
+    Call( cmd[1], [ cmd_data_byte_offset ] );
+    
+    Last_TypeC_PPM_Command = command_type;
+}
+
+set Reserved_Cmd_Fields = Map(
+[
+    ["Reserved", 16,  48, 0xFFFFFFFFFFFF,  "Cmd Reserved", "0x%X",     null,  0, "Reserved and shall be set to zero"]
+] );
+
+set Connector_Change_Ack_Cmd_Fields = Map(
+[
+    ["Conn_Change_ACK",  16, 1, 0x1,            "Connector Change Ack", "%d",   null, 0, "The OSPM set this field to 1 to acknowledge a connector change that occurred on the Connector indicated by the PPM in the CCI Data Structure."],
+    ["Cmd_Complete_ACK", 17, 1, 0x1,            "Cmd Complete Ack",     "%d",   null, 0, "The OSPM set this field to 1 to acknowledge that a PPM Command has completed."],
+    ["Reserved",         18,46, 0x3FFFFFFFFFFF, "Cmd Reserved",         "0x%X", null, 0, "Reserved and shall be set to zero"]
+] );
+
+set Notification_Enable_BitTable =
+[
+    [ 0, "Command Completed"],
+    [ 1, "Reserved and shall be set to zero"],
+    [ 2, "Power Operation Mode Change"],
+    [ 3, "Reserved and shall be set to zero"],
+    [ 4, "Reserved and shall be set to zero"],
+    [ 5, "Supported Provider Capabilities Change"],
+    [ 6, "Negotiated Power Level Change"],
+    [ 7, "PD Reset Complete"],
+    [ 8, "Reserved and shall be set to zero"],
+    [ 9, "Battery Charging Status Change"],
+    [10, "Reserved and shall be set to zero"],
+    [11, "Connector Partner Change"],
+    [12, "Power Direction Change"],
+    [13, "Reserved and shall be set to zero"],
+    [14, "Connect Change"],
+    [15, "Error"]
+];
+
+set Set_Notification_Enable_Cmd_Fields = Map(
+[
+    ["Notification_En", 16, 16, 0xFFFF,     "Notification Enabled", "%d",   Notification_Enable_BitTable, 1, "Notification Enabled when set to 1"],
+    ["Reserved",        32, 32, 0xFFFFFFFF, "Cmd Reserved",         "0x%X", null,                         0, "Reserved and shall be set to zero"]
+] );
+
+set Get_Connector_Cap_Cmd_Fields = Map(
+[
+    ["ConnectorNumber", 16,  7, 0x7F,          "Connector Num", "%d",   null, 0, "This field indicates the Connector whose capabilities are to be retrieved.\nThis field shall not be set to zero."],
+    ["Reserved",        23, 41, 0x1FFFFFFFFFF, "Cmd Reserved",  "0x%X", null, 0, "Reserved and shall be set to zero"]
+] );
+
+RESERVED( byte_offset )
+{
+    FieldColor = PPM_RESERVED_COLOR;
+    bit_offset = byte_offset * 8;
+    AddTypeCField( "Reserved", bit_offset, Reserved_Cmd_Fields );
+}
+
+PPM_RESET( byte_offset )
+{
+    FieldColor = PPM_PPM_RESET_COLOR;
+    bit_offset = byte_offset * 8;
+    AddTypeCField( "Reserved", bit_offset, Reserved_Cmd_Fields );
+}
+
+CANCEL( byte_offset )
+{
+    FieldColor = PPM_CANCEL_COLOR;    
+    bit_offset = byte_offset * 8;
+    AddTypeCField( "Reserved", bit_offset, Reserved_Cmd_Fields );
+}
+
+CONNECTOR_RESET( byte_offset )
+{
+    FieldColor = PPM_CONNECTOR_RESET_COLOR;
+    bit_offset = byte_offset * 8;
+    AddTypeCField( "Reserved", bit_offset, Reserved_Cmd_Fields );
+}
+
+ACK_PCR_PAN( byte_offset )
+{
+    FieldColor = PPM_ACK_PCR_PAN_COLOR;
+    bit_offset = byte_offset * 8;
+    AddTypeCField( "Conn_Change_ACK", bit_offset, Connector_Change_Ack_Cmd_Fields );
+    AddTypeCField( "Cmd_Complete_ACK", bit_offset, Connector_Change_Ack_Cmd_Fields );
+    AddTypeCField( "Reserved", bit_offset, Connector_Change_Ack_Cmd_Fields );
+}
+
+SET_NOTIFICATION_ENABLE( byte_offset )
+{
+    FieldColor = PPM_SET_NOTIFICATION_ENABLE_COLOR;
+    bit_offset = byte_offset * 8;
+    AddTypeCField( "Notification_En", bit_offset, Set_Notification_Enable_Cmd_Fields );
+    AddTypeCField( "Reserved",        bit_offset, Set_Notification_Enable_Cmd_Fields );
+}
+
+GET_CAPABILITY( byte_offset )
+{
+    FieldColor = PPM_GET_CAPABILITY_COLOR;
+    bit_offset = byte_offset * 8;
+    AddTypeCField( "Reserved", bit_offset, Reserved_Cmd_Fields );
+}
+
+GET_CONNECTOR_CAPABILITY( byte_offset )
+{
+    FieldColor = PPM_GET_CONNECTOR_CAPABILITY_COLOR;
+    bit_offset = byte_offset * 8;
+    AddTypeCField( "ConnectorNumber", bit_offset, Get_Connector_Cap_Cmd_Fields );
+    AddTypeCField( "Reserved",        bit_offset, Get_Connector_Cap_Cmd_Fields );
+}
+
+GET_CONNECTOR_STATUS( byte_offset )
+{
+    FieldColor = PPM_GET_CONNECTOR_STATUS_COLOR;
+    bit_offset = byte_offset * 8;
+    AddTypeCField( "ConnectorNumber", bit_offset, Get_Connector_Cap_Cmd_Fields );
+    AddTypeCField( "Reserved",        bit_offset, Get_Connector_Cap_Cmd_Fields );
+}
+
+GET_ERROR_STATUS( byte_offset )
+{
+    FieldColor = PPM_GET_ERROR_STATUS_COLOR;
+    bit_offset = byte_offset * 8;
+    AddTypeCField( "Reserved", bit_offset, Reserved_Cmd_Fields );
+}
+
+

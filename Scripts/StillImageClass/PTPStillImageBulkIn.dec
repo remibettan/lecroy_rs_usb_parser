@@ -1,0 +1,21 @@
+#
+#  Copyright (c) 2002, Computer Access Technology Corp. - All Rights Reserved
+#
+#  PTPStillImageBulkIn.dec VERSION2
+#
+#  
+#  
+
+%include "PTPStillImageBulkCommon.inc"  
+set OutputType      = "Still Image/PTP/MTP/PictBridge Bulk In";
+set UsbClassCode    = 0x06;    # Class code for PTP
+set UsbEndpId = 7; # just a unique value for each endpoint of the same Class/Vendor/Product to distinguish them
+set UsbEndpDir = "In";
+set UsbEndpType = "Bulk";
+set UsbXferCompleteClue    = 1; # Transfer not necessarily over when empty frame seen.  See USBCommon.inc for explanation.
+
+ProcessData()
+{
+    ProcessBulkData();
+}
+    

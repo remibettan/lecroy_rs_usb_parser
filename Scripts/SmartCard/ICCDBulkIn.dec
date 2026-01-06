@@ -1,0 +1,517 @@
+#*******************************************************************************
+#
+#  FILENAME: ICCDBulkIn.dec
+#
+#  Copyright (c) 2005, LeCroy - All Rights Reserved
+#
+#  DESCRIPTION
+#    This is the Bulk-IN Endpoint Message Decode file for SmartCard ICCDs 
+#      (ICC Devices). 
+#    This file is prepared as per the Specification Revision 1.1.
+#    This file is prepared as per the Integrated Circuit(s) Card Devices 
+#      Specification for the SmartCard Class.
+#
+#  REVISION HISTORY
+#    01/07/2007    
+#
+#*******************************************************************************  
+
+%include "UsbCommon.inc"
+%include "CATCScriptAPI.inc"
+%include "USER_DEF_Errors_EDIT_ME.inc"
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block 
+#
+#----  Output
+# out.Decoded   - Amount of Data that has been decoded
+# out.State
+# out.Data
+# out.DataLength
+#
+
+const Tabular_Def_Table = Map( 
+[   
+    #-----------------------------------------------------------------------------------------------------
+    #       id                     ,      colId                          , 		containerCellId
+    #-----------------------------------------------------------------------------------------------------
+    [ CELL_SMART_CARD_MESSAGE_TYPE , TABULAR_SCRIPT_COLUMN_ID_SUBTYPE   , TABULAR_SCRIPT_CONTAINER_CELL_ID_NONE ],
+    [ CELL_SMART_CARD_SEQ          , TABULAR_SCRIPT_COLUMN_ID_NONE      , TABULAR_SCRIPT_CONTAINER_CELL_ID_MISC ]
+] );
+
+set ModuleType      = "DataBlock Decoder";      #?_?
+set LevelName   = "ICCD Bulk In Messages";      #?_?
+set LevelColor  = 0x898989;                     #?_?
+
+set OutputType      = "ICCD Bulk In Message";
+set UsbDecodeType   = "Endpoint";
+set UsbEndpId = 18;                 # Just a unique value for each endpoint of the same Class/Vendor/Product 
+                                    # to distinguish them    
+set UsbClassCode    = 0x0B;         # Smart Card (ICCD)
+set UsbEndpType     = "Bulk";
+set UsbEndpDir      = "In";
+set UsbScriptDecodeType  = 2;       # Combined decoding for Cells and Text decoding
+set UsbMaxXferSize  = 0x7FFFFFFF;   # Trying largest possible positive value  
+set UsbMaxPktSize   = 512;          # Will automatically be reduced to 64 if branch is Full Speed 
+set UsbMaxXferDecodeSize  = 0xFF;   # Max bytes that we will be decoding. User can up this if desired.
+
+set dwLength    = 0;            #Declaring global variables
+set slotNumber  = 0;
+set seqNumber   = 0;
+set bmCommandStatus = 0;
+ 
+# User can select the colors for the fields he chooses
+set ErrorColor            = 0x0000FF;
+set wDecodeCellColor      = 0x898989; 
+set ICCDColor             = 0xA45A8A;
+set RequestDataFieldColor = 0x302A2A;
+set GreyColor             = 0x888888;
+set PINDataColor          = 0xF07000-500;  #0xF1FC3A 0xEB43BE 0x3A8CD1
+
+set ICCD_CaptionColor     = 0x7FFFFF;   #Caption Cell (Expansion Indicator)     #9B4A13 - 7700500;  
+
+set RestoreBitCurrentFieldOffset = 0;   #Temp Variables to store a restore value
+set RestoreBitCurrentFieldLength = 0;
+
+#Bulk In messages
+set BulkINMesgTypeTable =[              
+    [ 0xFF, "PC_to_RDR_NoParams",           "UNKNOWN",            "UNKNOWN Bulk IN Message Type"],
+    [ 0x80, "RDR_to_PC_DataBlock",          "DataBlock" ,         "RDR_to_PC_DataBlock(80h)\nExpected Response to:  PC_to_RDR_IccPowerOn,\n                       PC_to_RDR_XfrBlock,\n                       or PC_to_RDR_Secure"],
+    [ 0x81, "RDR_to_PC_SlotStatus",         "SlotStatus",         "RDR_to_PC_SlotStatus(81h)\n Expected Response to: PC_to_RDR_IccPowerOff,\n                       PC_to_RDR_GetSlotStatus,\n                       PC_to_RDR_Mechanical,\n                       PC_to_RDR_T0APDU,\n                       or PC_to_RDR_Abort\n                         (specific ABORT request)"]
+];
+
+ProcessData()
+{
+  CommonDecoderInit();        # Initialization of SRP common global variables [found in CATCScriptAPI.inc]
+ 
+  SetCellColor(ICCD_CaptionColor);
+  AddCaptionCell("SmartCard","ICCD","This data payload represents a Smart-Card ICCD Bulk-IN message.",_MONOCOLOR);  # Will allow for the expansion of certain fields
+  RestoreCellColor();
+  AddSeparator();
+  
+  FullyDecoded = 1;            
+  out.Decoded = 0;            # Nothing has been decoded yet
+  
+  if (in.DataLength >9 )
+  {
+    messagetype = NextNBits_(8);
+    mesgM = Find(BulkINMesgTypeTable , messagetype );
+
+    AddShortDataHeader(mesgM[2]);    
+    FieldColor = ICCDColor;
+    if(mesgM[0] == 0xFF){
+      FieldColor = WarningColor;
+      mesgM[3] += Format("(0x%02X)\nDecoding ABORTED, see 'Data' for raw bytes.",messagetype);
+    }
+    if(SimpleShowItem())
+      AddPayLoadCell("MessageType", mesgM[2], "Header offset Byte 0. \n" + " bMessageType = " + mesgM[3], FieldColor, [_TABULARCELL, CELL_SMART_CARD_MESSAGE_TYPE]);
+    else
+      AddCell(mesgM[2],"","Header offset Byte 0. \n" + " bMessageType = " + mesgM[3],FieldColor,_MONOFIELD, [_TABULARCELL, CELL_SMART_CARD_MESSAGE_TYPE]);
+
+    if (mesgM[0] != 0xFF) 
+    {
+      dwLength= NextDataDWord_();
+      if(dwLength != in.DataLength - 10)
+      {
+        SetCellColor(WarningColor);
+        AddPayLoadCell( "MsgLen", dwLength, Format("!!!ERROR!!!\ndwLength DOES NOT MATCH length\nof data found in PayLoad!\nWill attempt to decode...\n\nHeader offset Bytes 1-4.\n dwLength = 0x%08X",dwLength),_ERROR);
+        RestoreCellColor();
+      }
+      else if(SimpleShowItem())
+        AddPayLoadCell( "MsgLen", dwLength, Format("Header offset Bytes 1-4.\n dwLength = 0x%08X",dwLength));
+
+      slotNumber = NextNBits_(8);
+      if(slotNumber==0x00)
+      {      
+        SetCellColor(GreyColor);
+        if(SimpleShowItem())
+          AddPayLoadCell( "Slot#", slotNumber, Format("Header offset Byte 5.\n bSlot = 0x%02X.\n\nUSB-ICC requires a single slot.",slotNumber),_MONOCOLOR);
+        RestoreCellColor();
+      }
+      else
+      {
+        SetCellColor(WarningColor);
+        AddPayLoadCell( "Slot#", slotNumber, Format("!!! WARNING !!!\nExpected 00h, found 0x%02X.\nNot relevant, fixed to 00h for legacy reason.\nHeader offset Byte 5.\n bSlot = 0x%02X.\n\nUSB-ICC requires a single slot.",slotNumber,slotNumber),_ERROR);
+        RestoreCellColor();
+      }
+        
+      seqNumber= NextNBits_(8);
+      if(SimpleShowItem())
+        AddPayLoadCell( "Seq#", seqNumber, Format("Header offset Byte 6.\n bSeq = 0x%02X\nThe host can use the sequence number in\na response message to verify that a\nparticular response is the one expected\nin reply to a particular command.",seqNumber), FieldColor, [_TABULARCELL, CELL_SMART_CARD_SEQ, "TEXT_CAPTION"]);
+      else
+        AddCell(Format("Seq: %d",seqNumber),"",Format("Header offset Byte 6.\n bSeq = 0x%02X\nThe host can use the sequence number in\na response message to verify that a\nparticular response is the one expected\nin reply to a particular command.",seqNumber),FieldColor+5000000,_MONOFIELD);
+
+      prm1=NextNBits_(8);   #Parameter 1
+      prm2=NextNBits_(8);   #Parameter 2
+      prm3=NextNBits_(8);   #Parameter 3
+
+      AddSeparator();
+      out.Decoded=10;
+      
+      decodedmore=Call(mesgM[1],[prm1,prm2,prm3,dwLength]) + 10;
+    }
+    else
+      decodedmore = 1;
+    
+    out.Decoded=decodedmore;
+    ShowDataBlockReOrder(in.DataLength-decodedmore);
+    out.Data = in.Data;
+    out.DataLength = in.DataLength;
+    out.State = "Complete";
+    return Complete();  
+  } 
+  else {
+    if (in.DataLength > 0)
+    {
+        str = "0x";
+        str2= "Byte Data:";
+        for(i = 0; i < in.DataLength; i++)
+        {
+            tmp = Format("%02X", NextNBits_(8));
+            str += tmp;
+            str2 += " " + tmp;
+        } 
+        #IncFieldOffset( in.DataLength * 8);
+        FieldColor = RED;
+        AddPayLoadCell("PayLoad Too Short", str, Format("***ERROR*** \nExpecting at least 10 bytes. \nFound only %d bytes...\n\n" + str2,in.DataLength ), _ERROR);
+        out.Decoded = in.DataLength;
+    }
+    else
+    {
+        FieldColor = WarningColor;
+        AddPayLoadCell("EMPTY PAYLOAD", "**EMPTY**", "No Data!",_ERROR);
+    }
+    AddSeparator();
+    return Complete();
+  }
+}
+
+RDR_to_PC_DataBlock(prm1,prm2,prm3,dwLength)
+{
+#RDR_to_PC_DataBlock 80h\nsent in response to:  PC_to_RDR_IccPowerOn, PC_to_RDR_XfrBlock, or PC_to_RDR_Secure"],
+  ShowStatus(prm1);
+  ShowErrorCode(prm2);
+  SetFieldOffsetLen_ICCD( 80, 8 );
+
+  tttxt="Response to PC_to_RDR_IccPowerOn:\n Value must = 00h.\nIndicates that this message contains the complete\nATR.";
+  tttxt+="\n\nResponse to PC_to_RDR_XfrBlock:\n";
+  tttxt+="Use changes depending on the exchange level reported\nby the ICCD in the functional descriptor :";
+  tttxt=tttxt+"\n• Character level, TPDU level, short APDU level \n    - field is RFU and = 00h.";
+  tttxt=tttxt+"\n• Extended APDU level \n    - indicates if the response is complete, to be\n      continued, or if the cmd APDU can continue\n";
+  tttxt=tttxt+"\n      00h: the response APDU begins and ends in \n           this command";
+  tttxt=tttxt+"\n      01h: the response APDU begins and continues";
+  tttxt=tttxt+"\n      02h: this abData field continues the response \n           APDU and ends the response APDU ";
+  tttxt=tttxt+"\n      03h: this abData field continues the response\n           APDU and another block is to follow";
+  tttxt=tttxt+"\n      10h: empty abData field, continuation of the\n           command APDU is expected in the next \n           PC_to_RDR_XfrBlock command";
+  if( ((prm3>0x03)&&(prm3!=0x10))||(prm3>0x10) )
+  {
+    SetCellColor(WarningColor);
+    AddPayLoadCell("ChainParam",Format("0x%02X",prm3),FormatEx("!!! WARNING !!!\nExpected 00-03h or 10h, Found 0x%02X.\n\nHeader offset Byte 9.\n bChainParameter = 0x%02X\n\n",prm3,prm3)+ tttxt, _ERROR);
+    RestoreCellColor();
+  }
+  else
+    AddPayLoadCell("ChainParam",Format("0x%02X",prm3),Format("Header offset Byte 9.\n bChainParameter = 0x%02X\n\n",prm3)+ tttxt);
+  
+  RestoreFieldOffsetLen_ICCD();
+  CheckICCDMsgLen();
+  return 0;
+}
+
+RDR_to_PC_SlotStatus(prm1,prm2,prm3,dwLength)
+{
+#RDR_to_PC_SlotStatus 81h\n sent in response to: PC_to_RDR_IccPowerOff, PC_to_RDR_GetSlotStatus, PC_to_RDR_Mechanical, PC_to_RDR_T0APDU or PC_to_RDR_Abort, specific ABORT request
+  ShowStatus(prm1);
+  ShowErrorCode(prm2);
+  SetFieldOffsetLen_ICCD( 80, 8 );
+  tttxt = Format("Header offset Byte 9.\n bClockStatus = 0x%02X\n",prm3);
+
+  if(prm3!=0){
+    SetCellColor(WarningColor);    
+    AddPayLoadCell( "R", bits, Format("!!! WARNING !!! \n Expected 00h; Found 0x%02X\n\n",prm3) + "Header offset Byte 9.\n " + Format("bReserved = 0x%02X.",prm3),_ERROR);
+    RestoreCellColor();
+  }
+  else
+    AddPayLoadCell( "R", Format("0x%02X",prm3), Format("Header offset Byte 9.\n bReserved =0x%02X",prm3));
+  
+  RestoreFieldOffsetLen_ICCD();
+  CheckICCDMsgLen();
+  return 0;
+}
+
+ShowStatus(prm1)
+{
+    SetFieldOffsetLen_ICCD( 64-6, 8-6 );
+    errorflag = 0;
+    error_string = "";
+    stat_val ="";
+    tttxt = "";
+    
+    IccS = prm1&0x03;
+    
+    tttxt = select{
+      IccS==0x00  : {
+                      stat_val = "Activated";
+                      "00b: The USB-ICC is present and activated.";
+                    }
+      IccS==0x01  : {
+                      stat_val = "NOT Activated";
+                      "01b: The USB-ICC is present but NOT activated.";
+                    }
+      IccS==0x02  : {
+                      stat_val = "V-NOT Present";
+                      "10b: The USB-ICC is virtually NOT present.";
+                    }
+      default     : {
+                      errorflag = 1;
+                      error_string = "!!! WARNING !!!\nExpected 00-10b, Found 11b.\n\n";
+                      stat_val = "Warning:RFU";
+                      "11b: ERROR - Invalid, Value 11b is RESERVED!";
+                    }
+    };
+    
+    if(errorflag)
+    {
+      SetCellColor(WarningColor);
+      AddPayLoadCell("IccStatus",stat_val, error_string + "Header offset Byte 7 - (Bits 1-0).\n bmIccStatus = " + ToBitString(prm1,2) + "b\n\n" + tttxt,_ERROR);
+      RestoreCellColor();
+    }
+    else
+      AddPayLoadCell("IccStatus",stat_val,"Header offset Byte 7 - (Bits 1-0).\n bmIccStatus = " + ToBitString(prm1,2) + "b\n\n" + tttxt);
+    RestoreFieldOffsetLen_ICCD();
+    
+    SetFieldOffsetLen_ICCD( 64-2, 4 );
+    errorflag = 0;
+    if(prm1&0x3C)
+    {
+      errorflag = 1;
+      error_string = "!!! WARNING !!!\nBits 5-2 RESERVED - Found Value: " + ToBitString(prm1>>2,4) + "b\n\n";
+      tttxt = ToBitString(prm1>>2,4) + "b: WARNING->RESERVED BITS";
+    }
+    else
+      tttxt = "Bit 5-2 = 00000b";
+      
+    if(errorflag)
+    {
+      SetCellColor(WarningColor);
+      AddPayLoadCell("RFU",ToBitString(prm1>>2,4) + "b",error_string + "Header offset Byte 7 - (Bits5-2).\n bmRFU = " + ToBitString(prm1>>2,4) + "b\n\n" + tttxt,_ERROR);
+      RestoreCellColor();
+    }
+    else if(SimpleShowItem())
+      AddPayLoadCell("RFU",ToBitString(prm1>>2,4) + "b","Header offset Byte 7 - (Bits5-2).\n bmRFU = " + ToBitString(prm1>>2,4) + "b\n\n" + tttxt);
+    RestoreFieldOffsetLen_ICCD();
+
+    SetFieldOffsetLen_ICCD( 64, 2 );
+    bmCommandStatus= (prm1 >> 6)&0x03;  #Bits 7-6
+    
+    str1 = ToBitString(bmCommandStatus,2) + "b";
+    tttxt="Header offset Byte 7 - (Bits 7-6).\n  bmCommandStatus = " + str1 + ".\n\n00b - Processed without error\n01b - Failed (error code provided by\n      the error register";
+    tttxt=tttxt +"\n10b - Time Extension is requested\n11b - RFU";
+    if (bmCommandStatus==0) {
+      datF="OK";
+    } else if (bmCommandStatus==1) {
+      datF="Error";
+    } else if (bmCommandStatus==2) {
+      datF="MoreTime";
+    } else {
+      SetCellColor(WarningColor);
+      datF="Warning:RFU";
+    }    
+    
+    if(FieldColor == WarningColor)
+    {
+      AddPayLoadCell( "CmdStatus", datF, "!!! WARNING !!!\nExpected 00-10b; Found 11b(RESERVED).\n\n" + tttxt, _ERROR );
+      RestoreCellColor();
+    }
+    else
+      AddPayLoadCell( "CmdStatus", datF, tttxt );
+      
+    RestoreFieldOffsetLen_ICCD();
+}
+
+set ErrorCodeTable=[
+#  Error Name  Possible Causes  
+ [ 0,     "",              ""],
+ [ 0xFE,  "ICC_MUTE",      "\nThe applications of the USB-ICC did not\nrespond or thh ATR could not be sent by\nthe USB-ICC."  ],
+ [ 0xFC,  "XFR_OVERRUN",   "\nThe USB-ICC detected a buffer overflow\nwhen receiving a data block."  ],
+ [ 0xFB,  "HW_ERROR",      "\nThe USB-ICC detetected a hardware error."  ]
+];
+
+ShowErrorCode(prm)
+{
+  errorflag = 0;
+  SetFieldOffsetLen_ICCD( 72, 8 );
+  ecode=Find(ErrorCodeTable,prm);
+  
+  if(bmCommandStatus == 2)                                  #Applying Rule where bError = Multiplier
+  {                                                         #when bmCommandStatus == 2.
+    ecode_val = prm;
+    ecode[0] = prm;
+    ecode[1] = "MULTIPLIER";
+    ecode[2] = "\nT=0: bError = Multiplier of WWT\nT=1: bError = Multiplier of BWT";
+  }
+  else if((bmCommandStatus == 0)||(bmCommandStatus == 3))   #Applying Rule where bError is RFU
+  {                                                         #when bmCommandStatus == 0 or 3
+    ecode[1] = "RFU";
+    ecode[0] = prm;
+    if(prm!=0)
+    {
+      errorflag=1;
+      ecode[2] = "\nbError is RESERVED when\nbmCommandStatus = 00b or 11b.";
+    }
+    else
+      ecode[2] = "\nbError is Reserved\n (bmCommandStatus = 00b or 11b)";
+  }
+  else if (ecode[0]==0)                                     #Determining what error bError code represents
+  {                                                         #This is the case bmCommandStatus ==1
+    ecode_val = prm - 256;
+    if ((prm>0x80) && (prm<0xC1))                           #User-Defined errors
+    {
+      uecode = Find(ICCD_USER_ErrorCodeTable,prm);
+      if(uecode[0]==0)
+      {
+        ecode[0]=prm;
+        ecode[1]="User Defined: " + Format("0x%02X",prm);
+        ecode[2]="\nAdd your user error code to the ICCD_USER_ErrorCodeTable\nin file USER_DEF_Errors_EDIT_ME.inc";
+      }
+      else
+      {
+        uecode[2] += "\n\nUser Error Mapped in file: USER_DEF_Errors_EDIT_ME.inc"; 
+        ecode = uecode;
+      }      
+    } 
+    else if (prm==0)                                        #CMD_NOT_SUPPORTED error
+    {
+      ecode_val = prm;
+      ecode[0]=prm;
+      ecode[1]="CMD_NOT_SUPPORTED";
+      ecode[2]="";
+    } 
+    else if ((prm>0x00) && (prm<0x80))                      #Errors 1 - 127 (positive) are an index value
+    {
+      ecode_val = prm;
+      ecode[0]=prm;
+      ecode[1]="PARAM_NOT_SUPPORTED_INCORRECT (" + Format("%d)",prm);
+      ecode[2]="\nIndex of Not Supported/Incorrect Message Parameter";
+    }
+    else if ( (prm==0xFD) || ((prm>0xF7)&&(prm<0xF3)) || (prm==0xF0) || (prm==0xEF) || (prm==0xE0) )
+    {
+      errorflag = 2;
+      ecode[0]=prm;
+      ecode[1]="INVALID_ERRCODE";
+      ecode[3]="\nValues -3(FDh),-8 to -14(F8h to F2h),\n-16(F0h),-17(EFh),-32(E0h) SHALL NOT\nBE USED by the USB-ICC!";
+    }    
+    else 
+    {
+      errorflag = 1;
+      ecode[0]=prm;
+      ecode[1]="RESERVED";
+      ecode[2]="\nThis is a RESERVED code\nand should not be used!";
+    }
+  }
+  else                                                      #These are errors in the table, hence assign value
+    if(prm > 127)                                           #If (value > 0xC0), it's a negative number
+      ecode_val = prm-256;                                  
+    else
+      ecode_val = prm;                                      #Else it's a positive number
+  
+  if((bmCommandStatus != 1)&&(bmCommandStatus != 2))
+  {
+    if(errorflag)
+    {
+      SetCellColor(WarningColor);
+      AddPayLoadCell("ErrCode",ecode[1],Format("!!! WARNING !!!\nRESERVED - Found Value.\n\nHeader offset Byte 8.\n bError = 0x%02X\n",ecode[0]) + ecode[1] + ecode[2],_ERROR);
+      RestoreCellColor();
+    }
+    else
+    {
+      SetCellColor(GreyColor);
+      if(SimpleShowItem())
+        AddPayLoadCell("ErrCode",ecode[1],Format("Field Reserved (bmCommandStatus != 1 or 2)\n\nHeader offset Byte 8.\n bError = 0x%02X\n",ecode[0]) + ecode[1] + ecode[2]);
+      RestoreCellColor();
+    }
+  }
+  else if(bmCommandStatus == 1)
+  {
+    if(errorflag==1)
+    {
+      SetCellColor(WarningColor);
+      AddPayLoadCell("ErrCode",ecode[1],Format("!!! WARNING !!!\nRESERVED CODE\n\nHeader offset Byte 8.\n bError: %d",ecode_val) + Format("(0x%02X)\n",prm) + ecode[1] + ecode[2],_ERROR);
+      RestoreCellColor();
+    }
+    else if(errorflag==2)
+    {
+      SetCellColor(WarningColor);
+      AddPayLoadCell("ErrCode",ecode[1],Format("!!!ERROR!!!\nINVALID CODE\n\nHeader offset Byte 8.\n bError: %d\n",ecode_val) + Format("(0x%02X)\n",prm) + ecode[1] + ecode[2],_ERROR);
+      RestoreCellColor();
+    }    
+    else
+      AddPayLoadCell("ErrCode",ecode[1],Format("Header offset Byte 8.\n bError: %d ",ecode_val) + Format("(0x%02X)\n",prm) + ecode[1] + ecode[2]); 
+  }
+  else
+    AddPayLoadCell("ErrCode",Format("%dX",prm),Format("Header offset Byte 8.\n bError: %d ",prm) + Format("(0x%02X)\n",prm) + ecode[1] + ecode[2]); 
+  
+  RestoreFieldOffsetLen_ICCD();
+}
+
+IsReserved(bits,offset)
+{
+  tempstr = Format("Header offset Byte %d.",offset);
+  SetFieldOffsetLen_ICCD( offset*8+8, 8 );
+  
+  if (bits==0) 
+  {
+    SetCellColor(GreyColor);
+    if(SimpleShowItem())
+      AddPayLoadCell( "R", bits, tempstr + Format("\n Reserved: 0x%02X",bits));
+    RestoreCellColor();
+  } 
+  else 
+  {
+    SetCellColor(WarningColor);
+    AddPayLoadCell( "R", bits, Format("!!! WARNING !!! \nRESERVED - Found Value: 0x%02X\n",bits) + tempstr,_ERROR);
+    RestoreCellColor();
+  }
+
+  RestoreFieldOffsetLen_ICCD();
+}
+
+CheckICCDMsgLen()
+{
+  if(dwLength != (in.DataLength - out.Decoded))
+    AddCell("ERROR","Data Discrepancy",Format("ERROR\nDifference of %d Bytes Found!\n [(Data in PayLoad - Header) - dwLength]",((in.DataLength-out.Decoded)-dwLength)),RED,_ERROR);
+}  
+
+# Helper Functions
+
+SetFieldOffsetLen_ICCD( offset, len )
+{
+    RestoreBitCurrentFieldOffset = BitCurrentFieldOffset;
+    RestoreBitCurrentFieldLength = BitCurrentFieldLength;
+    BitCurrentFieldOffset = offset;
+    BitCurrentFieldLength = len;
+}
+
+RestoreFieldOffsetLen_ICCD()
+{
+    BitCurrentFieldOffset = RestoreBitCurrentFieldOffset;
+    BitCurrentFieldLength = RestoreBitCurrentFieldLength;
+}  
+
+GetByteStrFld_ICCD( len_in_bytes )
+{
+    tmp = "0x";        
+    for(i = 0; i < len_in_bytes; i++) 
+        tmp += Format("%02X", NextNBits_(8));    
+    return tmp;
+}
+
+####################################################################################
+#                       USBTracer specific caption cell                            #
+####################################################################################
+
+AddSpecCaptionCell(caption, text, tooltip, FieldColor, addparam, addparam1, addparam2 )
+{   
+    AddCell(caption, text, tooltip, FieldColor, _USBBULK_HEADER, addparam, addparam1, addparam2 );        
+    return 1;        
+}

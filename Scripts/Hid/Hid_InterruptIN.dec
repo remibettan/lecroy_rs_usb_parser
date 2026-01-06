@@ -1,0 +1,76 @@
+#*******************************************************************************
+#
+#  FILENAME: Hid_InterruptIN.dec
+#
+#  Copyright (c) 2016, Teledyne-LeCroy - All Rights Reserved
+#
+#  DESCRIPTION
+#    This is the HID InterruptIN Decoder file
+#
+#  FILE HISTORY:
+#         June 2016 Created - SM
+#
+#*******************************************************************************
+
+%include "HID_Decoder.inc"
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block
+#
+#----  Output
+# out.Decoded   - amount of Data has been decoded
+# out.State
+# out.Data
+# out.DataLength
+#
+
+set ModuleType  = "DataBlock Decoder";
+set LevelName   = "HIDDecoder";
+set LevelColor  = 0x898989;
+
+set OutputType      = "HID Decoder Interrupt In Endp";
+set UsbDecodeType   = "Endpoint";
+set UsbEndpId       = 5;            # Just a unique value for each endpoint of the same Class/Vendor/Product
+                                    # to distinguish them
+
+set UsbClassCode    = 0x03; # HID
+#set UsbSubClass     = 0;    
+#set UsbProtocol     = 0;  
+set UsbEndpType     = "Interrupt";
+set UsbEndpDir      = "In";
+
+set UsbScriptDecodeType  = 1; # Combined decoding for Cells and Text decoding
+
+#set UsbSubClass     = 0x01; # Boot Interface
+#set UsbProtocol     = 0x01; # Hid Keyboard
+
+#
+# Parsing entry point
+#
+
+ProcessData()
+{
+    ProcessDataInit();
+    InitType2Decoder();
+    
+    UnitDecoderInit("HID");
+    
+    FullyDecoded = 1;
+    out.Decoded = 0;      
+    
+    GetNBits( in.Data, 0, 0 );      #Initialize pointer/counter for NextNBits_()
+    
+    ProcessHIDReportDescriptor(UsbEndpType, UsbEndpDir);    
+    
+    out.Data = in.Data;
+    out.DataLength = in.DataLength;
+    out.State = "Complete";
+    
+    ############ for Debug purposes#########
+    # GetNBits(in.Data, 0, 0);             #
+    # ShowDataBlock(in.DataLength);        #
+    ########################################       
+
+    return Complete();
+}

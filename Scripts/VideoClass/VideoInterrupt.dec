@@ -1,0 +1,260 @@
+#
+#  Copyright (c) 2002, Computer Access Technology Corp. - All Rights Reserved
+#
+#  VideoInterrupt.dec VERSION2
+#
+#  
+#
+%include "CATCScriptAPI.inc"  
+%include "UsbCommon.inc" 
+%include "Video_Common.inc"
+%include "VideoTables.inc"       #has all the tables that are accessed in this file
+%include "VideoCellColors.inc"
+%include "VideoCurrentEntityIdMap_EditMe.inc"
+%include "Ds5UvcDefines.inc"
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block 
+#
+#----  Output
+# out.Decoded   - amount of data has been decoded
+#
+
+
+set OutputType    = "Video Interrupt";
+set UsbDecodeType = "Endpoint";
+set UsbEndpId = 10; # just a unique value for each endpoint of the same Class/Vendor/Product to distinguish them
+set UsbClassCode = 0x0E;
+set UsbEndpType = "Interrupt";
+set UsbEndpDir = "In";
+set UsbMaxXferSize = 0x6;   
+
+set ControlSelectorMap = 
+[
+    [   0x00, "NotFound",                TerminalControlSelectorsTable                		,NotFoundBaseColor               ],   #dummy             
+    [   0x01, "VideoControlInterface",   VideoControlInterfaceControlSelectorsTable_V1_1	,VideoControlInterfaceBaseColor  ],
+    [   0x02, "Terminal",                TerminalControlSelectorsTable                		,TerminalBaseColor               ],           
+    [   0x03, "SelectorUnit",            SelectorUnitControlSelectorsTable            		,SelectorUnitBaseColor           ],
+    [   0x04, "Camera",                  CameraTerminalControlSelectorsTable          		,CameraBaseColor                 ],
+    [   0x05, "ProcessingUnit",          ProcessingUnitControlSelectorsTable_V1_1         	,ProcessingUnitBaseColor         ],         
+    [   0x06, "ExtensionUnit",           DepthExtensionUnitControlSelectorsTable           	,ExtensionUnitBaseColor          ],
+    [   0x07, "ExtensionUnit",           RgbExtensionUnitControlSelectorsTable           	,ExtensionUnitBaseColor          ],
+    [   0x08, "VideoStreaming",          VideoStreamingInterfaceControlSelectorsTable 		,VideoStreamingBaseColor         ]         
+];
+
+set UsbScriptDecodeType = 2; # explicit text decoding processing
+
+#
+# Parsing entry point
+#
+
+
+set bStatusType = 0;
+
+
+
+ProcessData()
+{
+    ProcessDataInit();
+
+    Speed        = GetDecoderHeaderByte(0);    
+    UsbSpecLevel = GetDecoderHeaderByte(1);
+    out.Decoded = 0;    
+
+    AddDecodedTextHeader();
+    AddSeparator();
+
+  if(in.DataLength > 0)
+  {
+  	bStatusType = GetDataByte(0);
+  	out.Decoded++;
+    FieldColor = VideoIntControlColor;
+    if (bStatusType == 0)
+    {
+        FieldColor = ErrorColor;
+        AddPayLoadCell("bStatusType", "Reserved", "bStatusType is 0", FieldColor, [_TABULARCELL, CELL_VIDEO_STATUS_TYPE]);
+    }
+    else if (bStatusType == 1)
+    {
+        AddPayLoadCell("bStatusType", " VideoControl ", "VideoControl Interface is Interrupting.  bStatusType=1", FieldColor, [_TABULARCELL, CELL_VIDEO_STATUS_TYPE]);
+        if(in.DataLength > 1)
+        {
+        	out.Decoded++;
+        	bOriginator = GetDataByte(1);
+			_row_x = Find(CurrentEntityIdMap, bOriginator);  # _row_x will contain entity entry
+        	AddPayLoadCell("bOriginator", _row_x[1] , "ID of Terminal, Unit, or Interface that reports the interrupt");
+        }
+        
+        if(in.DataLength > 2)
+        {
+        	out.Decoded++;
+        	bEvent = GetDataByte(2);
+        	if (bEvent == 0)
+        	{
+            	AddPayLoadCell("bEvent", " Control Change ", "bEvent = 0", FieldColor, [_TABULARCELL, CELL_VIDEO_EVENT]);
+        	}
+        	else
+        	{
+            	FieldColor = ErrorColor;
+            	AddPayLoadCell("bEvent", "Reserved", 
+                	Format ("The only valid bEvent valid is 0.  This one is 0x%02X", bEvent), FieldColor, [_TABULARCELL, CELL_VIDEO_EVENT]);
+            	FieldColor = VideoIntControlColor;
+        	} 
+    	}
+    		
+    	if(in.DataLength > 3)
+    	{
+    		out.Decoded++;
+			bSelector = GetDataByte(3);
+			_row_y = Find(ControlSelectorMap, _row_x[2]); # _row_y[2] has control table
+			_row_yy = Find(_row_y[2], bSelector); # _row_yy[2] has control selector
+			AddPayLoadCell("bSelector", _row_yy[1], Format("Control Selector of the control that reports the interrupt, control = 0x%02x", bSelector));
+		}
+        
+        if(in.DataLength > 4)
+        {
+        	out.Decoded++;
+        	bAttribute = GetDataByte(4);
+        	if (bAttribute == 0)
+            	AddPayLoadCell("bAttribute", " Control value change ", Format ("bAttribute = 0x%02X", bAttribute));
+        	else if (bAttribute == 1)
+            	AddPayLoadCell("bAttribute", " Control info change ", Format ("bAttribute = 0x%02X", bAttribute));
+        	else if (bAttribute == 2)
+            	AddPayLoadCell("bAttribute", " Control failure change ", Format ("bAttribute = 0x%02X", bAttribute));
+        	else
+        	{
+            	FieldColor = ErrorColor;
+            	AddPayLoadCell("bAttribute", "Reserved", 
+                	Format ("bAttribute = 0x%02X.  Value is reserved", bAttribute));
+            	FieldColor = VideoIntControlColor;
+        	}
+        }
+        
+        if(in.DataLength > 5)
+        {
+	        if (bAttribute == 0)
+			{
+				controlLen = in.DataLength - 5;
+				if (controlLen == 1)
+				{
+					bValue = GetDataByte(5);
+					
+					controlVal = Format ("%d", bValue);
+					valString = "Updated Value";
+					# error control for RGB
+					if ((bOriginator == 3) && (bSelector == 7))
+					{
+						_err_row = Find(ErrorControlMap, bValue);
+						controlVal = _err_row[1];
+						valString = "Error Code";
+					}
+
+					out.Decoded++;
+					AddPayLoadCell(valString, controlVal , 
+						Format ("bValue = 0x%02X   Equivalent to the result of a GET_CUR request", bValue));
+				}
+				if (controlLen == 2)
+				{
+					bValue = GetDataByte(5) | (GetDataByte(6) << 8);
+					out.Decoded += 2;
+					AddPayLoadCell("Updated Value", Format ("%d", bValue), 
+						Format ("bValue = 0x%04X   Equivalent to the result of a GET_CUR request", bValue));
+				}
+				if (controlLen == 4)
+				{
+					bValue = GetDataByte(5) | (GetDataByte(6) << 8) | (GetDataByte(7) << 16) | (GetDataByte(8) << 24);
+					out.Decoded += 4;
+					AddPayLoadCell("Updated Value", Format ("%d", bValue), 
+						Format ("bValue = 0x%08X   Equivalent to the result of a GET_CUR request", bValue));
+				}
+			}
+        	else if (bAttribute == 1)
+			{
+				bValue = GetDataByte(5);
+				out.Decoded++;
+            	AddPayLoadCell("Updated Info", Format ("0x%02X", bValue), 
+                	Format ("bValue = 0x%02X   Equivalent to the result of a GET_INFO request", bValue));
+			}
+        	else if (bAttribute == 2)
+			{
+			    bValue = GetDataByte(5);
+			    out.Decoded++;
+			    _row_zz = Find(ErrorCodeTable, bValue);
+            		    AddPayLoadCell("bErrorCode", _row_zz[1], 
+                	    Format ("bValue = 0x%02X   Equivalent to the result of a GET_CUR request on VC_REQUEST_ERROR_CODE_CONTROL", bValue));
+			}
+        	else
+        	{
+            	FieldColor = ErrorColor;
+            	AddPayLoadCell("bValue", "Not defined", 
+                	Format ("bValue = 0x%02X.  Value is not defined in the spec", bValue));
+            	FieldColor = VideoIntControlColor;
+        	}
+      	}
+      	
+      	if(out.Decoded < 6)
+      		AddCell("Error","Not Enough Data",Format("Expected at least 6 bytes.\nFound %d byte(s)...",out.Decoded),RED);
+    }
+    else if (bStatusType == 2)
+    {
+        FieldColor = VideoIntStreamingColor;
+        AddPayLoadCell("bStatusType", "VideoStreaming", "VideoStreaming Interface is Interrupting.  bStatusType=2", FieldColor, [_TABULARCELL, CELL_VIDEO_STATUS_TYPE]);
+        if(in.DataLength > 1)
+        {
+        	bOriginator = GetDataByte(1);
+			AddPayLoadCell("bOriginator", Format ("0x%02X", bOriginator), "ID of Terminal, Unit, or Interface than reports the interrupt");
+        	out.Decoded++;
+        }
+        
+        if(in.DataLength > 2)
+        {
+        	bEvent = GetDataByte(2);
+        	out.Decoded++;
+        	if (bEvent == 0)
+        	{
+            	AddPayLoadCell("bEvent", "Button Press", "bEvent = 0", FieldColor, [_TABULARCELL, CELL_VIDEO_EVENT]);
+        	}
+        	else
+        	{
+            	FieldColor = ErrorColor;
+            	AddPayLoadCell("bEvent", "Stream Error", 
+                	Format ("The only valid bEvent valid is 0.  This one is 0x%02X", bEvent), FieldColor, [_TABULARCELL, CELL_VIDEO_EVENT]);
+            	FieldColor = VideoIntStreamingColor;
+        	} 
+        }
+        
+        if(in.DataLength > 3)
+        {
+        	bValue = GetDataByte(3);
+        	out.Decoded++;
+        	if ((bValue == 0) && (bEvent == 0))#Button press
+            	AddPayLoadCell("bValue", "Button Released", Format ("bValue = 0x%02X", bValue));
+        	else if ((bValue == 1) && (bEvent == 0))#Button press
+            	AddPayLoadCell("bValue", "Button Pressed", Format ("bValue = 0x%02X", bValue));
+        	else
+        	{
+            	FieldColor = ErrorColor;
+            	AddPayLoadCell("bValue", "Not defined", Format ("bValue = 0x%02X.  Value is not defined", bValue));
+            	FieldColor = VideoIntStreamingColor;
+        	}
+        }
+        
+        
+      	if(out.Decoded != 4)
+      		AddCell("Error","Not Enough Data",Format("Expected at least 4 bytes.\nFound %d byte(s)...",out.Decoded),RED);
+    }
+    else
+    {
+        FieldColor = ErrorColor;
+        AddPayLoadCell("bStatusType", Format ("0x%X", bStatusType), "bStatusType is illegal value", FieldColor, [_TABULARCELL, CELL_VIDEO_STATUS_TYPE]);
+        FieldColor = VideoIntStreamingColor;
+    }
+            
+    AddSeparator();
+	}
+	
+    return Complete();
+}
+
+

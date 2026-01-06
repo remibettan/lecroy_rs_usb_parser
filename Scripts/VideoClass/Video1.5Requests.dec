@@ -1,0 +1,3401 @@
+ 
+# Copyright (c) 2006, Computer Access Technology Corp. - All Rights Reserved
+ 
+#   Video1.1Requests.dec 
+
+#		This file is for the USB Video Class (UVC) Version 1.1
+
+#   Vendor Request File for Imaging Devices Decoder
+ 
+
+%include "CATCScriptAPI.inc"             #.inc files that are included
+%include "UsbCommon.inc" 
+%include "Video_Common.inc"
+%include "VideoCellColors.inc"
+%include "VideoTables.inc"
+%include "Ds5UvcDefines.inc"
+%include "VideoCurrentEntityIdMap_EditMe.inc"
+%include "HWM\Ds5HWM.inc"
+
+ #----  Input
+ # in.Data       - Data_block to decode
+ # in.DataLength - Length of Data_block 
+ 
+ #----  Output
+ # out.Decoded   - amount of data has been decoded
+
+#############################################################################
+#                               View Settings                               #
+#############################################################################
+#
+#    In this section user can set up which fields are to be shown and 
+#    which are to be hidden in expanded and collapsed states.
+#    Zero-value everywhere means that fields will not be shown,
+#    otherwise means opposite.
+#
+#
+# ----------------------- All Field View Settings ---------------------------
+#   These settings have priority above separate field View Settings in
+#   expanded state ONLY.
+#   In order separate field View Settings to work properly
+#   BOTH All Field View Settings should be set to 0.
+#
+#   Due to the fact that ViewAll-setting and HideAll-setting are 
+#   exceptive propositions - ViewAll has been set a higher priority.
+# ---------------------------------------------------------------------------
+
+	const VC2_ViewAll              = 0;
+	const VC2_HideAll              = 0;
+
+# ---------------------------------------------------------------------------
+
+
+# -----------------------  Separate Field View Settings ---------------------
+# The FIRST value in list-variables defines if the field is to be shown or
+# hidden in COLLAPSED state. 
+# 0 - means the field is to be shown.
+# 1 - means the field is to be hidden.
+# 
+# The SECOND value in list-variables defines if the field is to be shown or
+# hidden in EXPANDED state. 
+# 0 - means the field is to be shown.
+# 1 - means the field is to be hidden.
+#
+# i.e.  const RPD_Field = [0, 1]# - means that field 'Field' will be hidden
+# in collapsed state and will be shown in expanded state. 
+#
+ 
+#                       					[collapsed, expanded]   
+const VC2_bmRequestType       					= [1, 1];
+const VC2_wValue			        					= [1, 1];
+const VC2_wIndex			        					= [1, 1];
+const VC2_wLength			        					= [1, 1];
+const VC2_bDevicePowerMode							= [1, 1];
+const VC2_bErrorCode										= [1, 1];
+const VC2_dwHostClockFreq								= [1, 1];
+const VC2_bSelector											= [1, 1];
+const VC2_bScanningMode									= [1, 1];
+const VC2_bAutoExposureMode							= [1, 1];
+const VC2_bAutoExposurePriority					= [1, 1];
+const VC2_dwExposureTimeAbsolute				= [1, 1];
+const VC2_bExposureTimeRelative					= [1, 1];
+const VC2_wFocusAbsolute								= [1, 1];
+const VC2_bFocusRelative								= [1, 1];
+const VC2_bSpeed												= [1, 1];
+const VC2_bFocusAuto										= [1, 1];
+const VC2_wIrisAbsolute									= [1, 1];
+const VC2_bIrisRelative									= [1, 1];
+const VC2_wObjectiveFocalLength					= [1, 1];
+const VC2_bZoom													= [1, 1];
+const VC2_bDigitalZoom									= [1, 1];										
+const VC2_dwPanAbsolute									= [1, 1];
+const VC2_dwTiltAbsolute								= [1, 1];
+const VC2_bPanRelative									= [1, 1];
+const VC2_bPanSpeed											= [1, 1];
+const VC2_bTiltRelative									= [1, 1];
+const VC2_bTiltSpeed										= [1, 1];
+const VC2_bRollAbsolute									= [1, 1];
+const VC2_bRollRelative									= [1, 1];
+const VC2_bPrivacy											= [1, 1];
+const VC2_wBacklightCompensation				= [1, 1];
+const VC2_wBrightness										= [1, 1];
+const VC2_wContrast											= [1, 1];
+const VC2_wGain													= [1, 1];
+const VC2_bPowerLineFrequency						= [1, 1];
+const VC2_wHue													= [1, 1];
+const VC2_wSaturation										= [1, 1];
+const VC2_wSharpness										= [1, 1];
+const VC2_wGamma												= [1, 1];
+const VC2_wWhiteBalanceTemperature			= [1, 1];
+const VC2_wWhiteBalanceTemperatureAuto	= [1, 1];
+const VC2_wWhiteBalanceBlue							= [1, 1];
+const VC2_wWhiteBalanceRed							= [1, 1];
+const VC2_wWhiteBalanceComponentAuto		= [1, 1];
+const VC2_wMultiplierStep								= [1, 1];
+const VC2_wMultiplierLimit							= [1, 1];
+const VC2_wHueAuto											= [1, 1];
+const VC2_bmHint												= [1, 1];
+const VC2_bFormatIndex									= [1, 1];
+const VC2_bFrameIndex										= [1, 1];
+const VC2_dwFrameInterval								= [1, 1];
+const VC2_wKeyFrameRate									= [1, 1];
+const VC2_wPFrameRate										= [1, 1];
+const VC2_wCompQuality									= [1, 1];
+const VC2_wCompWindowSize								= [1, 1];
+const VC2_wDelay												= [1, 1];
+const VC2_dwMaxVideoFrameSize						= [1, 1];
+const VC2_dwMaxPayloadTransferSize			= [1, 1];
+const VC2_bCompressionIndex							= [1, 1];		
+const VC2_bTrigger											= [1, 1];
+const VC2_bStreamErrorCode							= [1, 1];
+const VC2_bGenerateKeyFrame							= [1, 1];
+const VC2_bStartFrameSegment						= [1, 1];
+const VC2_bEndFrameSegment							= [1, 1];												
+
+#-----------------------------------------------------------------------------
+
+set OutputType          = "Video 1.5 Class Requests";      
+set UsbDecodeType       = "Request";
+set UsbReqType          = "Class";
+set UsbClassCode        = 0x0E;    # Class code for Video
+set UsbScriptDecodeType = 1;   # Combined decoding for Cells and Text decoding 
+set UsbProtocol         = 0x030; 
+#set UsbSpecVersion    	= 0x0150;
+
+set bReqType = 0;     #Declaring global variables
+set bRequest = 0;
+set wValue   = 0;
+set wIndex   = 0;
+set wLength  = 0;
+set EntiyId  = 0;
+set AttributeString = "";
+set BaseColor = 0;
+set EntityString = "---";
+
+#%include "VideoDescriptors.inc"
+
+set FullyDecoded = 1;  # Variable that will determine if request has been fully decoded
+ProcessData()
+{ 
+    DoProcessDataFirstPart();
+    
+    CommonDecoderInit();    
+    
+    UnitDecoderInit("VC3");    
+    
+    #DoRequestStringTop();   # function used for text decoding
+    
+    AddShortDataHeader("Request");
+    
+    FullyDecoded = 1;
+        
+    out.Decoded = 0;   
+    
+    if (in.DataLength < 8)    
+    { 
+ 				if ( !AddSpecPLCellMonoNoDlg("Error", "Illegal Payload", "Nothing is being decoded", __ERROR) )  
+ 						# Check if some specific AddPLCellMonoNoDlg hook handled call
+          	#	Original color: AddCell("Error", "Illegal Payload", "Nothing is being decoded", _ERROR); 
+          	#	Originally scripted: AddCell("Error", "Illegal Payload", "Nothing is being decoded", FieldColor, _MONOCOLOR, _ERROR);
+          	#	Same as below: AddCell("Error", "Illegal Payload", "Nothing is being decoded", ERROR_COLOR, _ERROR);
+         		AddErrorMonoCell("Error", "Illegal Payload", "Nothing is being decoded");
+     		
+     #   AddPLCellMonoNoDlg("Error", "Illegal Payload", "Nothing is being decoded", __ERROR);
+        return Complete();
+    }
+    GetNBits(in.Data, 0, 0);        #Initialize pointer/counter for NextNBits_
+    
+    bReqType = NextNBits_(8); 			#0-7
+    bRequest = NextNBits_(8);   	 	#8-15
+  	wValue   = NextDataWord_();  		#16-31
+	  wIndex   = NextDataWord_();   	#32-47
+    wLength  = NextDataWord_();			#48-63
+    
+    out.Decoded = 8;
+
+    _row = Find(VideoRequestTable, bRequest);  # will determine which request is being used
+    
+    AddShortDataHeader(_row[1]);
+    if (_row[0] == 0)
+    {
+        AddSeparator();
+        AddDecodedTextHeader();  # header for the text decoding
+        SetFieldOffsetLen(8,8);  
+        FieldColor = bRequestColor;
+        AddPayLoadCell("bmRequestType",Format("0x%04X",bReqType),Format("bitmap with decimal value of %d",bReqType) + "\n\nCharacteristics of Request:\n   D7      Data xfer direction\n\t   0 = Host to Device\n\t   1=Device to host\n\n   D6..5   Type\n\t   0 = Standard\n\t   1 = Class\n\t   2 = Vendor\n\t   3 = Reserved\n\n   D4..0   Recipient\n\t   0 = Device\n\t   1 = Interface\n\t   2 = Endpoint\n\t   3 = Other\n\t   4..31 = Reserved\n");
+        SetFieldOffsetLen(16,8);
+        FieldColor = bRequestColor;
+        AddPayLoadCell("bRequest", _row[1], Format("bRequest HexVal: 0x%04X", bRequest), FieldColor, [_TABULARCELL, CELL_REQUEST]);
+        SetFieldOffsetLen(32,16);
+        FieldColor = wValueColor;
+        AddPayLoadCell("wValue", wValue, "", FieldColor, [_TABULARCELL, CELL_WVALUE, "TEXT_CAPTION"]);
+        SetFieldOffsetLen(48,16);
+        FieldColor = wIndexColor;
+        AddPayLoadCell("wIndex",wIndex,"");
+        SetFieldOffsetLen(64,16);
+        FieldColor = wLengthColor;
+        AddPayLoadCell("wLength",wLength,"");
+    }
+    if ( _row[0] != 0)
+    {
+        AttributeString = _row[1];
+        
+        Call ( _row[1], [ in.DataLength ] );  # will call function for the specified request
+        if(FullyDecoded == 1)                 # if the request is fully decoded
+        {
+            out.Decoded = in.DataLength;
+        }
+        else if(FullyDecoded == 0)
+        {
+            out.Decoded = BitCurrentFieldOffset/8;
+        }
+    }
+    else
+    {
+        out.Decoded = 8;
+    }
+
+    AddSeparator();
+
+    ############ for Debug purposes#########
+    # GetNBits(in.Data, 0, 0);             #
+    # ShowDataBlock(in.DataLength);        #
+    ########################################       
+
+    return Complete();
+}
+
+# Add Request Decoding by Application [request table in Dialog View]
+DecodeRequestToText()
+{
+    return DecodeRequestToTextCommon( VideoRequestTable );    
+}
+
+# List of different requests for Video Class
+set VideoRequestTable = 
+[
+    [   0x00, "RC_UNDEFINED"      ],                  
+    [   0x01, "SET_CUR"           ],
+    [   0x81, "GET_CUR"           ],
+    [   0x82, "GET_MIN"           ],
+    [   0x83, "GET_MAX"           ],
+    [   0x84, "GET_RES"           ],
+    [   0x85, "GET_LEN"           ],
+    [   0x86, "GET_INFO"          ],
+    [   0x87, "GET_DEF"           ],
+	[   0x91, "GET_CUR_ALL"       ],
+	[   0x92, "GET_MIN_ALL"       ],
+	[   0x93, "GET_MAX_ALL"       ],
+	[   0x94, "GET_RES_ALL" ],
+	[   0x97, "GET_DEF_ALL"       ]
+];
+
+set ControlSelectorMap = 
+[
+    [   0x00, "NotFound",                		TerminalControlSelectorsTable                		,NotFoundBaseColor                 ],   #dummy             
+    [   0x01, "VideoControlInterface",   		VideoControlInterfaceControlSelectorsTable_V1_5	    	,VideoControlInterfaceBaseColor    ],   
+    [   0x02, "Terminal",                		TerminalControlSelectorsTable                		,TerminalBaseColor                 ],           
+    [   0x03, "SelectorUnit",            		SelectorUnitControlSelectorsTable            		,SelectorUnitBaseColor             ],
+    [   0x04, "Camera",                  		CameraTerminalControlSelectorsTable_V1_5          		,CameraBaseColor                   ],
+    [   0x05, "ProcessingUnit",          		ProcessingUnitControlSelectorsTable_V1_5            	,ProcessingUnitBaseColor           ],        
+    [   0x06, "ExtensionUnit",           		DepthExtensionUnitControlSelectorsTable           	,ExtensionUnitBaseColor          ],
+    [   0x07, "ExtensionUnit",           		RgbExtensionUnitControlSelectorsTable           	,ExtensionUnitBaseColor          ],
+    [   0x08, "ExtensionUnit",           		FishEyeExtensionUnitControlSelectorsTable           	,ExtensionUnitBaseColor          ],
+    [   0x09, "VideoStreamInterface",          		VideoStreamingInterfaceControlSelectorsTable 		,VideoStreamingBaseColor           ],
+    [   0x0A, "EncodingUnitControlSelectors",   	EncodingUnitControlSelectorsTable_V1_5 		        ,EncodingUnitControlSelectorsColor ]
+];
+
+set CapabilitiesBitmapTable =
+[
+    [  0, "Supports GET request              " ],
+    [  1, "Supports SET request              " ],
+    [  2, "Disabled by Automatic Mode        " ],
+    [  3, "AutoUpdate Control                " ],
+    [  4, "Async Control                     " ],
+    [  5, "Disabled for current Commit state " ],
+    [  6, "Reserved (0)                      " ],
+    [  7, "Reserved (0)                      " ]
+];
+
+# Prints out byte stream in right window of text decoding 
+/*RequestRightSide()
+{
+    str2 = "";
+    for(i = 8;i<wLength+8;i++)
+    {
+        counter++;
+        
+        if(counter < 17)
+        {
+            str += Format("%02X ", GetDataByte(i));    
+        }
+        else if(counter == 17)
+        {
+            str += "...";
+        }
+    }
+    AddCaptionToDlg("Data",str+"  ","");
+    AddCaptionToDlg("--------------------------------","","");
+}
+*/
+# Sets up header for left window in text decoding
+DoRequestStringTop()
+{
+    str = "";
+    for (i=0; i<8; i++)
+    {
+        str += Format ("%02X ", GetDataByte(i));
+    }
+    AddCaptionToDlg("Video ", "Request  ", "");          
+    AddCaptionToDlg("Setup Data", str+"  ", "");
+    AddCaptionToDlg("------------------------------------", "", "");
+    if (bReqType & 0x80)
+    {
+        str = "Host-to-device  ";
+    }
+    else
+    {
+        str = "Device-to-host  ";
+    }
+    AddCaptionToDlg("Direction", str, "");
+    select 
+    {
+        ((bReqType & 0x60) == 0x00) : str = "Standard  ";
+        ((bReqType & 0x60) == 0x20) : str = "Class  ";
+        ((bReqType & 0x60) == 0x40) : str = "Vendor  ";
+        ((bReqType & 0x60) == 0x60) : str = "RESERVED  ";
+    };
+    AddCaptionToDlg("     Type", str, "");
+    select 
+    {
+        ((bReqType & 0x1F) == 0x00) : str = "Device  ";
+        ((bReqType & 0x1F) == 0x01) : str = "Interface  ";
+        ((bReqType & 0x1F) == 0x02) : str = "Endpoint  ";
+        ((bReqType & 0x1F) == 0x03) : str = "Other  ";
+        default                     : str = "RESERVED  ";
+    };
+    AddCaptionToDlg("Recipient", str, "");
+    AddCaptionToDlg("------------------------------------", "", "");
+}
+
+RC_UNDEFINED()
+{
+    AddSeparator();
+    SetFieldOffsetLen(80,16);
+    FieldColor = ErrorColor;
+    AddPayLoadCell("Error","error","bRequest is not a defined request");
+}
+
+
+set interfaceNum = 0;
+do_common_controls()
+{
+    AddSeparator();
+    AddDecodedTextHeader();  # header for the text decoding
+    if (SimpleShowItem())
+    {
+        SetFieldOffsetLen(8,8);  
+        AddPayLoadCell("bReqType", Format ("0x%02X", bReqType) ,"bmRequestType");
+    }
+    
+    SetFieldOffsetLen(16,8);  
+    AddPayLoadCell("Request", AttributeString, Format("bRequest HexVal: 0x%04X", bRequest));
+    
+    SetFieldOffsetLen(48,16);
+    EntiyId = ((wIndex>>8) & 0xFF);
+	interfaceNum = wIndex & 0xFF;
+	if ((interfaceNum == 0) || (interfaceNum == 3))
+	{
+		_row_x = Find(CurrentEntityIdMap, EntiyId);  # will determine which request is being used
+	}
+	else
+	{
+		_row_x = Find(CurrentStreamInterfacesMap, interfaceNum);  # will determine which request is being used 
+	}
+    
+    
+ 
+    if (_row_x[2] == 0) # Cant find match for id
+    {
+    		EntityString = "---";
+        SetFieldOffsetLen(32,16);
+        AddPayLoadCell("ControlSelector", Format ("0x%02X", wValue >> 8), FormatEx("To obtain the decoding for the control selectors,\nthe user must edit the file\n\nVideoCurrentEntityIdMap_EditMe.inc\n\nto provide the mapping of the Entity Id to the Control Type\nThis info may be found in the enumeration \ninformation in the Device Descriptors.\n\nNormally a Control Selector: wValue=%d", wValue));
+        doIndexAndLength();
+        #EndOfRequest();
+        AddSeparator();
+        RequestRightSide();
+
+        GetNBits(in.Data, 8*8, 0);             # mgd added for no data shown when mapping not done
+        ShowDataBlockReOrder(in.DataLength-8); # changed to re-order
+    }
+    else
+    {
+        _row_y = Find(ControlSelectorMap, _row_x[2]); # _row_y[2] has control table
+        FieldColor += _row_y[3];   
+        if (bRequest == 0x85) # GET_LEN
+        {
+            _row_yy = Find(_row_y[2], wValue >> 8); # _row_yy[2] has control selector
+           	EntityString = _row_x[1];
+            SetFieldOffsetLen(32,16);
+            AddPayLoadCell("ControlSelector", _row_yy[1], FormatEx("Control Selector: 0x%02X (high byte of wValue)\nwValue = 0x%04X", wValue >> 8, wValue));
+            doIndexAndLength();
+            #EndOfRequest();
+            AddSeparator();
+            RequestRightSide();
+#~#         
+            if((in.DataLength - out.Decoded) > 0)
+			{   
+            	len = NextNBits_(8) | (NextNBits_(8) << 8);
+            	out.Decoded += 2;
+            	AddPayLoadCell("Control Length", len, Format("Control Length is %d bytes", len), temp_str3);
+            }
+            else
+			{
+            	len = 0;
+            	SetCellColor(RED);
+            	AddPayLoadCell("Control Length", len, Format("PAYLOAD IS SHORT, EMPTY VALUE - 0x%02X bytes", len), temp_str3);
+            	RestoreCellColor();
+            }
+#~#            	
+        }       
+        else if (bRequest == 0x86) # GET_INFO
+        {
+            _row_yy = Find(_row_y[2], wValue >> 8); # _row_yy[2] has control selector
+           	EntityString = _row_x[1];
+            SetFieldOffsetLen(32,16);
+            AddPayLoadCell("ControlSelector", _row_yy[1], FormatEx("Control Selector: 0x%02X (high byte of wValue)\nwValue = 0x%04X", wValue >> 8, wValue));
+            doIndexAndLength();
+            #EndOfRequest();
+            AddSeparator();
+            RequestRightSide();
+#~#           
+			if((in.DataLength - out.Decoded) > 0)
+			{ 
+            	caps = NextNBits_(8);
+            	out.Decoded += 1;
+            	temp_str3 = ToBitDecode(CapabilitiesBitmapTable, caps, "");        
+            	temp_str3 = temp_str3 + NewLine();
+                AddPayLoadCell("Capabilities", Format("0x%02X", caps), temp_str3);
+				
+            }
+            else{
+            	caps = 0;
+            	SetCellColor(RED);
+            	AddPayLoadCell("Capabilities", Format("%s", "PAYLOAD IS SHORT, EMPTY VALUE"), "no control info value returned");
+            	RestoreCellColor();
+            }
+#~#            	       
+        } 
+		# GET_MIN, GET_MAX, GET_DEF, GET_RES, GET_CUR
+        else if ((bRequest == 0x01) || (bRequest == 0x81) || (bRequest == 0x82) || (bRequest == 0x83) || (bRequest == 0x84) || (bRequest == 0x87))
+        {
+			controlSelector = wValue >> 8;
+			#interfaceNum = wIndex & 0xFF;
+			#entityId = wIndex >> 8;
+            _row_yy = Find(_row_y[2], wValue >> 8); # _row_yy[2] has control selector
+           	EntityString = _row_x[1];
+            SetFieldOffsetLen(32,16);
+            AddPayLoadCell("ControlSelector", _row_yy[1], FormatEx("Control Selector: 0x%02X (high byte of wValue)\nwValue = 0x%04X", wValue >> 8, wValue));
+            doIndexAndLength();
+            #EndOfRequest();
+            AddSeparator();
+            RequestRightSide();
+#~#           
+			if((in.DataLength - out.Decoded) > 0)
+			{ 
+				formatString = "0x%08X";
+				if (wLength == 1)
+				{
+					formatString = "0x%02X";
+					tempVal = NextNBits_(8);
+				}
+				if (wLength == 2)
+				{
+					formatString = "0x%04X";
+					tempVal = NextDataWord_(wLength);
+				}
+				if (wLength == 4)
+				{
+					formatString = "0x%08X";
+					tempVal = NextDataDWord_(wLength);
+				}
+            	
+				if (wLength <= 4)
+				{
+					out.Decoded += wLength;
+					if (bRequest == 0x01)
+					{
+						AddPayLoadCell("Set value", Format(formatString, tempVal), "new value for control");
+					}
+					if (bRequest == 0x81)
+					{
+						# case of UVC ERROR_CODE request
+						if (((controlSelector == 2) && (interfaceNum == 0) && (EntiyId == 0)) ||
+							((controlSelector == 2) && (interfaceNum == 3) && (EntiyId == 0)))
+						{
+							_row_zz = Find(ErrorCodeTable, tempVal);
+							AddPayLoadCell(" Error Code ", _row_zz[1], "Current value for control");
+						}
+						if ((controlSelector == 7) && (interfaceNum == 0) && (EntiyId == 3)) # XU error control
+						{
+							xuErrCtrl = Find(ErrorControlMap, tempVal);
+							AddPayLoadCell(" Error Code ", xuErrCtrl[1], "Current value for control");
+						}
+						else
+						{
+							AddPayLoadCell("Current value", Format(formatString, tempVal), "Current value for control");
+						}
+					}
+					if (bRequest == 0x82)
+					{
+						AddPayLoadCell("Min value", Format(formatString, tempVal), "Minimum value for control");
+					}
+					if (bRequest == 0x83)
+					{
+						AddPayLoadCell("Max value", Format(formatString, tempVal), "Maximum value for control");
+					}
+					if (bRequest == 0x84)
+					{
+						AddPayLoadCell("Resolution value", Format(formatString, tempVal), "Control value steps");
+					}
+					if (bRequest == 0x87)
+					{
+						AddPayLoadCell("Default value", Format(formatString, tempVal), "Default value for control");
+					}
+				}
+				else
+				{
+					if ((wLength == 48) || (wLength == 34))
+					{
+						do_probe_commit_controls();
+					}
+					else
+					{
+						if ((controlSelector == 1) && (interfaceNum == 0) && (EntiyId == 3) && (bRequest == 0x01))
+						{
+							wCmdSize = NextDataWord_(2);
+							out.Decoded +=2;
+							AddPayLoadCell(" Length ", Format("0x%04X", wCmdSize), "HWM command Length (without header)");
+
+							wMagicDword = NextDataWord_(2);
+							out.Decoded +=2;
+							if (0xCDAB == wMagicDword)
+							{
+								AddPayLoadCell(" Magic Word ", "0xCDAB", "Magic Word for HWM WinUsb Command");
+							}
+
+							opCode = NextDataDWord_(4);
+							out.Decoded +=4;
+							_row_x = Find(CommandsOpcodeLUT, opCode);
+							AddPayLoadCell(" OpCode ", _row_x[1], Format("opcode for HWM command 0x%x", opCode));
+						
+							param1 = NextDataDWord_(4);
+							out.Decoded +=4;
+							AddPayLoadCell(" Param1 ", Format("0x%04X", param1), "first param for HWM command - see cmd description for more info");
+
+							param2 = NextDataDWord_(4);
+							out.Decoded +=4;
+							AddPayLoadCell(" param2 ", Format("0x%04X", param2), "second param for HWM command - see cmd description for more info");
+
+							param3 = NextDataDWord_(4);
+							out.Decoded +=4;
+							AddPayLoadCell(" param3 ", Format("0x%04X", param3), "first param for HWM command - see cmd description for more info");
+
+							param4 = NextDataDWord_(4);
+							out.Decoded +=4;
+							AddPayLoadCell(" param4 ", Format("0x%04X", param4), "first param for HWM command - see cmd description for more info");
+						}
+						AddPayLoadCell("wLength", Format("%d", wLength), "Control data length in bytes");
+					}
+				}
+            }
+            else{
+            	tempVal = 0;
+            	SetCellColor(RED);
+            	#AddPayLoadCell("Value", Format("%s", "PAYLOAD IS SHORT, EMPTY VALUE"), "no value returned");
+            	RestoreCellColor();
+            }
+#~#            	       
+        } 
+        else if (((bRequest > 0) && (bRequest <= 0x84)) || (bRequest == 0x87))
+        {            
+            SetFieldOffsetLen(32,16);
+            EntityString = _row_x[1];
+            retval = Call ( _row_x[1]);
+            if (retval == 0)
+            {
+                SetFieldOffsetLen(32,16);
+                AddPayLoadCell("Unknown ControlSelector", Format ("Unknown:0x%02X", wValue >> 8)  , FormatEx("Control Selector: wValue = 0x%04X", wValue));
+                if(SimpleShowItem())
+                {
+                	FieldColor = wIndexColor;
+        					SetFieldOffsetLen(48,16);
+        					AddPayLoadCell("wIndex",Format("0x%04X",wIndex),"wIndex");
+                	FieldColor = wLengthColor;
+        					SetFieldOffsetLen(64,16);
+        					AddPayLoadCell("wLength",wLength,"wLength");
+        					FullyDecoded = 0;
+        				}
+            }
+        }
+        else
+        {
+        		EntityString = "---";
+            AddCell("Unknown Attribute", Format ("Unknown:0x%02X", bRequest), FormatEx("bRequest unknown = 0x%04X", bRequest),RED);
+        		SetFieldOffsetLen(32,16);
+        		FieldColor = wValueColor;
+        		AddPayLoadCell("wValue", wValue, "", FieldColor, [_TABULARCELL, CELL_WVALUE, "TEXT_CAPTION"]);            
+            FieldColor = wIndexColor;
+        		SetFieldOffsetLen(48,16);
+        		AddPayLoadCell("wIndex",Format("0x%04X",wIndex),"wIndex");
+            FieldColor = wLengthColor;
+        		SetFieldOffsetLen(64,16);
+        		AddPayLoadCell("wLength",wLength,"wLength");
+        		FullyDecoded = 0;
+        }
+    }
+}
+    
+SET_CUR()
+{
+    FieldColor = VideoSetCurRequestColor;
+    do_common_controls();
+}
+GET_CUR()
+{
+    FieldColor = VideoGetCurRequestColor;
+    do_common_controls();
+}
+GET_MIN()
+{
+    FieldColor = VideoGetMinMaxRequestColor;
+    do_common_controls();
+}
+GET_MAX()
+{
+    FieldColor = VideoGetMinMaxRequestColor;
+    do_common_controls();
+}
+GET_RES()
+{
+    FieldColor = VideoGetResRequestColor;
+    do_common_controls();
+}
+GET_LEN()
+{
+    FieldColor = VideoGetLenRequestColor;
+    do_common_controls();
+}
+GET_INFO()
+{
+    FieldColor = VideoGetInfoRequestColor;
+    do_common_controls();
+}
+GET_DEF()
+{
+    FieldColor = VideoGetDefRequestColor;
+    do_common_controls();
+}
+GET_CUR_ALL()
+{
+   FieldColor = VideoGetDefRequestColor;
+   do_common_controls();
+}
+GET_MIN_ALL()
+{
+   FieldColor = VideoGetDefRequestColor;
+   do_common_controls();
+}
+GET_MAX_ALL()
+{
+   FieldColor = VideoGetDefRequestColor;
+   do_common_controls();
+}
+GET_RES_ALL()
+{
+   FieldColor = VideoGetDefRequestColor;
+   do_common_controls();
+}
+GET_DEF_ALL()
+{
+   FieldColor = VideoGetDefRequestColor;
+   do_common_controls();
+}
+
+VideoControlInterface () 
+{
+    selector_val = wValue >> 8;
+    #selector_val = 3; #for debugging, force it to a value
+    _row_z = Find(VideoControlInterfaceControlSelectorsTable_V1_5, selector_val);
+    if (_row_z[0] != 0xFF)
+    {
+        if (_row_z[1] == "VC_CONTROL_UNDEFINED")
+        {
+        		SetFieldOffsetLen(32,16);
+            AddPayLoadCell("ControlSelector", _row_z[1], FormatEx("Control Selector word.  wValue= 0x%04X", wValue));
+        }
+        else if (SimpleShowItem())
+        {
+        		SetFieldOffsetLen(32,16);
+            AddPayLoadCell("ControlSelector", _row_z[1], FormatEx("Control Selector word.  wValue= 0x%04X", wValue));
+        }
+        doIndexAndLength();
+        #EndOfRequest();
+        AddSeparator();
+        RequestRightSide();
+        Call ( _row_z[1]);        
+    }
+    else return 0;
+    return 1;    
+}
+
+VC_CONTROL_UNDEFINED() 
+{
+    #AddPayLoadCell("ControlSelector", "Undefined", FormatEx("Control Selector word.  wValue= 0x%04X", wValue));
+}
+
+
+set PowerModeBitmapTable =
+[
+    [  4, "Device Dependent Power Mode Supported" ],
+    [  5, "USB Supplies power                   " ],
+    [  6, "Battery Powered                      " ],
+    [  7, "AC Powered                           " ]
+];
+
+VC_VIDEO_POWER_MODE_CONTROL() 
+{
+    decode_str = "Full Power Mode" + NewLine();
+#~#
+		if((in.DataLength - out.Decoded) > 0)
+		{ 
+		  bDevicePowerMode = NextNBits_(8);
+    	if ((bDevicePowerMode & 0xF) == 1)
+    	{
+     	   decode_str = "Device Dependent Power Mode" + NewLine();
+    	}
+	    temp_str3 = ToBitDecode(PowerModeBitmapTable, bDevicePowerMode, "");        
+  	  decode_str = decode_str + temp_str3;          	
+			AddPayLoadCell("bDevicePowerMode", Format ("0x%02X", bDevicePowerMode), decode_str);
+    	out.Decoded += 1;
+    }
+    else{
+    	bDevicePowerMode = 0;
+			SetCellColor(RED);
+      AddPayLoadCell("bDevicePowerMode", Format ("PAYLOAD IS SHORT, EMPTY VALUE - 0x%02X", bDevicePowerMode), decode_str);      
+      RestoreCellColor();
+    }    	
+#~#    
+}  
+   
+set ErrorCodeTable =
+[
+    [  0xFF, " Unknown " ],
+	[  0x0, " No Error " ],
+    [  0x01, " Not ready " ],
+    [  0x02, " Wrong state " ],
+    [  0x03, " Power " ],
+    [  0x04, " Out of range " ],
+    [  0x05, " Invalid unit " ],
+    [  0x06, " Invalid control " ],
+    [  0x07, " Invalid Request " ]
+];
+   
+VC_REQUEST_ERROR_CODE_CONTROL() 
+{
+#~#
+		if((in.DataLength - out.Decoded) > 0)
+		{ 
+			bErrorCode = NextNBits_(8);  
+			out.Decoded += 1;
+			_row_zz = Find(ErrorCodeTable, bErrorCode);
+			AddPayLoadCell("bErrorCode", _row_zz[1], Format ("Error Code = 0x%02X", bErrorCode));
+		}
+		else
+		{
+			bErrorCode = 0;
+			SetCellColor(RED);
+			AddPayLoadCell("bErrorCode", "----", Format ("PAYLOAD IS SHORT, EMPTY VALUE - Error Code = 0x%02X", bErrorCode));
+			RestoreCellColor();
+		}			    	
+#~#    	
+}
+
+###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~DELETED CONTROL~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#   
+#VC_REQUEST_INDICATE_HOST_CLOCK_CONTROL() 
+#{
+#~#
+#		if((in.DataLength - out.Decoded) > 3)
+#		{
+###
+#		if(debug2)
+#    	dwHostClockFreq = NextDataDWord_();    
+#    else
+#    	dwHostClockFreq = GetDataLong(8);
+###    	
+#			out.Decoded += 4;
+#			AddPayLoadCell("dwHostClockFreq", Format ("0x%08X", dwHostClockFreq), Format ("Nominal Frequency (decimal) = %d", dwHostClockFreq));
+#		}
+#		else
+#		{
+#			temp_Dif = (in.DataLength - out.Decoded);
+#			select{
+#				temp_Dif > 2 : dwHostClockFreq = NextData3Bytes_();
+#				temp_Dif > 1 : dwHostClockFreq = NextDataWord_();
+#				temp_Dif > 0 : dwHostClockFreq = NextNBits_(8);
+#				default			 : dwHostClockFreq = 0;
+#			};
+#			SetCellColor(RED);
+#			AddPayLoadCell("dwHostClockFreq", FormatEx ("PAYLOAD IS SHORT, VALUE IS ONLY %d BYTES LONG - 0x%08X", temp_Dif, dwHostClockFreq), Format ("Nominal Frequency (decimal) = %d", dwHostClockFreq)); 
+#			RestoreCellColor();
+#		}
+#~#    	
+#}
+   
+
+
+Terminal() 
+{
+    selector_val = wValue >> 8;
+    #selector_val = 1; #for debugging, force it to a value
+    if(SimpleShowItem()){
+    	if(selector_val == 0)
+    	{
+        	AddPayLoadCell("ControlSelector", Format ("Undefined: 0x%02X", selector_val) , FormatEx("Control Selector (High Byte of wValue)\nwValue= 0x%04X\nTerminal Control Selectors are UNDEFINED", wValue));
+    	}
+    	else
+    	{
+	    	AddPayLoadCell("ControlSelector", Format ("Unknown: 0x%02X", selector_val) , FormatEx("Control Selector (High Byte of wValue)\nwValue= 0x%04X\nTerminal Control Selector Unknown\n (only 0x00 defined as UNDEFINED)", wValue));
+    	}
+    }
+    doIndexAndLength();
+    FullyDecoded = 0;
+    SetFieldOffsetLen(64,16);
+    return 1;    
+}
+
+
+    
+SelectorUnit() 
+{
+    selector_val = wValue >> 8;
+    #selector_val = 1; #for debugging, force it to a value
+    _row_z = Find(SelectorUnitControlSelectorsTable, selector_val);
+    if (_row_z[0] != 0xFF)
+    {
+        if (_row_z[1] =="SU_CONTROL_UNDEFINED")
+        {
+        		SetFieldOffsetLen(32,16);
+            AddPayLoadCell("ControlSelector", _row_z[1], FormatEx("Control Selector word.  wValue= 0x%04X", wValue));
+        }
+        else if (SimpleShowItem())
+        {
+        		SetFieldOffsetLen(32,16);
+            AddPayLoadCell("ControlSelector", _row_z[1], FormatEx("Control Selector word.  wValue= 0x%04X", wValue));
+        }
+        doIndexAndLength();
+        #EndOfRequest();
+        AddSeparator();
+        RequestRightSide();
+        Call ( _row_z[1]);        
+    }
+    else return 0;
+    
+    return 1;    
+}
+
+SU_CONTROL_UNDEFINED() 
+{
+    #AddPayLoadCell("ControlSelector", "Undefined", FormatEx("Control Selector word.  wValue= 0x%04X", wValue));
+}
+
+SU_INPUT_SELECT_CONTROL() 
+{
+#~#
+		if((in.DataLength - out.Decoded) > 0){ 
+    	bSelector = NextNBits_(8);    
+			out.Decoded += 1;
+    	AddPayLoadCell("bSelector", Format ("0x%02X", bSelector), Format ("Selector = %d", bSelector));			
+    }
+    else{
+    	bSelector=0;
+      SetCellColor(RED);
+      AddPayLoadCell("bSelector", Format ("PAYLOAD IS SHORT, EMPTY VALUE - 0x%02X", bSelector), Format ("Selector = %d", bSelector));
+      RestoreCellColor(); 
+    }   		
+#~#
+}
+
+
+
+Camera() 
+{
+    selector_val = wValue >> 8;
+    #selector_val = 17; #for debugging, force it to a value
+    _row_z = Find(CameraTerminalControlSelectorsTable, selector_val);
+    if (_row_z[0] != 0xFF)
+    {
+        if (_row_z[1] == "CT_CONTROL_UNDEFINED")
+        {
+        		SetFieldOffsetLen(32,16);
+            AddPayLoadCell("ControlSelector", _row_z[1], FormatEx("Control Selector word.  wValue= 0x%04X", wValue));
+        }
+        else if (SimpleShowItem())
+        {
+        		SetFieldOffsetLen(32,16);
+            AddPayLoadCell("ControlSelector", _row_z[1], FormatEx("Control Selector word.  wValue= 0x%04X", wValue));
+        }
+        doIndexAndLength();
+        #EndOfRequest();
+        AddSeparator();
+        RequestRightSide();
+        Call ( _row_z[1]);        
+    }
+    else return 0;
+    
+    return 1;    
+}
+
+CT_CONTROL_UNDEFINED() 
+{
+    #AddPayLoadCell("ControlSelector", "Undefined", FormatEx("Control Selector word.  wValue= 0x%04X", wValue));
+}         
+CT_SCANNING_MODE_CONTROL() 
+{
+	if((in.DataLength - out.Decoded) >= 1)
+	{ 
+		bScanningMode = NextNBits_(8); 
+		out.Decoded += 1;
+    	s_str = "Interlaced";
+    	if (bScanningMode == 1)
+			s_str = "Progressive";     
+    	else if (bScanningMode != 0) 
+			s_str = "Undefined";   
+    	AddPayLoadCell("bScanningMode", s_str, Format ("0x%02X", bScanningMode));
+    }
+    else
+	{
+		ShowInvalidBuffer();
+    }    				
+}
+     
+set AutoExposureBitmapTable =
+[
+    [  0, "Manual Mode           " ],
+    [  1, "Auto Mode             " ],
+    [  2, "Shutter Priority Mode " ],
+    [  3, "Aperture Priority Mode" ]
+];
+
+CT_AE_MODE_CONTROL() 
+{
+	if((in.DataLength - out.Decoded) >= 1)
+	{ 
+		bAutoExposureMode = NextNBits_(8);
+		out.Decoded += 1;
+		temp_str = ToBitDecode(AutoExposureBitmapTable, bAutoExposureMode, "");        
+    	decode_str = decode_str + temp_str;     
+    	AddPayLoadCell("bAutoExposureMode", Format ("0x%02X", bAutoExposureMode), decode_str);
+    }
+    else
+	{
+		ShowInvalidBuffer();
+	}
+} 
+      
+CT_AE_PRIORITY_CONTROL() 
+{
+	if((in.DataLength - out.Decoded) >= 1)
+	{
+	  	bAutoExposurePriority = NextNBits_(8);
+		out.Decoded += 1;
+		AddPayLoadCell("bAutoExposurePriority", Format ("0x%02X", bAutoExposurePriority), Format ("bAutoExposurePriority = %d", bAutoExposurePriority));	
+    }
+    else
+	{
+		ShowInvalidBuffer();
+    }
+} 
+      
+CT_EXPOSURE_TIME_ABSOLUTE_CONTROL() 
+{
+	if((in.DataLength - out.Decoded) >= 4)
+	{ 
+    	dwExposureTimeAbsolute = NextDataDWord_();
+		out.Decoded += 4;
+		AddPayLoadCell("dwExposureTimeAbsolute", dwExposureTimeAbsolute, Format ("0x%08X", dwExposureTimeAbsolute));
+	}
+	else
+	{
+		ShowInvalidBuffer();
+	}	
+}
+ 
+set ExposureTimeRelativeTable =
+[
+    [  0xFE, "Undefined" ],
+    [  0,    "default" ],
+    [  1,    "Increment by 1 step" ],
+    [  0xFF, "Decrement by 1 step" ]
+];
+
+CT_EXPOSURE_TIME_RELATIVE_CONTROL() 
+{
+
+	if((in.DataLength - out.Decoded) >= 1)
+	{
+    	bExposureTimeRelative = NextNBits_(8);
+		out.Decoded += 1;
+		_row_zzz = Find(ExposureTimeRelativeTable, bExposureTimeRelative);    
+    	AddPayLoadCell("bExposureTimeRelative", _row_zzz[1], Format ("bExposureTimeRelative = 0x%02X", bExposureTimeRelative));
+    }
+    else
+	{
+		ShowInvalidBuffer();
+	}
+} 
+
+CT_FOCUS_ABSOLUTE_CONTROL() 
+{
+	if((in.DataLength - out.Decoded) >= 2)
+	{
+		wFocusAbsolute = NextDataWord_(); 
+		out.Decoded += 2;
+		AddPayLoadCell("wFocusAbsolute", Format ("0x%04X", wFocusAbsolute), Format ("wFocusAbsolute = %d", wFocusAbsolute));
+	}
+	else
+	{
+		ShowInvalidBuffer();
+	}
+} 
+   
+set FocusRelativeTable =
+[
+    [  0xFE, "Undefined" ],
+    [  0,    "Stop" ],
+    [  1,    "Focus Near Direction" ],
+    [  0xFF, "Focus Infinite Direction" ]
+];
+
+CT_FOCUS_RELATIVE_CONTROL() 
+{
+	if((in.DataLength - out.Decoded) >= 2)
+	{
+		bFocusRelative = NextNBits_(8);
+		_row_zzz = Find(FocusRelativeTable, bFocusRelative);  
+		
+		bSpeed = NextNBits_(8);
+		
+		out.Decoded +=2;
+		
+        AddPayLoadCell("bFocusRelative", _row_zzz[1], Format ("0x%02X", bFocusRelative));
+		AddPayLoadCell("bSpeed", Format ("0x%02X", bSpeed), Format ("bSpeed = %d", bSpeed));		
+    }
+    else
+	{
+		ShowInvalidBuffer();
+	}
+
+} 
+   
+CT_FOCUS_AUTO_CONTROL() 
+{
+	if((in.DataLength - out.Decoded) >= 1)
+	{
+    	bFocusAuto = NextNBits_(8);    
+		out.Decoded += 1;
+		AddPayLoadCell("bFocusAuto", Format ("0x%02X", bFocusAuto), Format ("bFocusAuto = %d", bFocusAuto));
+	}
+	else
+	{
+		ShowInvalidBuffer();
+	}
+} 
+       
+CT_IRIS_ABSOLUTE_CONTROL() 
+{
+	if((in.DataLength - out.Decoded) >= 2)
+	{
+		wIrisAbsolute = NextDataWord_();
+		out.Decoded += 2;
+		AddPayLoadCell("wIrisAbsolute", Format ("0x%04X", wIrisAbsolute), Format ("wIrisAbsolute = %d", wIrisAbsolute));
+		
+	}
+	else
+	{
+		ShowInvalidBuffer();
+	}
+}     
+
+set IrisRelativeTable =
+[
+    [  0xFE, "Undefined" ],
+    [  0,    "Default" ],
+    [  1,    "Iris is opened by 1 step" ],
+    [  0xFF, "Iris is closed by 1 step" ]
+];
+
+CT_IRIS_RELATIVE_CONTROL() 
+{
+	if((in.DataLength - out.Decoded) >= 1)
+	{ 
+		bIrisRelative = NextNBits_(8);
+		out.Decoded += 1;
+		_row_zzz = Find(IrisRelativeTable, bIrisRelative);    
+    	AddPayLoadCell("bIrisRelative", _row_zzz[1], Format ("bIrisRelative = 0x%02X", bIrisRelative));
+	}
+	else
+	{
+		ShowInvalidBuffer();
+    }
+		
+} 
+    
+CT_ZOOM_ABSOLUTE_CONTROL() 
+{
+	if((in.DataLength - out.Decoded) >= 2)
+	{ 
+    	wObjectiveFocalLength = NextDataWord_();    
+		out.Decoded += 2;
+		AddPayLoadCell("wObjectiveFocalLength", Format ("0x%04X", wObjectiveFocalLength), Format ("wObjectiveFocalLength Zcur = %d", wObjectiveFocalLength));
+	}
+	else
+	{
+		ShowInvalidBuffer();
+		
+	}
+} 
+    
+set ZoomRelativeTable =
+[
+    [  0xFE, "Undefined" ],
+    [  0,    "Stop" ],
+    [  1,    "Moving to Telephoto Direction" ],
+    [  0xFF, "Moving to Wide-Angle direction" ]
+];
+
+CT_ZOOM_RELATIVE_CONTROL() 
+{
+	if((in.DataLength - out.Decoded) >= 3)
+	{ 
+		bZoom = NextNBits_(8); 
+	    _row_zzz = Find(ZoomRelativeTable, bZoom);    
+    	bdz_str = "OFF";
+    	if (bDigitalZoom == 1) 
+			bdz_str = "ON";   
+    	else if (bDigitalZoom != 0) 
+			bdz_str = "Undefined"; 
+			
+		bDigitalZoom = NextNBits_(8);
+		bSpeed = NextNBits_(8);
+		
+		out.Decoded += 3;
+		
+    	AddPayLoadCell("bZoom", _row_zzz[1], Format ("0x%02X", bZoom));
+		AddPayLoadCell("bDigitalZoom", bdz_str, Format ("bSpeed = %d", bSpeed));
+		AddPayLoadCell("bSpeed", Format ("0x%02X", bSpeed), Format ("bSpeed = %d", bSpeed));
+    }
+    else
+	{
+		ShowInvalidBuffer();
+    }
+				
+}
+
+CT_PANTILT_ABSOLUTE_CONTROL() 
+{
+	if((in.DataLength - out.Decoded) >=8)
+	{ 
+     	dwPanAbsolute = NextDataDWord_(); 
+		dwTiltAbsolute = NextDataDWord_();
+		
+		out.Decoded += 8;
+		
+		AddPayLoadCell("dwPanAbsolute", FormatEx ("%d", dwPanAbsolute), Format ("hex val = 0x%08X", dwPanAbsolute));
+		AddPayLoadCell("dwTiltAbsolute", FormatEx ("%d", dwTiltAbsolute), Format ("hex val = 0x%08X", dwTiltAbsolute));
+	}
+	else
+	{
+		ShowInvalidBuffer();
+	}
+
+}  
+
+set PanRelativeTable =
+[
+    [  0xFE, "Undefined" ],
+    [  0,    "Stop" ],
+    [  1,    "Moving to Clockwise Direction" ],
+    [  0xFF, "Moving to Counter Clockwise Direction" ]
+];
+
+set TiltRelativeTable =
+[
+    [  0xFE, "Undefined" ],
+    [  0,    "Stop" ],
+    [  1,    "Point the Imaging plane up" ],
+    [  0xFF, "Point the Imaging plane down" ]
+];
+
+CT_PANTILT_RELATIVE_CONTROL() 
+{
+	if((in.DataLength - out.Decoded) >= 4)
+	{ 
+    	bPanRelative = NextNBits_(8);
+		_row_zzz = Find(PanRelativeTable, bPanRelative);
+		
+		AddPayLoadCell("bPanRelative", _row_zzz[1], Format ("0x%02X", bPanRelative));
+		
+		bPanSpeed = NextNBits_(8);
+		
+		bTiltRelative = NextNBits_(8);    
+		_row_zzzz = Find(TiltRelativeTable, bTiltRelative);
+		
+    	bTiltSpeed = NextNBits_(8);  
+
+		out.Decoded += 4;		
+		
+		AddPayLoadCell("bPanSpeed", Format ("0x%02X", bPanSpeed), Format ("bPanSpeed = %d", bPanSpeed));
+		AddPayLoadCell("bTiltRelative", _row_zzzz[1], Format ("0x%02X", bTiltRelative));
+		AddPayLoadCell("bTiltSpeed", Format ("0x%02X", bTiltSpeed), Format ("bTiltSpeed = %d", bTiltSpeed));
+		
+    }
+    else
+	{
+		ShowInvalidBuffer();
+	}
+   	
+}    
+
+CT_ROLL_ABSOLUTE_CONTROL() 
+{
+	if((in.DataLength - out.Decoded) >= 2)
+	{ 
+    	bRollAbsolute = NextDataWord_();    
+		out.Decoded += 2;
+		AddPayLoadCell("bRollAbsolute", Format ("0x%04X", bRollAbsolute), Format ("bRollAbsolute = %d", bRollAbsolute));
+	}
+	else
+	{
+		ShowInvalidBuffer();
+	}
+}
+     
+set RollRelativeTable =
+[
+    [  0xFE, "Undefined" ],
+    [  0,    "Stop" ],
+    [  1,    "moving clockwise rotation" ],
+    [  0xFF, "moving counter clockwise rotation" ]
+];
+
+CT_ROLL_RELATIVE_CONTROL() 
+{
+	if((in.DataLength - out.Decoded) >= 2)
+	{ 
+    	bRollRelative = NextNBits_(8);    
+    	_row_zzz = Find(RollRelativeTable, bRollRelative);
+		
+    	bSpeed = NextNBits_(8);		
+		
+		out.Decoded += 2;		
+		
+    	AddPayLoadCell("bRollRelative", _row_zzz[1], Format ("0x%02X", bRollRelative));
+		AddPayLoadCell("bSpeed", Format ("0x%02X", bSpeed), Format ("bSpeed = %d", bSpeed));		
+    }
+    else
+	{
+		ShowInvalidBuffer();
+	}
+}
+
+CT_PRIVACY_CONTROL() 
+{
+	if((in.DataLength - out.Decoded) >= 1)
+	{ 
+    	bPrivacy = NextNBits_(8);
+		out.Decoded += 1;
+		bdz_str = "Open";
+    	if (bPrivacy == 1) 
+			bdz_str = "Close";
+    	else if (bPrivacy != 0) 
+			bdz_str = "Undefined";   
+    	AddPayLoadCell("bPrivacy", bdz_str, Format ("bPrivacy = %d", bPrivacy));
+    }
+    else
+	{
+		ShowInvalidBuffer();
+   	}	    	
+}   
+
+ CT_FOCUS_SIMPLE_CONTROL()
+{
+	if((in.DataLength - out.Decoded) >= 1)
+	{ 
+		bFocus = NextNBits_(8);
+		out.Decoded += 1;
+		
+		Focus_str = "";
+		if(bFocus == 0x00)
+			Focus_str = "full range";
+		else if(bFocus ==  0x01)
+			Focus_str = "macro. Less than 0.3 meters";
+		else if(bFocus == 0x02)
+			Focus_str = "people. 0.3m to 3m";
+		else if(bFocus == 0x03)
+			Focus_str = "scene. 3m to infinity";			
+		else
+			Focus_str = "Reserved";	
+			
+		AddPayLoadCell("bFocus",Focus_str, Format ("0x%04X", bFocus));
+	}
+	else
+	{
+		ShowInvalidBuffer();
+    }
+} 
+
+CT_WINDOW_CONTROL()
+{
+
+}
+
+set SyncFrameTypeTable =
+[
+    [  0,    "Auto Exposure"                                                                        ],
+    [  1,    "Auto Iris" 			 ],
+	[  2,    "Auto White Balance"    ],
+	[  3,    "Auto Focus"        	 ],
+	[  4,    "Auto Face Detect"      ],
+	[  5,    "Auto Detect and Track" ],
+	[  6,    "Image Stabilization"   ],
+	[  7,    "Higher Quality"        ]
+];
+
+CT_REGION_OF_INTEREST_CONTROL()
+{
+		if((in.DataLength - out.Decoded) >=10)
+	{ 
+     	wROI_Top = NextDataWord_(); 
+		wROI_Left = NextDataWord_();
+		wROI_Bottom = NextDataWord_();
+		wROI_Right = NextDataWord_();
+		bmAutoControls = NextDataWord_();
+		
+		out.Decoded += 10;
+		
+		AddPayLoadCell("wROI_Top", Format ("0x%02X", wROI_Top), Format ("wROI_Top = %d", wROI_Top));
+		AddPayLoadCell("wROI_Left", Format ("0x%02X", wROI_Left), Format ("wROI_Left = %d", wROI_Left));
+		AddPayLoadCell("wROI_Bottom", Format ("0x%02X", wROI_Bottom), Format ("wROI_Bottom = %d", wROI_Bottom));
+		AddPayLoadCell("wROI_Right", Format ("0x%02X", wROI_Right), Format ("wROI_Right = %d", wROI_Right));
+		i = 0;
+		for(i = 0; i <= 7; i++)
+		{
+			if((bmAutoControls>>i) & 0x01)
+			{
+				_row_zzz = Find(SyncFrameTypeTable, i);
+				bmAutoControls("bmAutoControls", _row_zzz[1], Format ("0x%8X", bmAutoControls));
+				break;
+			}
+		}	
+		if((i>7) && (i<16))
+		{
+			AddPayLoadCell("bmAutoControls", bmAutoControls, Format ("Reserved = 0x%02X", bmAutoControls));
+		}
+		
+	}
+	else
+	{
+		ShowInvalidBuffer();
+	}
+
+}
+
+ProcessingUnit() 
+{
+    selector_val = wValue >> 8;
+    #selector_val = 16; #for debugging, force it to a value
+    _row_z = Find(ProcessingUnitControlSelectorsTable_V1_5, selector_val);
+    if (_row_z[0] != 0xFF)
+    {
+        if (_row_z[1] == "PU_CONTROL_UNDEFINED")
+        {
+        		SetFieldOffsetLen(32,16);
+            AddPayLoadCell("ControlSelector", _row_z[1], FormatEx("Control Selector word.  wValue= 0x%04X", wValue));
+        }
+        else if (SimpleShowItem())
+        {
+        		SetFieldOffsetLen(32,16);
+            AddPayLoadCell("ControlSelector", _row_z[1], FormatEx("Control Selector word.  wValue= 0x%04X", wValue));
+        }
+        doIndexAndLength();
+        #EndOfRequest();
+        AddSeparator();
+        RequestRightSide();
+        Call ( _row_z[1]);        
+    }
+    else 
+    		return 0;
+    return 1;    
+}
+
+PU_CONTROL_UNDEFINED()
+{
+    #AddPayLoadCell("ControlSelector", "Undefined", FormatEx("Control Selector word.  wValue= 0x%04X", wValue));
+}
+    
+PU_BACKLIGHT_COMPENSATION_CONTROL() 
+{
+	if((in.DataLength - out.Decoded) > 1)
+	{ 
+    	wBacklightCompensation = NextDataWord_();    
+		out.Decoded += 2;
+		AddPayLoadCell("wBacklightCompensation", wBacklightCompensation, Format ("0x%04X", wBacklightCompensation));
+	}
+	else
+	{
+		temp_Dif = (in.DataLength - out.Decoded);
+		if(temp_Dif > 0)
+			wBacklightCompensation = NextNBits_(8);
+		else
+			wBacklightCompensation = 0;
+		SetCellColor(RED);		
+		AddPayLoadCell("wBacklightCompensation", wBacklightCompensation, FormatEx ("PAYLOAD IS SHORT, VALUE IS ONLY %d BYTES LONG - 0x%04X", temp_Dif, wBacklightCompensation));		    	
+		RestoreCellColor();	
+	}
+}
+
+PU_BRIGHTNESS_CONTROL() 
+{
+	if((in.DataLength - out.Decoded) > 1)
+	{ 
+    	wBrightness = NextDataWord_();
+		out.Decoded += 2;
+		AddPayLoadCell("wBrightness", wBrightness, Format ("0x%04X", wBrightness));
+	}
+	else
+	{
+		temp_Dif = (in.DataLength - out.Decoded);
+		if(temp_Dif > 0)
+			wBrightness = NextNBits_(8);
+		else
+			wBrightness = 0;
+		SetCellColor(RED);
+		AddPayLoadCell("wBrightness", wBrightness, FormatEx ("PAYLOAD IS SHORT, VALUE IS ONLY %d BYTES LONG - 0x%04X", temp_Dif, wBrightness));    	
+		RestoreCellColor();	
+	}
+}
+
+PU_CONTRAST_CONTROL() 
+{
+	if((in.DataLength - out.Decoded) > 1)
+	{ 
+    	wContrast = NextDataWord_();    
+		out.Decoded += 2;
+		AddPayLoadCell("wContrast", wContrast, Format ("0x%04X", wContrast));
+	}
+	else
+	{
+		temp_Dif = (in.DataLength - out.Decoded);
+		if(temp_Dif > 0)
+			wContrast = NextNBits_(8);
+		else
+		wContrast = 0;
+		SetCellColor(RED);
+		AddPayLoadCell("wContrast", wContrast, FormatEx ("PAYLOAD IS SHORT, VALUE IS ONLY %d BYTES LONG - 0x%04X", temp_Dif, wContrast));
+		RestoreCellColor();
+	}    	    
+}
+
+PU_GAIN_CONTROL() 
+{
+	if((in.DataLength - out.Decoded) > 1)
+	{ 
+		wGain = NextDataWord_();    
+		out.Decoded += 2;
+		AddPayLoadCell("wGain", wGain, Format ("0x%04X", wGain));
+	}
+	else
+	{
+		temp_Dif = (in.DataLength - out.Decoded);
+		if(temp_Dif > 0)
+			wGain = NextNBits_(8);
+		else
+			wGain = 0;
+		SetCellColor(RED);
+		AddPayLoadCell("wGain", wGain, FormatEx ("PAYLOAD IS SHORT, VALUE IS ONLY %d BYTES LONG - 0x%04X", temp_Dif, wGain));
+		RestoreCellColor();	
+	}			    	
+}
+
+set PowerLineFrequencyTable =
+[
+    [  0xFE, "Undefined" ],
+    [  0,    "Disabled" ],
+    [  1,    "50 Hz" ],
+    [  2,    "60 Hz" ]
+];
+
+PU_POWER_LINE_FREQUENCY_CONTROL() 
+{
+	if((in.DataLength - out.Decoded) > 0)
+	{ 
+    	bPowerLineFrequency = NextNBits_(8);    
+		out.Decoded += 1;
+		_row_zzz = Find(PowerLineFrequencyTable, bPowerLineFrequency);    
+    	AddPayLoadCell("bPowerLineFrequency", _row_zzz[1], Format ("0x%02X", bPowerLineFrequency));
+    }
+    else
+	{
+    	bPowerLineFrequency = 0;
+        _row_zzz = Find(PowerLineFrequencyTable, bPowerLineFrequency);
+        SetCellColor(RED);    
+    	AddPayLoadCell("bPowerLineFrequency", _row_zzz[1], Format ("PAYLOAD IS SHORT, EMPTY VALUE - 0x%02X", bPowerLineFrequency));
+    	RestoreCellColor();
+    }    	
+}
+
+PU_HUE_CONTROL() 
+{
+	if((in.DataLength - out.Decoded) > 1)
+	{ 
+		wHue = NextDataWord_();
+		out.Decoded += 2;
+		AddPayLoadCell("wHue", wHue, Format ("0x%04X", wHue));
+	}
+	else
+	{
+		temp_Dif = (in.DataLength - out.Decoded);
+		if(temp_Dif > 0)
+			wHue = NextNBits_(8);
+		else
+			wHue = 0;
+		SetCellColor(RED);
+		AddPayLoadCell("wHue", wHue, FormatEx ("PAYLOAD IS SHORT, VALUE IS ONLY %d BYTES LONG - 0x%04X", temp_Dif, wHue));
+		RestoreCellColor();	
+	}			
+}
+
+PU_SATURATION_CONTROL() 
+{
+	if((in.DataLength - out.Decoded) > 1)
+	{ 
+    	wSaturation = NextDataWord_();    
+		out.Decoded += 2;
+		AddPayLoadCell("wSaturation", wSaturation, Format ("0x%04X", wSaturation));
+	}
+	else{
+		temp_Dif = (in.DataLength - out.Decoded);
+		if(temp_Dif > 0)
+			wSaturation = NextNBits_(8);
+		else
+			wSaturation = 0;
+		SetCellColor(RED);
+		AddPayLoadCell("wSaturation", wSaturation, FormatEx ("PAYLOAD IS SHORT, VALUE IS ONLY %d BYTES LONG - 0x%04X", temp_Dif, wSaturation));
+		RestoreCellColor();	
+	}
+}
+
+PU_SHARPNESS_CONTROL() 
+{
+	if((in.DataLength - out.Decoded) > 1)
+	{ 
+    	wSharpness = NextDataWord_();    
+		out.Decoded += 2;
+		AddPayLoadCell("wSharpness", wSharpness, Format ("0x%04X", wSharpness));
+	}
+	else
+	{
+		temp_Dif = (in.DataLength - out.Decoded);
+		if(temp_Dif > 0)
+			wSharpness = NextNBits_(8);
+		else
+			wSharpness = 0;
+		SetCellColor(RED);
+		AddPayLoadCell("wSharpness", wSharpness, FormatEx ("PAYLOAD IS SHORT, VALUE IS ONLY %d BYTES LONG - 0x%04X", temp_Dif, wSharpness));
+		RestoreCellColor();	
+	}
+}
+
+PU_GAMMA_CONTROL() 
+{
+	if((in.DataLength - out.Decoded) > 1)
+	{ 
+		wGamma = NextDataWord_();    
+		out.Decoded += 2;
+		AddPayLoadCell("wGamma", wGamma, Format ("0x%04X", wGamma));
+	}
+	else
+	{
+		temp_Dif = (in.DataLength - out.Decoded);
+		if(temp_Dif > 0)
+			wGamma = NextNBits_(8);
+		else
+			wGamma = 0;
+		SetCellColor(RED);
+		AddPayLoadCell("wGamma", wGamma, FormatEx ("PAYLOAD IS SHORT, VALUE IS ONLY %d BYTES LONG - 0x%04X", temp_Dif, wGamma));
+		RestoreCellColor();	
+	}
+}
+
+PU_WHITE_BALANCE_TEMPERATURE_CONTROL() 
+{
+	if((in.DataLength - out.Decoded) > 1)
+	{ 
+    	wWhiteBalanceTemperature = NextDataWord_();    
+		out.Decoded += 2;
+		AddPayLoadCell("wWhiteBalanceTemperature", wWhiteBalanceTemperature, Format ("0x%04X", wWhiteBalanceTemperature));
+	}
+	else
+	{
+		temp_Dif = (in.DataLength - out.Decoded);
+		if(temp_Dif > 0)
+			wWhiteBalanceTemperature = NextNBits_(8);
+		else
+			wWhiteBalanceTemperature = 0;
+		SetCellColor(RED);
+		AddPayLoadCell("wWhiteBalanceTemperature", wWhiteBalanceTemperature, FormatEx ("PAYLOAD IS SHORT, VALUE IS ONLY %d BYTES LONG - 0x%04X", temp_Dif, wWhiteBalanceTemperature));
+		RestoreCellColor();	
+	}
+}
+
+PU_WHITE_BALANCE_TEMPERATURE_AUTO_CONTROL() 
+{
+	if((in.DataLength - out.Decoded) > 0)
+	{ 
+	  	wWhiteBalanceTemperatureAuto = NextNBits_(8);    
+		out.Decoded += 1;
+		AddPayLoadCell("wWhiteBalanceTemperatureAuto", wWhiteBalanceTemperatureAuto, Format ("0x%02X", wWhiteBalanceTemperatureAuto));
+	}
+	else
+	{
+		wWhiteBalanceTemperatureAuto = 0;
+		SetCellColor(RED);
+		AddPayLoadCell("wWhiteBalanceTemperatureAuto", wWhiteBalanceTemperatureAuto, Format ("PAYLOAD IS SHORT, EMPTY VALUE - 0x%02X", wWhiteBalanceTemperatureAuto));	
+		RestoreCellColor();
+	}
+}
+
+PU_WHITE_BALANCE_COMPONENT_CONTROL() 
+{
+	if((in.DataLength - out.Decoded) > 1)
+	{ 
+    	wWhiteBalanceBlue = NextDataWord_(); 
+		out.Decoded += 2;
+		AddPayLoadCell("wWhiteBalanceBlue", wWhiteBalanceBlue, Format ("0x%04X", wWhiteBalanceBlue));
+	}
+	else
+	{
+		temp_Dif = (in.DataLength - out.Decoded);
+		if(temp_Dif > 0)
+			wWhiteBalanceBlue = NextNBits_(8);
+		else
+			wWhiteBalanceBlue = 0;
+		SetCellColor(RED);
+		AddPayLoadCell("wWhiteBalanceBlue", wWhiteBalanceBlue, FormatEx ("PAYLOAD IS SHORT, VALUE IS ONLY %d BYTES LONG - 0x%04X", temp_Dif, wWhiteBalanceBlue));
+		RestoreCellColor();
+		out.Decoded += temp_Dif;	
+	}
+#~#       
+#~#
+	if((in.DataLength - out.Decoded) > 1)
+	{ 
+		wWhiteBalanceRed = NextDataWord_();    
+		out.Decoded += 2;
+		AddPayLoadCell("wWhiteBalanceRed", wWhiteBalanceRed, Format ("0x%04X", wWhiteBalanceRed));
+	}
+	else
+	{
+		temp_Dif = (in.DataLength - out.Decoded);
+		if(temp_Dif > 0)
+			wWhiteBalanceRed = NextNBits_(8);
+		else
+			wWhiteBalanceRed = 0;
+		SetCellColor(RED);
+		AddPayLoadCell("wWhiteBalanceRed", wWhiteBalanceRed, FormatEx ("PAYLOAD IS SHORT, VALUE IS ONLY %d BYTES LONG - 0x%04X", temp_Dif, wWhiteBalanceRed));
+		RestoreCellColor();	
+	}	
+
+}
+
+PU_WHITE_BALANCE_COMPONENT_AUTO_CONTROL() 
+{
+	if((in.DataLength - out.Decoded) > 0)
+	{ 
+    	wWhiteBalanceComponentAuto = NextNBits_(8);    
+		out.Decoded += 1;
+		AddPayLoadCell("wWhiteBalanceComponentAuto", wWhiteBalanceComponentAuto, Format ("0x%02X", wWhiteBalanceComponentAuto));
+	}
+	else
+	{
+		wWhiteBalanceComponentAuto = 0;
+		SetCellColor(RED);
+		AddPayLoadCell("wWhiteBalanceComponentAuto", wWhiteBalanceComponentAuto, Format ("PAYLOAD IS SHORT, EMPTY VALUE - 0x%02X", wWhiteBalanceComponentAuto));
+		RestoreCellColor();	
+	}
+}
+
+PU_DIGITAL_MULTIPLIER_CONTROL() 
+{
+	if((in.DataLength - out.Decoded) > 1)
+	{ 
+    	wMultiplierStep = NextDataWord_();    
+		out.Decoded += 2;
+		AddPayLoadCell("wMultiplierStep", wMultiplierStep, Format ("Zcur = 0x%04X", wMultiplierStep));
+	}
+	else
+	{
+		temp_Dif = (in.DataLength - out.Decoded);
+		if(temp_Dif > 0)
+			wMultiplierStep = NextNBits_(8);
+		else
+		wMultiplierStep = 0;
+		SetCellColor(RED);
+		AddPayLoadCell("wMultiplierStep", wMultiplierStep, FormatEx ("PAYLOAD IS SHORT, VALUE IS ONLY %d BYTES LONG - Zcur = 0x%04X", temp_Dif, wMultiplierStep));			    	   
+		RestoreCellColor();	
+	}
+}
+
+PU_DIGITAL_MULTIPLIER_LIMIT_CONTROL() 
+{
+	if((in.DataLength - out.Decoded) > 1)
+	{ 
+    	wMultiplierLimit = NextDataWord_();
+		out.Decoded += 2;
+		AddPayLoadCell("wMultiplierLimit", wMultiplierLimit, Format ("Upper Limit of Zcur =0x%04X", wMultiplierLimit));
+	}
+	else
+	{
+		temp_Dif = (in.DataLength - out.Decoded);
+		if(temp_Dif > 0)
+			wMultiplierLimit = NextNBits_(8);
+		else
+			wMultiplierLimit = 0;
+		SetCellColor(RED);
+		AddPayLoadCell("wMultiplierLimit", wMultiplierLimit, FormatEx ("PAYLOAD IS SHORT, VALUE IS ONLY %d BYTES LONG - Upper Limit of Zcur =0x%04X", temp_Dif, wMultiplierLimit));
+		RestoreCellColor();	
+	}
+}
+
+PU_HUE_AUTO_CONTROL() 
+{
+
+	if((in.DataLength - out.Decoded) > 0)
+	{ 
+    	wHueAuto = NextNBits_(8);  
+		out.Decoded += 1;
+		AddPayLoadCell("wHueAuto", wHueAuto, Format ("0x%02X", wHueAuto));
+	}
+	else
+	{
+		wHueAuto = 0;
+		SetCellColor(RED);
+		AddPayLoadCell("wHueAuto", wHueAuto, Format ("PAYLOAD IS SHORT, EMPTY VALUE - 0x%02X", wHueAuto));
+		RestoreCellColor();
+	}			
+}
+
+PU_ANALOG_VIDEO_STANDARD_CONTROL()
+{
+	if((in.DataLength - out.Decoded) > 0)
+	{
+		bVideoStandard = NextNBits_(8);
+		out.Decoded += 1;
+		AddPayLoadCell("bVideoStandard", bVideoStandard, Format ("0x%02X", bVideoStandard));
+	}
+	else
+	{
+		bVideoStandard = 0;
+		SetCellColor(RED);
+		AddPayLoadCell("bVideoStandard", bVideoStandard, Format ("PAYLOAD IS SHORT, EMPTY VALUE - 0x%02X", bVideoStandard));
+		RestoreCellColor();
+	}
+}
+	
+PU_CONTRAST_AUTO_CONTROL()
+{
+	if((in.DataLength - out.Decoded) > 0)
+	{
+		bContrastAuto = NextNBits_(8);
+		out.Decoded += 1;
+		AddPayLoadCell("bContrastAuto", bContrastAuto, Format ("0x%02X", bContrastAuto));
+	}
+	else
+	{
+		bContrastAuto = 0;
+		SetCellColor(RED);
+		AddPayLoadCell("bContrastAuto", bContrastAuto, Format ("PAYLOAD IS SHORT, EMPTY VALUE - 0x%02X", bContrastAuto));
+		RestoreCellColor();
+	}
+}
+   
+ExtensionUnit() 
+{
+    selector_val = wValue >> 8;
+    #selector_val = 1; #for debugging, force it to a value
+    if(SimpleShowItem())
+    {
+    	SetFieldOffsetLen(32,16);
+    	AddPayLoadCell("ControlSelector",Format ("Undefined: 0x%02X", selector_val), FormatEx("Control Selector word.  wValue= 0x%04X\nExtension Unit is Vendor Specific\nhence controls undefined\/not known.", wValue));
+    }
+    SetFieldOffsetLen(48,16);
+	if ((Ds5SkuType == 0) || (Ds5SkuType == 3))	# PSR/ASR/AWG or DS5U F416
+	{
+		_if_row_x = Find(CurrentInterfacesMapPSR, wIndex & 0xFF);  # will determine interface name
+	}
+	else if (Ds5SkuType == 1)	# AWGT
+	{
+		_if_row_x = Find(CurrentInterfacesMapAWGT, wIndex & 0xFF);  # will determine interface name
+	}
+	else if ((Ds5SkuType == 5) || (Ds5SkuType == 6))	# S585 D585
+	{
+		_if_row_x = Find(CurrentInterfacesMapS585, wIndex & 0xFF);  # will determine interface name
+	}
+	else	# ASRC & AWGC
+	{
+		_if_row_x = Find(CurrentInterfacesMapASRC, wIndex & 0xFF);  # will determine interface name
+	}
+	
+	AddPayLoadCell("Interface", _if_row_x[1], FormatEx("Interface: 0x%02X (Low Byte of wIndex)\nwIndex=0x%04X", wIndex & 0x0FF, wIndex));
+    AddPayLoadCell("ExtensionUnitID", Format("%d",(wIndex>>8)&0xFF), FormatEx("ExtensionUnitId: 0x%02X (High Byte of wIndex)\nwIndex=0x%04X",(wIndex>>8)&0xFF,wIndex));
+    if(SimpleShowItem())
+    {
+    	FieldColor = wLengthColor;
+    	SetFieldOffsetLen(64,16);
+    	AddPayLoadCell("wLength",wLength,"wLength");
+    }
+    else
+    	SetFieldOffsetLen(64,16);
+    FullyDecoded = 0;
+    return 1;
+}
+  
+
+
+VideoStreaming() 
+{
+    selector_val = wValue >> 8;
+    #selector_val = 10; #for debugging, force it to a value
+    _row_z = Find(VideoStreamingInterfaceControlSelectorsTable, selector_val);
+    if (_row_z[0] != 0xFF)
+    {
+        if (_row_z[1] == "VS_CONTROL_UNDEFINED")
+        {
+        		SetFieldOffsetLen(32,16);
+            AddPayLoadCell("ControlSelector", _row_z[1], FormatEx("Control Selector word.  wValue= 0x%04X", wValue));
+        }
+        else if (SimpleShowItem())
+        {
+        		SetFieldOffsetLen(32,16);
+            AddPayLoadCell("ControlSelector", _row_z[1], FormatEx("Control Selector word.  wValue= 0x%04X", wValue));
+        }
+        doIndexAndLength();
+        #EndOfRequest();
+        AddSeparator();
+        RequestRightSide();
+        Call ( _row_z[1]);        
+    }
+    else return 0;
+    
+    return 1;    
+}
+
+VS_CONTROL_UNDEFINED()
+{
+    #AddPayLoadCell("ControlSelector", "Undefined", FormatEx("Control Selector word.  wValue= 0x%04X", wValue));
+}
+VS_PROBE_CONTROL() 
+{
+    if (!in.Expanded)
+        AddCell("Probe", "Control", "VS_PROBE_CONTROL",FieldColor);
+    do_probe_commit_controls();    
+}
+VS_COMMIT_CONTROL() 
+{
+    if (!in.Expanded)
+        AddCell("Commit", "Control", "VS_COMMIT_CONTROL",FieldColor);
+    do_probe_commit_controls();
+}
+
+EncodingUnitControlSelectors()
+{
+    selector_val = wValue >> 8;
+    
+    _row_z = Find(EncodingUnitControlSelectorsTable_V1_5, selector_val);
+    if (_row_z[0] != 0xFF)
+    {
+        if (_row_z[1] == "EU_CONTROL_UNDEFINED")
+        {
+        	SetFieldOffsetLen(32,16);
+            AddPayLoadCell("ControlSelector", _row_z[1], FormatEx("Control Selector word.  wValue= 0x%04X", wValue));
+        }
+        else if (SimpleShowItem())
+        {
+        	SetFieldOffsetLen(32,16);
+            AddPayLoadCell("ControlSelector", _row_z[1], FormatEx("Control Selector word.  wValue= 0x%04X", wValue));
+        }
+        doIndexAndLength();
+        #EndOfRequest();
+        AddSeparator();
+        RequestRightSide();
+        Call ( _row_z[1]);        
+    }
+    else return 0;
+    return 1;    
+
+}
+
+set HintBitmapTable =
+[
+    [  0, "dwFrameInterval" ],
+    [  1, "wKeyFrameRate  " ],
+    [  2, "wPFrameRate    " ],
+    [  3, "wCompQuality   " ],
+    [  4, "wCompWindowSize" ]
+];
+
+set FramingInfoBitmapTable =
+[
+	[  0,	"Frame ID(FID)"],
+	[  1,	"End of Frame(EOF)"],
+	[  2,	"End of Slice (EOS)"]
+];		
+
+do_probe_commit_controls()  #Version 1.5 - Added last Six fields (wLength is now 48 Byte)
+{
+# Check the length for each individual field, could also do a top level check (i.e. is payload length appopriate for all fields combined (wlength).
+
+#////////////////////////////////////////////////////////
+#	bmHint field
+	
+	if((in.DataLength - out.Decoded) > 1)
+	{ 
+		if (ProbeCommitIVCAM == 1)
+		{
+			bmHint = NextDataWord_();
+			out.Decoded += 2;
+		}
+		else
+		{
+			bmHint  = NextDataWord_();
+			out.Decoded += 2;
+			temp_str3 = ToBitDecode(HintBitmapTable, bmHint, "");        
+			AddPayLoadCell("bmHint", Format ("0x%02X", bmHint), temp_str3 + "<p>&nbsp&nbsp&nbspKeep set Params Fixed</p>");
+		}
+    }
+    else
+	{
+    	temp_Dif = (in.DataLength - out.Decoded);
+		if(temp_Dif > 0)
+			bmHint = NextNBits_(8);
+		else
+		bmHint = 0;
+		SetCellColor(RED);
+    	temp_str3 = ToBitDecode(HintBitmapTable, bmHint, "");        
+    	AddPayLoadCell("bmHint", FormatEx ("PAYLOAD IS SHORT, VALUE IS ONLY %d BYTES LONG - 0x%02X", temp_Dif, bmHint), temp_str3 + "<p>&nbsp&nbsp&nbspKeep set Params Fixed</p>");
+    	RestoreCellColor();
+    	out.Decoded += temp_Dif;	
+	}   
+	
+#/////////////////////////////////////////////////////////    	
+#	bFormatIndex field
+	if((in.DataLength - out.Decoded) >= 1)
+	{ 
+    	bFormatIndex = NextNBits_(8);    
+		out.Decoded += 1;
+		if (1 == interfaceNum)
+		{
+			formatStringEntry = Find(depthCameraFormats, bFormatIndex);
+		}
+		else if (2 == interfaceNum)
+		{
+			if (Ds5SkuType == 6)	# S585
+			{
+				formatStringEntry = Find(S585YCameraFormats, bFormatIndex);    
+			}
+			else
+			{
+				formatStringEntry = Find(YCameraFormats, bFormatIndex);    
+			}
+		}
+		else if (4 == interfaceNum)
+		{
+			if ((Ds5SkuType == 2) || (Ds5SkuType == 4) || (Ds5SkuType == 6)) # ASRC or AWGC or S585
+			{
+				formatStringEntry = Find(rgbCameraFormats, bFormatIndex);
+			}
+			else
+			{
+				formatStringEntry = Find(fishEyeCameraFormats, bFormatIndex);
+			}
+		}
+		
+		if (Ds5SkuType == 6)	# S585
+		{
+			if (12 == interfaceNum)	# safety camera
+			{
+				formatStringEntry = Find(S585SafetyCameraFormats, bFormatIndex);
+			}
+			
+			if (14 == interfaceNum)	# occupancy camera
+			{
+				formatStringEntry = Find(S585OccupancyCameraFormats, bFormatIndex);
+			}
+		}
+		
+		#AddPayLoadCell("bFormatIndex", bFormatIndex, Format ("0x%02X", bFormatIndex));
+		AddPayLoadCell("bFormatIndex", Format(" %d ( %s ) ", bFormatIndex, formatStringEntry[1]), Format("Stream format index %d according to descriptor", bFormatIndex));
+		
+	}
+
+#//////////////////////////////////////////////////////
+#	bFrameIndex field
+	if((in.DataLength - out.Decoded) >= 1)
+	{ 
+    	bFrameIndex = NextNBits_(8);    
+		out.Decoded += 1;
+		
+		if (1 == interfaceNum)
+		{
+			if (Ds5SkuType == 3) # DS5U F416
+			{
+				resolutionStringEntry = Find(F416DepthCameraResolutions, bFrameIndex);
+			}
+			else if ((Ds5SkuType == 4) || (Ds5SkuType == 1)) # AWGC or AWGT (wide)
+			{
+				resolutionStringEntry = Find(AwgDepthCameraResolutions, bFrameIndex);
+			}
+			else if (Ds5SkuType == 5) # D585
+			{
+				resolutionStringEntry = Find(D585DepthCameraResolutions, bFrameIndex);
+			}
+			else if (Ds5SkuType == 6) # S585
+			{
+				resolutionStringEntry = Find(S585DepthCameraResolutions, bFrameIndex);
+			}
+			else
+			{
+				resolutionStringEntry = Find(depthCameraResolutions, bFrameIndex);
+			}
+		}
+		else if (2 == interfaceNum)
+		{
+			if (bFormatIndex <= 4)
+			{
+				if (Ds5SkuType == 3) # DS5U F416
+				{
+					resolutionStringEntry = Find(F416DepthCameraResolutions, bFrameIndex);
+				}
+				else if ((Ds5SkuType == 4) || (Ds5SkuType == 1)) # AWGC or AWGT (wide)
+				{
+					resolutionStringEntry = Find(AwgDepthCameraResolutions, bFrameIndex);
+				}
+				else if (Ds5SkuType == 5) # D585
+				{
+					resolutionStringEntry = Find(D585DepthCameraResolutions, bFrameIndex);
+				}
+				else if (Ds5SkuType == 6) # S585
+				{
+					if (bFormatIndex == 1)
+					{
+						resolutionStringEntry = Find(S585YCameraResolutions, bFrameIndex);
+					} else 
+					{
+						resolutionStringEntry = Find(S585CalibCameraResolutions, bFrameIndex);
+					}
+				}
+				else
+				{
+					resolutionStringEntry = Find(depthCameraResolutions, bFrameIndex);
+				}
+			}
+			else if (bFormatIndex == 5) # calib mode
+			{
+				if (Ds5SkuType == 3) # DS5U F416
+				{
+					resolutionStringEntry = Find(F416YCalibCameraResolutions, bFrameIndex);
+				}
+				else if ((Ds5SkuType == 4) || (Ds5SkuType == 1)) # AWGC or AWGT (wide)
+				{
+					resolutionStringEntry = Find(WideYCalibCameraResolutions, bFrameIndex);
+				}
+				else if (Ds5SkuType == 5)
+				{
+					resolutionStringEntry = Find(S585CalibCameraResolutions, bFrameIndex);
+				}
+				else
+				{
+					resolutionStringEntry = Find(YCalibCameraResolutions, bFrameIndex);
+				}
+			}
+			else
+			{
+				if (Ds5SkuType == 3) # DS5U F416
+				{
+					resolutionStringEntry = Find(F416YCalibCameraResolutions, bFrameIndex);
+				}
+				else
+				{
+					resolutionStringEntry = Find(YW10CameraResolutions, bFrameIndex);
+				}
+			}
+		}
+		else if (4 == interfaceNum)
+		{
+			if ((Ds5SkuType == 2) || (Ds5SkuType == 4)) # ASRC or AWGC
+			{
+				if (bFormatIndex == 1)	# YUY2
+				{
+					resolutionStringEntry = Find(rgbCameraResolutions, bFrameIndex);
+				}
+				else if (bFormatIndex == 2)	# RAW16
+				{
+					resolutionStringEntry = Find(raw16CameraResolutions, bFrameIndex);
+				}
+			}
+			else if (Ds5SkuType == 5)
+			{
+				if (bFormatIndex == 3)	# RAW16
+				{
+					resolutionStringEntry = Find(S585Raw16CameraResolutions, bFrameIndex);
+				}
+				else 
+				{
+					resolutionStringEntry = Find(D585RgbCameraResolutions, bFrameIndex);
+				}
+			}
+			else if (Ds5SkuType == 6)
+			{
+				if (bFormatIndex == 3)	# RAW16
+				{
+					resolutionStringEntry = Find(S585Raw16CameraResolutions, bFrameIndex);
+				}
+				else 
+				{
+					resolutionStringEntry = Find(S585RgbCameraResolutions, bFrameIndex);
+				}
+			}
+			else
+			{
+				resolutionStringEntry = Find(fishEyeCameraResolutions, bFrameIndex);
+			}
+		} else if (12 == interfaceNum)
+		{
+			if (Ds5SkuType == 6) # S585
+			{
+				resolutionStringEntry = Find(S585SaferyCameraResolutions, bFrameIndex);
+			}
+		}
+		else if (14 == interfaceNum)
+		{
+			if (Ds5SkuType == 6) # S585
+			{
+				resolutionStringEntry = Find(S585OccupancyCameraResolutions, bFrameIndex);
+			}
+		}
+
+#		AddPayLoadCell("bFrameIndex", bFrameIndex, Format ("0x%02X", bFrameIndex));
+		AddPayLoadCell("bFrameIndex", Format(" %d ( %s ) ", bFrameIndex, resolutionStringEntry[1]), Format ("Stream resolution index %d according to descriptor", bFrameIndex));
+	}
+		
+#/////////////////////////////////////////////////////////////////   	
+#	dwFrameInterval field
+	if((in.DataLength - out.Decoded) >= 4)
+	{ 
+    	dwFrameInterval = NextDataDWord_();
+		out.Decoded += 4;
+#		AddPayLoadCell("dwFrameInterval", dwFrameInterval, Format ("0x%08X", dwFrameInterval));
+		AddPayLoadCell(" FPS ", 10000000 / dwFrameInterval, Format ("0x%08X", dwFrameInterval));
+	}
+	else
+	{
+		ShowInvalidBuffer();
+	}	
+#/////////////////////////////////////////////////////////////////////////   	
+#	wKeyFrameRate field
+	if((in.DataLength - out.Decoded) >= 2)
+	{
+		wKeyFrameRate = NextDataWord_();    
+		out.Decoded += 2;
+		if (ProbeCommitIVCAM == 0)
+		{
+			AddPayLoadCell("wKeyFrameRate", wKeyFrameRate, Format ("0x%04X", wKeyFrameRate));
+		}
+	}
+	else
+	{
+		ShowInvalidBuffer();
+	}
+#////////////////////////////////////////////////////////////////   	
+#	wPFrameRate field
+	if((in.DataLength - out.Decoded) >= 2)
+	{ 
+    	wPFrameRate = NextDataWord_();        
+		out.Decoded += 2;
+		if (ProbeCommitIVCAM == 0)
+		{
+			AddPayLoadCell("wPFrameRate", wPFrameRate, Format ("0x%04X", wPFrameRate));
+		}
+	}
+	else
+	{
+		ShowInvalidBuffer();
+	}
+#////////////////////////////////////////////////////////   	
+#	 wCompQuality field
+	if((in.DataLength - out.Decoded) >= 2)
+	{ 
+	    wCompQuality = NextDataWord_();    
+		out.Decoded += 2;
+		if (ProbeCommitIVCAM == 0)
+		{
+			AddPayLoadCell("wCompQuality", wCompQuality, Format ("0x%04X", wCompQuality));
+		}
+	}
+	else
+	{
+		ShowInvalidBuffer();
+	}
+#////////////////////////////////////////////////////////////// 		
+#	wCompWindowSize field
+	if((in.DataLength - out.Decoded) >= 2)
+	{ 
+    	wCompWindowSize = NextDataWord_();    
+		out.Decoded += 2;
+		if (ProbeCommitIVCAM == 0)
+		{
+			AddPayLoadCell("wCompWindowSize", wCompWindowSize, Format ("0x%04X", wCompWindowSize));
+		}
+	}
+	else
+	{
+		ShowInvalidBuffer();
+	}
+#/////////////////////////////////////////////////////////////   	
+#	wDelay field
+	if((in.DataLength - out.Decoded) >= 2)
+	{ 
+    	wDelay = NextDataWord_();    
+		out.Decoded += 2;
+		if (ProbeCommitIVCAM == 0)
+		{
+			AddPayLoadCell("wDelay", wDelay, Format ("0x%04X", wDelay));
+		}
+	}		    	
+	else
+	{
+		ShowInvalidBuffer();
+	}
+#//////////////////////////////////////////////////////////    	
+#	dwMaxVideoFrameSize field
+	if((in.DataLength - out.Decoded) >= 4)
+	{ 
+    	dwMaxVideoFrameSize       = NextDataDWord_();    
+		out.Decoded += 4;
+		AddPayLoadCell("dwMaxVideoFrameSize", dwMaxVideoFrameSize, Format ("0x%08X", dwMaxVideoFrameSize));
+	}
+	else
+	{
+		ShowInvalidBuffer();
+	}
+#///////////////////////////////////////////////
+#	dwMaxPayloadTransferSize field	
+	if((in.DataLength - out.Decoded) >= 4)
+	{ 
+    	dwMaxPayloadTransferSize  = NextDataDWord_();
+		out.Decoded += 4;
+		AddPayLoadCell("dwMaxPayloadTransferSize", dwMaxPayloadTransferSize, Format ("0x%08X", dwMaxPayloadTransferSize));
+	}
+	else
+	{
+		ShowInvalidBuffer();
+	}
+	
+#////////////////////////////////////////////////////
+#	dwClockFrequency field   
+	if((in.DataLength - out.Decoded) >= 4)
+	{
+		dwClockFrequency = NextDataDWord_();
+		out.Decoded += 4;
+		if (ProbeCommitIVCAM == 0)
+		{
+			AddPayLoadCell("dwClockFrequency", dwClockFrequency, Format ("0x%08X", dwClockFrequency));
+		}
+	}
+	else
+	{
+		ShowInvalidBuffer();
+	}
+		
+#//////////////////////////////////////////////////////
+#	bmFramingInfo field  
+	
+	bmFramingInfo = NextNBits_(8);
+	out.Decoded += 1;
+
+	if (ProbeCommitIVCAM == 0)
+	{
+		i = 0;
+		for(i = 0; i <= 45; i++)
+		{
+			if((bmFramingInfo>>i) & 0x01)
+			{
+				row_zzz = Find(FramingInfoBitmapTable, i);
+				AddPayLoadCell("bmFramingInfo", _row_zzz[1], Format ("0x%8X", bmFramingInfo));
+				break;
+			}
+		}	
+		
+		if((i>2) && (i<8))
+		{
+			AddPayLoadCell("bmFramingInfo", bmFramingInfo, Format ("Reserved = 0x%02X", bmFramingInfo));
+		}
+		else
+		{
+			ShowInvalidBuffer();
+		}
+	}
+	
+#////////////////////////////////////////////////
+#bPreferedVersion Field		
+	if((in.DataLength - out.Decoded) >= 1)
+	{
+		bPreferedVersion = NextNBits_(8);
+		out.Decoded += 1;
+		if (ProbeCommitIVCAM == 0)
+		{
+			AddPayLoadCell("bPreferedVersion", bPreferedVersion, Format ("0x%02X", bPreferedVersion));
+		}
+	}
+    else
+	{
+		ShowInvalidBuffer();
+	}
+#////////////////////////////////////////
+#	bMinVersion Field		
+    if((in.DataLength - out.Decoded) >= 1)
+	{
+    	bMinVersion = NextNBits_(8);
+		out.Decoded += 1;
+		if (ProbeCommitIVCAM == 0)
+		{
+			AddPayLoadCell("bMinVersion", bMinVersion, Format ("0x%02X", bMinVersion));
+		}
+    }
+    else
+	{
+		ShowInvalidBuffer();
+	}
+#////////////////////////////////////////
+#	bMaxVersion Field		
+    if((in.DataLength - out.Decoded) >= 1)
+	{
+    	bMaxVersion = NextNBits_(8);
+		out.Decoded += 1;
+		if (ProbeCommitIVCAM == 0)
+		{
+			AddPayLoadCell("bMaxVersion", bMaxVersion, Format ("0x%02X", bMaxVersion));
+		}
+    }
+    else
+	{
+		ShowInvalidBuffer();
+	}
+		
+#/////////////////////////////////////////////
+#   bUsage field
+    if((in.DataLength - out.Decoded) >= 1)
+	{
+    	bUsage = NextNBits_(8);
+		out.Decoded += 1;
+		if (ProbeCommitIVCAM == 0)
+		{
+			AddPayLoadCell("bUsage", bUsage, Format ("0x%02X", bUsage));
+		}
+    }
+    else
+	{
+		ShowInvalidBuffer();
+	}
+		
+#////////////////////////////////////////////
+#   bBitDepthLuma Field
+    if((in.DataLength - out.Decoded) >= 1)
+	{
+    	bBitDepthLuma = NextNBits_(8);
+		out.Decoded += 1;
+		if (ProbeCommitIVCAM == 0)
+		{
+			AddPayLoadCell("bBitDepthLuma", bBitDepthLuma, Format ("0x%02X", bBitDepthLuma));
+		}
+    }
+    else
+	{
+		ShowInvalidBuffer();
+	}
+		
+#///////////////////////////////////////////
+#	bmSettings Field
+    if((in.DataLength - out.Decoded) >= 1)
+	{
+    	bmSettings = NextNBits_(8);
+		out.Decoded += 1;
+		if (ProbeCommitIVCAM == 0)
+		{
+			AddPayLoadCell("bmSettings", bmSettings, Format ("0x%02X", bmSettings));
+		}
+    }
+    else
+	{
+		ShowInvalidBuffer();
+	}
+#/////////////////////////////////////////////
+#	bMaxNumberOfRefFramesPlus1 Field
+    if((in.DataLength - out.Decoded) >= 1)
+	{
+    	bMaxNumberOfRefFramesPlus1 = NextNBits_(8);
+		out.Decoded += 1;
+		if (ProbeCommitIVCAM == 0)
+		{
+			AddPayLoadCell("bMaxNumberOfRefFramesPlus1", bMaxNumberOfRefFramesPlus1, Format ("0x%02X", bMaxNumberOfRefFramesPlus1));
+		}
+    }
+    else
+	{
+		ShowInvalidBuffer();
+	}
+
+#//////////////////////////////////////////////////
+#	bmRateControlModes Field
+	if((in.DataLength - out.Decoded) >= 2)
+	{ 
+    	bmRateControlModes= NextDataWord_();    
+		out.Decoded += 2;
+		if (ProbeCommitIVCAM == 0)
+		{
+			AddPayLoadCell("bmRateControlModes", bmRateControlModes, Format ("0x%04X", bmRateControlModes));
+		}
+	}
+	else
+	{
+		ShowInvalidBuffer();
+	}
+#//////////////////////////////////////////////////
+#	bmLayoutPerStream Field
+		if((in.DataLength - out.Decoded) >= 8)
+		{ 
+		    bmLayoutPerStream = NextData3Bytes_() + NextData3Bytes_() + NextDataWord_();
+			#bmLayoutPerStream = NextNBits(8) | (NextNBits(8) << 8) | (NextNBits(8) << 16) | (NextNBits(8) << 24);
+			out.Decoded += 8;
+			if (ProbeCommitIVCAM == 0)
+			{
+				AddPayLoadCell("bmLayoutPerStream", bmLayoutPerStream, Format ("0x%16X", bmLayoutPerStream));
+			}
+		}
+		else
+		{
+			ShowInvalidBuffer();
+		}
+}
+ 
+VS_STILL_PROBE_CONTROL() 
+{
+    if (!in.Expanded)
+        AddCell("Still", "Probe", "VS_STILL_PROBE_CONTROL",FieldColor);
+    do_still_probe_commit_controls();    
+}
+
+VS_STILL_COMMIT_CONTROL() 
+{
+    if (!in.Expanded)
+         AddCell("Still", "Commit", "VS_STILL_COMMIT_CONTROL",FieldColor);
+    do_still_probe_commit_controls();    
+}
+
+do_still_probe_commit_controls()
+{
+#~#
+	if((in.DataLength - out.Decoded) > 0)
+	{ 
+    	bFormatIndex = NextNBits_(8);    
+  		out.Decoded += 1;
+		AddPayLoadCell("bFormatIndex", bFormatIndex, Format ("0x%02X", bFormatIndex));
+	}
+	else
+	{
+		bFormatIndex = 0;
+		SetCellColor(RED);
+		AddPayLoadCell("bFormatIndex", bFormatIndex, Format ("PAYLOAD IS SHORT, EMPTY VALUE - 0x%02X", bFormatIndex));
+		RestoreCellColor();
+	}
+#~#    
+#~#
+	if((in.DataLength - out.Decoded) > 0)
+	{ 
+    	bFrameIndex = NextNBits_(8);    
+		out.Decoded += 1;
+		AddPayLoadCell("bFrameIndex", bFrameIndex, Format ("0x%02X", bFrameIndex));
+	}
+	else
+	{
+		bFrameIndex = 0;
+		SetCellColor(RED);
+		AddPayLoadCell("bFrameIndex", bFrameIndex, Format ("PAYLOAD IS SHORT, EMPTY VALUE - 0x%02X", bFrameIndex)); 
+		RestoreCellColor();
+	}   	
+#~#    
+#~#
+	if((in.DataLength - out.Decoded) > 0)
+	{ 
+		bCompressionIndex        = NextNBits_(8);    
+		out.Decoded += 1;
+		AddPayLoadCell("bCompressionIndex", bCompressionIndex, Format ("0x%02X", bCompressionIndex));
+	}
+	else
+	{
+		bCompressionIndex = 0;
+		SetCellColor(RED);
+		AddPayLoadCell("bCompressionIndex", bCompressionIndex, Format ("PAYLOAD IS SHORT, EMPTY VALUE - 0x%02X", bCompressionIndex));
+		RestoreCellColor();
+	}			    	
+#~#    
+#~#
+	if((in.DataLength - out.Decoded) > 3)
+	{ 
+    	dwMaxVideoFrameSize      = NextDataDWord_();    
+		out.Decoded += 4;
+		AddPayLoadCell("dwMaxVideoFrameSize", dwMaxVideoFrameSize, Format ("0x%08X", dwMaxVideoFrameSize));
+	}
+	else
+	{
+		temp_Dif = (in.DataLength - out.Decoded);
+		select
+		{
+			temp_Dif > 2 : dwMaxVideoFrameSize = NextData3Bytes_();
+			temp_Dif > 1 : dwMaxVideoFrameSize = NextDataWord_();
+			temp_Dif > 0 : dwMaxVideoFrameSize = NextNBits_(8);
+			default			 : dwMaxVideoFrameSize = 0;
+		};
+		SetCellColor(RED);
+		AddPayLoadCell("dwMaxVideoFrameSize", dwMaxVideoFrameSize, FormatEx ("PAYLOAD IS SHORT, VALUE IS ONLY %d BYTES LONG - 0x%08X", temp_Dif, dwMaxVideoFrameSize));
+		RestoreCellColor();
+		out.Decoded += temp_Dif;
+	}
+#~#    
+#~#
+	if((in.DataLength - out.Decoded) > 3)
+	{ 
+	    dwMaxPayloadTransferSize = NextDataDWord_();
+		out.Decoded += 4;
+		AddPayLoadCell("dwMaxPayloadTransferSize", dwMaxPayloadTransferSize, Format ("0x%08X", dwMaxPayloadTransferSize));
+	}
+	else
+	{
+		temp_Dif = (in.DataLength - out.Decoded);
+		select
+		{
+			temp_Dif > 2 : dwMaxPayloadTransferSize = NextData3Bytes_();
+			temp_Dif > 1 : dwMaxPayloadTransferSize = NextDataWord_();
+			temp_Dif > 0 : dwMaxPayloadTransferSize = NextNBits_(8);
+			default			 : dwMaxPayloadTransferSize = 0;
+		};
+		SetCellColor(RED);
+		AddPayLoadCell("dwMaxPayloadTransferSize", dwMaxPayloadTransferSize, FormatEx ("PAYLOAD IS SHORT, VALUE IS ONLY %d BYTES LONG - 0x%08X", temp_Dif, dwMaxPayloadTransferSize));    	
+		RestoreCellColor();
+		out.Decoded += temp_Dif;
+	}
+#~#    
+}
+
+set StillImageTriggerTable =
+[
+    [  0xFF, "Undefined" ],
+    [  0,    "Normal Operation" ],
+    [  1,    "Transmit Still Image" ],
+    [  2,    "Transmit Still Image via Dedicated Bulk Pipe" ],
+    [  3,    "Abort Still Image Transmission" ]
+];
+
+VS_STILL_IMAGE_TRIGGER_CONTROL() 
+{
+
+	if((in.DataLength - out.Decoded) > 0)
+	{ 
+		bTrigger = NextNBits_(8);    
+		out.Decoded += 1;
+		_row_zzz = Find(StillImageTriggerTable, bTrigger);    
+    	AddPayLoadCell("bTrigger", _row_zzz[1], Format ("0x%02X", bTrigger));			
+    }
+    else
+	{
+    	bTrigger = 0;
+    	_row_zzz = Find(StillImageTriggerTable, bTrigger);    
+    	SetCellColor(RED);
+    	AddPayLoadCell("bTrigger", _row_zzz[1], Format ("PAYLOAD IS SHORT, EMPTY VALUE - 0x%02X", bTrigger));
+    	RestoreCellColor();
+    }
+		    	
+}
+
+set StreamErrorCodeTable =
+[
+    [  0xFF, "Undefined" ],
+    [  0,    "No Error" ],
+    [  1,    "Protected Content" ],
+    [  2,    "Input Buffer Underrun" ],
+    [  3,    "Data Discontinuity" ],
+    [  4,    "Output Buffer Underrun" ],
+    [  5,    "Output Buffer Overrun" ],
+    [  6,    "Format Change" ],
+    [  7,    "Still Image Capture Error" ],
+    [  8,    "Unknown" ]
+];
+
+VS_STREAM_ERROR_CODE_CONTROL() 
+{
+#~#
+	if((in.DataLength - out.Decoded) > 0)
+	{ 
+    	bStreamErrorCode = NextNBits_(8);    
+		out.Decoded += 1;
+			row_zzz = Find(StreamErrorCodeTable, bStreamErrorCode);    
+    	AddPayLoadCell("bStreamErrorCode", _row_zzz[1], Format ("0x%02X", bStreamErrorCode));
+    }
+    else
+	{
+    	bStreamErrorCode = 0;
+    	_row_zzz = Find(StreamErrorCodeTable, bStreamErrorCode);    
+    	SetCellColor(RED);
+    	AddPayLoadCell("bStreamErrorCode", _row_zzz[1], Format ("PAYLOAD IS SHORT, EMPTY VALUE - 0x%02X", bStreamErrorCode));
+    	RestoreCellColor();
+    }
+#~#    	
+}
+
+set KeyFrameControlTable =
+[
+    [  0xFF, "Undefined" ],
+    [  0,    "Normal Operation" ],
+    [  1,    "Generate Key Frame" ]
+];
+
+VS_GENERATE_KEY_FRAME_CONTROL() 
+{
+#~#
+	if((in.DataLength - out.Decoded) > 0)
+	{ 
+    	bGenerateKeyFrame = NextNBits_(8); 
+		out.Decoded += 1;
+		_row_zzz = Find(KeyFrameControlTable, bGenerateKeyFrame);    
+    	AddPayLoadCell("bGenerateKeyFrame", _row_zzz[1], Format ("0x%02X", bGenerateKeyFrame));
+    }
+    else
+	{
+    	bGenerateKeyFrame = 0;
+    	_row_zzz = Find(KeyFrameControlTable, bGenerateKeyFrame);    
+    	SetCellColor(RED);	
+    	AddPayLoadCell("bGenerateKeyFrame", _row_zzz[1], Format ("PAYLOAD IS SHORT, EMPTY VALUE - 0x%02X", bGenerateKeyFrame));
+    	RestoreCellColor();
+    }
+#~#    	   
+}
+
+VS_UPDATE_FRAME_SEGMENT_CONTROL() 
+{
+#~#
+	if((in.DataLength - out.Decoded) > 0)
+	{ 
+    	bStartFrameSegment = NextNBits_(8);    
+		out.Decoded += 1;
+		AddPayLoadCell("bStartFrameSegment", bStartFrameSegment, Format ("0x%02X", bStartFrameSegment));
+	}
+	else
+	{
+		bStartFrameSegment = 0;
+		SetCellColor(RED);
+		AddPayLoadCell("bStartFrameSegment", bStartFrameSegment, Format ("PAYLOAD IS SHORT, EMPTY VALUE - 0x%02X", bStartFrameSegment));
+		RestoreCellColor();
+	}
+#~#    	
+#~#
+	if((in.DataLength - out.Decoded) > 0)
+	{ 
+    	bEndFrameSegment = NextNBits_(8);    
+		out.Decoded += 1;
+		AddPayLoadCell("bEndFrameSegment", bEndFrameSegment, Format ("0x%02X", bEndFrameSegment));
+	}
+	else
+	{
+		bEndFrameSegment =0;
+		SetCellColor(RED);
+		AddPayLoadCell("bEndFrameSegment", bEndFrameSegment, Format ("PAYLOAD IS SHORT, EMPTY VALUE - 0x%02X", bEndFrameSegment));
+		RestoreCellColor();
+	}
+#~#    	
+}
+
+VS_SYNCH_DELAY_CONTROL() 
+{
+#~#
+	if((in.DataLength - out.Decoded) > 1)
+	{ 
+    	wDelay = NextDataWord_();    
+		out.Decoded += 2;
+		AddPayLoadCell("wDelay", wDelay, Format ("0x%04X", wDelay));
+	}
+	else
+	{
+		temp_Dif = (in.DataLength - out.Decoded);
+		if(temp_Dif > 0)
+			wDelay = NextNBits_(8);
+		else
+			wDelay = 0;
+		SetCellColor(RED);
+		AddPayLoadCell("wDelay", wDelay, FormatEx ("PAYLOAD IS SHORT, VALUE IS ONLY %d BYTES LONG - 0x%04X", temp_Dif, wDelay));
+		RestoreCellColor();	
+	}    	
+#~#    	
+}
+
+doEndpointInterface()
+{
+    SetFieldOffsetLen(48,16);
+    retval = 1;
+    if ((bReqType & 0xF) == 1) # Class/Interface
+    {
+		if ((Ds5SkuType == 0) || (Ds5SkuType == 3))	# PSR/ASR/AWG or DS5U F416
+		{
+			_if_row_x = Find(CurrentInterfacesMapPSR, wIndex & 0xFF);  # will determine interface name
+		}
+		else if (Ds5SkuType == 1)	# AWGT
+		{
+			_if_row_x = Find(CurrentInterfacesMapAWGT, wIndex & 0xFF);  # will determine interface name
+		}
+		else if ((Ds5SkuType == 5) || (Ds5SkuType == 6))	# S585 D585
+		{
+			_if_row_x = Find(CurrentInterfacesMapS585, wIndex & 0xFF);  # will determine interface name
+		}
+		else # ASRC or AWGC
+		{
+			_if_row_x = Find(CurrentInterfacesMapASRC, wIndex & 0xFF);  # will determine interface name
+		}
+
+        AddPayLoadCell("Interface", _if_row_x[1], FormatEx("Interface: 0x%02X (Low Byte of wIndex)\nwIndex=0x%04X", wIndex & 0x0FF, wIndex));
+    }
+    else if ((bReqType & 0xF) == 2)# Endpoint
+    {
+        if (wIndex & 0x80)
+        {
+            AddPayLoadCell("Endpoint", Format ("%d In", (wIndex & 0x0F)), FormatEx("Endpoint: 0x%01X In   wIndex=0x%04X", wIndex & 0x0F, wIndex));
+        }
+        else
+        {
+            AddPayLoadCell("Endpoint", Format ("%d Out", (wIndex & 0x0F)), FormatEx("Endpoint: 0x%01X Out   wIndex=0x%04X", wIndex & 0x0F, wIndex));
+        }
+    }
+    else
+    {
+        SaveFieldColor = FieldColor;
+ #       FieldColor = bReqTypeColor;
+ #       SetFieldOffsetLen(32,16);
+ #       AddPayLoadCell("bmRequestType",Format("0x%04X",bReqType),Format("bitmap with decimal value of %d",bReqType) + "\n\nCharacteristics of Request:\n   D7      Data xfer direction\n\t   0 = Host to Device\n\t   1=Device to host\n\n   D6..5   Type\n\t   0 = Standard\n\t   1 = Class\n\t   2 = Vendor\n\t   3 = Reserved\n\n   D4..0   Recipient\n\t   0 = Device\n\t   1 = Interface\n\t   2 = Endpoint\n\t   3 = Other\n\t   4..31 = Reserved\n");
+        FieldColor = wIndexColor;
+        SetFieldOffsetLen(48,16);
+        AddPayLoadCell("wIndex",wIndex,"wIndex");
+        FieldColor = wLengthColor;
+        SetFieldOffsetLen(64,16);
+        AddPayLoadCell("wLength",wLength,"wLength");
+        FieldColor = SaveFieldColor;
+        retval = 0;
+    }
+    return (retval);
+}
+    
+ 
+doIndexAndLength()
+{
+    doEndpointInterface();
+    SetFieldOffsetLen(48,16);
+    if ((EntityString == "")||(EntityString=="---"))
+        AddPayLoadCell("Entity Id", Format ("%d", EntiyId), FormatEx("Entity Id: 0x%02X (High Byte of wIndex)\nwIndex=0x%04X\n\nTo decode properly, the user must provide the mapping of Entity Id to Interface Control types\n\n See file:  VideoCurrentEntityIdMap_EditMe.inc", EntiyId, wIndex));
+    else
+        AddPayLoadCell("Entity Id", EntityString, FormatEx("Entity Id: 0x%02X = %s \nMapped by user in file: VideoCurrentEntityIdMap_EditMe.inc", EntiyId, EntityString));
+
+    if (SimpleShowItem())
+    {
+        SetFieldOffsetLen(64,16);
+        AddPayLoadCell("wLength",wLength,"wLength");
+    }
+}
+#/////////////////////////////////////////////////////////////
+
+#	Control Undefined
+EU_CONTROL_UNDEFINED()
+{
+	
+}
+#////////////////////////////////////////////////////////////
+#	Select Layer Control 
+EU_SELECT_LAYER_CONTROL()
+{
+	if((in.DataLength - out.Decoded) >= 2)
+	{ 
+    	wLayerOrViewID = NextDataWord_();
+		out.Decoded += 2;
+		AddPayLoadCell("wLayerOrViewID",wLayerOrViewID, Format ("0x%04X", wLayerOrViewID));
+	}
+	else
+	{
+		ShowInvalidBuffer();
+	}	
+}
+#/////////////////////////////////////////////////////////////////
+#	Profile Toolset Control
+
+EU_PROFILE_TOOLSET_CONTROL()
+{
+	if((in.DataLength - out.Decoded) >= 5)
+	{ 
+    	wProfile 			= NextDataWord_();
+		wConstrainedToolset = NextDataWord_();  
+		wConstrainedToolset = NextNBits_(8);
+		out.Decoded += 5;
+		AddPayLoadCell("wProfile", wProfile, Format ("0x%04X", wProfile));
+		AddPayLoadCell("wConstrainedToolset", wConstrainedToolset, Format ("0x%04X", wConstrainedToolset));
+		AddPayLoadCell("bmSettings", bmSettings, Format ("0x%02X", bmSettings));
+	}
+	else
+	{
+		ShowInvalidBuffer();
+	}	
+}
+#////////////////////////////////////////////////////
+
+#	Video Resolution Control
+EU_VIDEO_RESOLUTION_CONTROL()
+{
+	if((in.DataLength - out.Decoded) >= 4)
+	{ 
+    	wWidth  = NextDataWord_();
+		wHeight = NextDataWord_();
+		
+		out.Decoded += 4;
+		
+		AddPayLoadCell("wWidth", wWidth, Format ("0x%04X", wWidth));
+		AddPayLoadCell("wHeight", wHeight, Format ("0x%04X", wHeight));
+	}
+	else
+	{
+		ShowInvalidBuffer();
+	}	
+}
+#/////////////////////////////////////////////////////////////////
+
+#	Minimum Frame Interval Control
+EU_MIN_FRAME_INTERVAL_CONTROL()
+{
+	if((in.DataLength - out.Decoded) >= 4)
+	{ 
+    	dwFrameInterval = NextDataDWord_();
+		out.Decoded += 4;
+		AddPayLoadCell("dwFrameInterval", dwFrameInterval, Format ("0x%08X", dwFrameInterval));
+	}
+	else
+	{
+		ShowInvalidBuffer();
+	}	
+}
+
+#//////////////////////////////////////////////////////////////
+
+#	Slice Mode Control
+EU_SLICE_MODE_CONTROL()
+{
+	if((in.DataLength - out.Decoded) >= 4)
+	{ 
+    	wSliceMode = NextDataWord_();    
+		out.Decoded += 2;
+		wSlice_MSB = ( wSliceMode >> 8);
+		
+		wSlice_str = "";
+		if(wSlice_MSB == 0)
+			wSlice_str = "Maximum number of MBs per slice mode";
+		else if(wSlice_MSB == 1)
+			wSlice_str = "Target compressed size per slice mode";
+		else if(wSlice_MSB == 2)
+			wSlice_str = "Number of slices per frame mode";
+		else if(wSlice_MSB == 3)
+			wSlice_str = "Number of Macroblock rows per slice mode";
+		else
+			wSlice_str = "Reserved";
+		
+		wSliceConfigSetting = NextDataWord_();
+		out.Decoded += 2;
+		
+		wSliceConfigSetting_str = "";
+		if(wSliceConfigSetting == 0)
+			wSliceConfigSetting_str = "Maximum number of MBs per slice";
+		else if(wSliceConfigSetting == 1)
+			wSliceConfigSetting_str = "Target size for each slice NALU in bytes";
+		else if(wSliceConfigSetting == 2)
+			wSliceConfigSetting_str = "Number of slices per frame";
+		else if(wSliceConfigSetting == 3)
+			wSliceConfigSetting_str = "Number of macroblock rows per slice";
+		else
+			wSliceConfigSetting_str = "Undefined Value";
+		
+		AddPayLoadCell("wSliceMode", wSlice_str, Format ("0x%04X", wSliceMode));
+		AddPayLoadCell("wSliceConfigSetting", wSliceConfigSetting_str, Format ("0x%04X", wSliceConfigSetting));
+		
+    }
+    else
+	{
+		ShowInvalidBuffer();
+    }    	
+}
+#/////////////////////////////////////////////////////////////
+
+set RateControlModeTable =
+[
+    [  0,      "Reserved"                               ],
+    [  1,      "Variable Bit Rate low delay (VBR)"      ],
+    [  2,      "Constant bit rate (CBR)"                ],
+	[  3,      "Constant QP"                            ],
+	[  4,      "Global VBR low delay (GVBR)"            ],
+	[  5,      "Variable bit rate non-low delay (VBRN)" ],
+	[  6,      "Global VBR non-low delay (GVBRN)"       ]
+	
+];
+
+#	Rate Control Mode Control
+EU_RATE_CONTROL_MODE_CONTROL()
+{
+	if((in.DataLength - out.Decoded) >= 1)
+	{ 
+    	bRateControlMode = NextNBits_(8);
+		
+		if( bRateControlMode <= 6)
+		{
+			_row_zzz = Find(RateControlModeTable, bRateControlMode);
+			AddPayLoadCell("bRateControlMode", _row_zzz[1], Format ("bRateControlMode = 0x%02X", bRateControlMode));
+		}
+		else
+		{
+			Reserved_str = "Reserved";
+			AddPayLoadCell("bRateControlMode", Reserved_str, Format ("bRateControlMode = 0x%02X", bRateControlMode));
+		}
+		out.Decoded += 1;
+    }
+    else
+	{
+    	ShowInvalidBuffer();
+    }    	
+}
+#///////////////////////////////////////////////////////
+
+#	Average Bitrate Control
+EU_AVERAGE_BITRATE_CONTROL()
+{
+	if((in.DataLength - out.Decoded) >= 4)
+	{ 
+    	dwAverageBitRate = NextDataDWord_();
+		out.Decoded += 4;
+		AddPayLoadCell("dwAverageBitRate", dwAverageBitRate, Format ("0x%08X", dwAverageBitRate));
+	}
+	else
+	{
+		ShowInvalidBuffer();
+	}	
+}
+#////////////////////////////////////////////////////////
+
+#	CPB Size Control
+EU_CPB_SIZE_CONTROL()
+{
+	if((in.DataLength - out.Decoded) >= 4)
+	{ 
+    	dwCPBsize = NextDataDWord_();
+		out.Decoded += 4;
+		AddPayLoadCell("dwCPBsize", dwCPBsize, Format ("0x%08X", dwCPBsize));
+	}
+	else
+	{
+		ShowInvalidBuffer();
+	}
+}
+#///////////////////////////////////////////////////////////
+
+#	Peak Bit Rate Control
+EU_PEAK_BIT_RATE_CONTROL()
+{
+	if((in.DataLength - out.Decoded) >= 4)
+	{ 
+    	dwPeakBitRate = NextDataDWord_();
+		out.Decoded += 4;
+		AddPayLoadCell("dwPeakBitRate", dwPeakBitRate, Format ("0x%08X", dwPeakBitRate));
+	}
+	else
+	{
+		ShowInvalidBuffer();
+	}
+}
+#//////////////////////////////////////////////////////////
+
+#	Quantization Parameter Control
+EU_QUANTIZATION_PARAMS_CONTROL()
+{
+	if((in.DataLength - out.Decoded) >= 6)
+	{ 
+    	wQpPrime_I = NextDataWord_();
+		wQpPrime_P = NextDataWord_();  
+		wQpPrime_B = NextDataWord_();
+		
+		out.Decoded += 6;
+		
+		AddPayLoadCell("wQpPrime_I", wQpPrime_I, Format ("0x%04X",wQpPrime_I));
+		AddPayLoadCell("wQpPrime_P", wQpPrime_P, Format ("0x%04X", wQpPrime_P));
+		AddPayLoadCell("wQpPrime_B", wQpPrime_B, Format ("0x%02X", wQpPrime_B));
+	}
+	else
+	{
+		ShowInvalidBuffer();
+	}	
+}
+#//////////////////////////////////////////////////
+set SyncFrameTypeTable =
+[
+    [  0,    "Reset"                                                                        ],
+    [  1,    "Generate an IDR frame for all of the dependency layers of the current stream" ],
+	[  2,    "Generate an IDR frame that is a long-term reference frame"                    ],
+	[  3,    "Generate a non-IDR random-access for the associated dependency layers"        ],
+	[  4,    "Generate a non-IDR random-access for the a long-term reference frame"         ],
+	[  5,    "Generate a P frame that is a-long term reference frame"                       ],
+	[  6,    "Gradual Decoder Refresh (GDR)"                                                ]
+];
+
+#	Synchronization and Long Term Reference Frame Control
+EU_SYNC_REF_FRAME_CONTROL()
+{
+	if((in.DataLength - out.Decoded) >= 4)
+	{
+		bSyncFrameType = NextNBits_(8);
+		
+		if ( bSyncFrameType <= 6)
+		{
+			_row_zzz = Find(SyncFrameTypeTable, bSyncFrameType);
+			AddPayLoadCell("bSyncFrameType", _row_zzz[1], Format ("0x%02X", bSyncFrameType));
+		}
+		else
+		{
+			Reserved_str = "Reserved";
+			AddPayLoadCell("bSyncFrameType", Reserved_str, Format ("0x%02X", bSyncFrameType));
+		}
+		wSyncFrameInterval = NextDataWord_(); 
+		
+		bGradualDecoderRefresh = NextNBits_(8);
+		
+		GradualDecoderRefresh_str = "";
+		if(bGradualDecoderRefresh <= 6)
+			GradualDecoderRefresh_str = "recovery_frame_cnt";
+		else
+			GradualDecoderRefresh_str = "Reserved";
+		
+		out.Decoded += 4;
+		
+		AddPayLoadCell("wSyncFrameInterval", wSyncFrameInterval, Format ("0x%04X", wSyncFrameInterval));
+		AddPayLoadCell("bGradualDecoderRefresh", GradualDecoderRefresh_str, Format ("0x%02X", bGradualDecoderRefresh));
+    }
+	else
+	{
+		ShowInvalidBuffer();
+	}
+
+}
+#////////////////////////////////////////////////////
+
+#	Long-Term Buffer Control
+EU_LTR_BUFFER_CONTROL()
+{
+	if((in.DataLength - out.Decoded) >= 2)
+	{
+		bNumHostControlLTRBuffers = NextNBits_(8); 
+		bTrustMode = NextNBits_(8);
+		
+		TrustMode_str = "";
+		if(bTrustMode == 0)
+			TrustMode_str = "Don't Trust Until";
+		else if(bTrustMode == 1)
+			TrustMode_str = "Trust Until";
+		else
+			TrustMode_str = "Undefined value";
+		
+		out.Decoded +=2;
+		
+    	AddPayLoadCell("bNumHostControlLTRBuffers", Format ("0x%02X", bNumHostControlLTRBuffers), Format ("bNumHostControlLTRBuffers = %d", bNumHostControlLTRBuffers));			
+        AddPayLoadCell("bTrustMode", TrustMode_str, Format ("0x%02X", bTrustMode));
+	}
+	else
+	{
+		ShowInvalidBuffer();
+	}
+}
+#////////////////////////////////////////////////////////
+#	Long-Term Reference Picture Control
+EU_LTR_PICTURE_CONTROL()
+{
+	if((in.DataLength - out.Decoded) >= 2)
+	{
+		bPutAtPositionInLTRBuffer = NextNBits_(8);
+		
+		PutAtPositionInLTRBuffer_str = "";
+		if(bPutAtPositionInLTRBuffer == 0)
+			PutAtPositionInLTRBuffer_str = "Encoder is free to choose where to save the frame inside the encoder controlled buffers";
+		else
+			PutAtPositionInLTRBuffer_str = Format("bPutAtPositionInLTRBuffer %d ",bPutAtPositionInLTRBuffer );
+		
+		bLTRMode = NextNBits_(8);
+		
+		LTRMode_str = "";
+		if(bLTRMode == 0)
+			LTRMode_str = "Encoder is restricted to valid host managed LTR frames";
+		else if(bLTRMode == 1)
+			LTRMode_str = "Encoder may use any valid host or encoder controlled LTR frames";
+		else if(bLTRMode == 2)
+			LTRMode_str = "Encoder may use any valid reference in the DPB";			
+		else
+			LTRMode_str = "Undefined Value";
+		
+		out.Decoded += 2;
+		    
+        AddPayLoadCell("bPutAtPositionInLTRBuffer", PutAtPositionInLTRBuffer_str, Format ("0x%02X", bPutAtPositionInLTRBuffer));	
+        AddPayLoadCell("bLTRMode", LTRMode_str, Format ("0x%02X", bLTRMode));
+    }
+    else
+	{
+		ShowInvalidBuffer();
+	}
+}
+#////////////////////////////////////////////////////
+
+#	Long-Term Reference Validation Control
+EU_LTR_VALIDATION_CONTROL()
+{
+	if((in.DataLength - out.Decoded) >= 2)
+	{ 
+    	bmValidLTRs = NextDataWord_();    
+		out.Decoded += 2;
+		
+		ValidLTRs_str="";
+		for(i = 0; i <= 15; i++)
+		{
+			if((bmValidLTRs>>i) & 0x01)
+			{
+				ValidLTRs_str += Format("LTR frame with index = %d \n", i);
+			}
+		}
+		 AddPayLoadCell("bmValidLTRs", ValidLTRs_str, Format ("0x%02X", bmValidLTRs));
+    }
+    else
+	{
+		ShowInvalidBuffer();
+    }    		
+}
+#///////////////////////////////////////////////////
+
+#	Level IDC Control
+EU_LEVEL_IDC_LIMIT_CONTROL()
+{
+	if((in.DataLength - out.Decoded) >= 1)
+	{ 
+	  	bLevelIDC = NextNBits_(8);    
+		out.Decoded += 1;
+		AddPayLoadCell("bLevelIDC", bLevelIDC, Format ("0x%02X", bLevelIDC));
+	}
+	else
+	{
+		ShowInvalidBuffer();
+	}
+
+	}
+#///////////////////////////////////////////////////////////
+
+set SEIPayloadTypeControlTable =
+[
+    [  0,    "buffering_period"                     ],
+    [  1,    "pic_timing"      						],
+    [  2,    "pan_scan_rect"                		],
+	[  3,    "filler_payload"                       ],
+	[  4,    "user_data_registered_itu_t_t35"       ],
+	[  5,    "user_data_unregistered" 				],
+	[  6,    "recovery_point"       				],
+	[  7,    "dec_ref_pic_marking_repetition"       ],
+	[  8,    "spare_pic"       						],
+	[  9,    "scene_info"         					],
+	[  10,   "sub_seq_info"                         ],
+	[  11,   "sub_seq_layer_characteristics"        ],
+	[  12,   "sub_seq_characteristics"              ],
+	[  13,   "full_frame_freeze"                    ],
+	[  14,   "full_frame_freeze_release"            ],
+	[  15,   "full_frame_snapshot"                  ],
+	[  16,   "progressive_refinement_segment_start" ],
+	[  17,   "progressive_refinement_segment_end"   ],
+	[  18,   "motion_constrained_slice_group_set"   ],
+	[  19,   "film_grain_characteristics"           ],
+	[  20,   "deblocking_filter_display_preference" ],
+	[  21,   "stereo_video_info"       				],
+	[  22,   "post_filter_hint"       				],
+	[  23,   "tone_mapping_info"       				],
+	[  24,   "scalability_info"       				],
+	[  25,   "sub_pic_scalable_layer"       		],
+	[  26,   "non_required_layer_rep"       		],
+	[  27,   "priority_layer_info"       			],
+	[  28,   "layers_not_present"       			],
+	[  29,   "layer_dependency_change"       		],
+	[  30,   "scalable_nesting"       				],
+	[  31,   "base_layer_temporal_hrd"       		],
+	[  32,   "quality_layer_integrity_check"        ],
+	[  33,   "redundant_pic_property"       		],
+	[  34,   "tl0_dep_rep_index"       				],
+	[  35,   "tl_switching_point"       			],
+	[  36,   "parallel_decoding_info"       		],
+	[  37,   "mvc_scalable_nesting"       			],
+	[  38,   "view_scalability_info"       			],
+	[  39,   "multiview_scene_info"       			],
+	[  40,   "multiview_acquisition_info"       	],
+	[  41,   "non_required_view_component"       	],
+	[  42,   "view_dependency_change"       		],
+	[  43,   "operation_points_not_present"       	],
+	[  44,   "base_view_temporal_hrd"       		],
+	[  44,   "frame_packing_arrangement"       		]
+];
+
+#	SEI Message Control
+EU_SEI_PAYLOADTYPE_CONTROL()
+{
+	if((in.DataLength - out.Decoded) >= 8)
+	{
+		bmSEIMessages = NextDataDWord_() | (NextDataDWord_()  >> 32);
+		
+		i = 0;
+		for(i = 0; i <= 45; i++)
+		{
+			if((bmSEIMessages>>i) & 0x01)
+			{
+				_row_zzz = Find(SyncFrameTypeTable, i);
+				AddPayLoadCell("bmSEIMessages", _row_zzz[1], Format ("<br>0x%8X", bmSEIMessages));
+				break;
+			}
+		}	
+		if((i>45) && (i<64))
+		{
+			AddPayLoadCell("bmSEIMessages", bmSEIMessages, Format ("<br>Reserved = 0x%02X", bmSEIMessages));
+		}
+		out.Decoded += 8;
+    }
+	else
+	{
+		ShowInvalidBuffer();
+	}
+}
+#//////////////////////////////////////////////////////////
+
+#	Quantization Parameter Range Control
+EU_QP_RANGE_CONTROL()
+{
+	if((in.DataLength - out.Decoded) >= 2)
+	{
+		bMinQp = NextNBits_(8); 
+		bMaxQp = NextNBits_(8);
+		
+		out.Decoded +=2;
+		
+    	AddPayLoadCell("bMinQp", Format ("0x%02X", bMinQp), Format ("bMinQp = %d", bMinQp));
+		AddPayLoadCell("bMaxQp", Format ("0x%02X", bMaxQp), Format ("bMaxQp = %d", bMaxQp));
+	}
+	else
+	{
+		ShowInvalidBuffer();
+	}
+}
+#///////////////////////////////////////////////////////
+
+#	Priority Control
+EU_PRIORITY_CONTROL()
+{
+	if((in.DataLength - out.Decoded) >= 1)
+	{ 
+	  	bPriority = NextNBits_(8);    
+		out.Decoded += 1;
+		AddPayLoadCell("bPriority", bPriority, Format ("0x%02X", bPriority));
+	}
+	else
+	{
+		ShowInvalidBuffer();
+	}
+}
+#/////////////////////////////////////////////////////////
+
+#	Start or Stop Layer Control
+EU_START_OR_STOP_LAYER_CONTROL()
+{
+	if((in.DataLength - out.Decoded) >= 1)
+	{ 
+    	bUpdate = NextNBits_(8);    
+		out.Decoded += 1;
+		
+		Update_str = "";
+		if(bUpdate == 0)
+			Update_str = "Stop streaming the current layer and all layers";
+		else if(bUpdate == 1)
+			Update_str = "Start streaming the current layer";
+		else
+		
+			Update_str = "Undefined Value";	
+			
+		AddPayLoadCell("bUpdate", Update_str, Format ("0x%04X", bUpdate));		
+    }
+    else
+	{
+		ShowInvalidBuffer();
+    }    	
+}
+#////////////////////////////////////////////
+
+#	Error Resiliency Control
+EU_ERROR_RESILIENCY_CONTROL()
+{
+	if((in.DataLength - out.Decoded) >= 2)
+	{
+		bmErrorResiliencyFeatures =NextDataWord_(); 
+		out.Decoded +=2;
+    	AddPayLoadCell("bmErrorResiliencyFeatures",bmErrorResiliencyFeatures, Format ("0x%04X",bmErrorResiliencyFeatures));
+	}
+	else
+	{
+		ShowInvalidBuffer();
+	}
+}
+
+ShowInvalidBuffer()
+{
+	SetCellColor(RED);
+	str = "";
+	for( i=0 ; i <(in.DataLength - out.Decoded); i++)
+	{
+		byte = NextNBits_(8);
+		str += FormatEx ("0x%02X ", byte);
+	}
+	
+	AddDescriptionOnly(str);
+#	AddPayLoadCell("Data",str, Format ("0x%04X",byte));   
+	out.Decoded += (in.DataLength - out.Decoded);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

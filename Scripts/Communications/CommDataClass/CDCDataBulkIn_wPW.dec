@@ -1,0 +1,48 @@
+#*******************************************************************************
+#
+#  FILENAME: CDCDataBulkIn_wPW.dec
+#
+#  Copyright (c) 2007, LeCroy - All Rights Reserved
+#
+#  DESCRIPTION
+#    This is the Bulk-IN Endpoint w/ Protocol Wrapper Decode file for the USB
+#      Class Definition for Communication Devices Data Interface. (CDC Data)
+#    This file is prepared as per the Specification Revision 1.0.
+#    This file is prepared as per the USB Class Definitions for Communication
+#      Devices v1.1.
+#
+#  REVISION HISTORY
+#    07FEB07 First created -RK-
+#*******************************************************************************
+
+%include "CATCScriptAPI.inc"
+%include "UsbCommon.inc"
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block
+#
+#----  Output
+# out.Decoded   - amount of data has been decoded
+#
+
+set OutputType      = "CDC Data Bulk In w/ Prot Wrapper";
+set UsbDecodeType   = "Endpoint";
+set UsbEndpId       = 24;           # Just a unique value for each endpoint of the same Class/Vendor/Product
+                                    # to distinguish them.
+set UsbClassCode    = 0x0A;         # Data Interface Class (CDC Data)
+set UsbEndpType     = "Bulk";
+set UsbEndpDir      = "In";
+set UsbScriptDecodeType = 2;        # Combined decoding for Cells and Text decoding.
+set UsbMaxXferSize  = 0x7FFFFFFF;   # Trying largest possible positive value.
+set UsbMaxPktSize   = 512;          # Will automatically be reduced to 64 if branch is Full Speed.
+set UsbMaxXferDecodeSize = 0xFF;    # Max bytes that we will be decoding. User can up this if desired.
+
+
+# Necessary Variables to Include and Run CDCData.inc
+
+set ProtocolWrapper_FLAG    = 1;
+set CommandTypeEncode_FLAG  = 0;
+set msg_type                = "Bulk-IN";
+
+%include "CDCData.inc"

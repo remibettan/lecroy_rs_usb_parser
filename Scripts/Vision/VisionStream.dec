@@ -1,0 +1,315 @@
+#*******************************************************************************
+#
+#  FILENAME: VisionStream.dec
+#
+#  Copyright (c) 2013, Teledyne LeCroy - All Rights Reserved
+#
+#  DESCRIPTION
+#    This is the Stream Bulk-IN Endpoint Message Decode file for USB3 Vision Devices.
+#    This file is prepared as per USB3 Vision specification Verion 1.0 January, 2013
+#
+#  REVISION HISTORY
+#    13MAR13 First created -ag-
+#
+#*******************************************************************************
+
+%include "VisionCommon.inc"    
+
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block 
+
+# out.Decoded   - amount of data has been decoded
+
+const U3VS_ViewAll  = 0;
+const U3VS_HideAll  = 0;
+# ---------------------------------------------------------------------------
+
+set OutputType      = "USB3 Vision Stream";
+set UsbDecodeType   = "Endpoint";
+set UsbEndpType     = "Bulk";
+set UsbEndpDir      = "In";
+set UsbClassCode    = 0xEF;    # Miscellaneous Class
+set UsbSubClass     = 0x05;    # USB3 Vision
+set UsbProtocol     = 0x02;    # Device Streaming
+ 
+#####################################################################################################
+# Common Streaming Data fields information are kept in this map.
+# Each row consist of below attribute for each field :
+# Field ID            : Field unique Id 
+# Offset              : Field offset in byte
+# Size                : Field size in byte
+# Mask 	              : Field mask that can be used for masking some bits or bytes of value
+# Field Name          : Field name that is shown in packet viewer
+# Value Format        : This format is used in Format() method to convert field's value to string
+# Value Substitute    : This array can define substitute for each field value. for example when we want to show meaningful name for numeric values
+# Is Value Bitmap     : Specifies if value is a bitmap or not. 
+# Tooltip             : Field tooltip that is shown in packet viewer
+#####################################################################################################
+
+
+set MagicKeys = 
+[
+    [0x00000000, "Unknown"],
+    [0x4C563355, "U3VL"],
+    [0x54563355, "U3VT"]
+];
+
+
+set PayloadTypes = 
+[
+    [ 0x0000, "Unknown" ],
+    [ 0x0001, "Image" ],
+    [ 0x4000, "Chunk" ],
+    [ 0x4001, "Image Ex Chunk" ]
+];
+
+
+set VisionStreamFields = Map(
+[ 
+    # Image Payload Type
+    # Image Leader
+    ["IPTL_magic_key",          0,  4,  0xFFFFFFFF,             "magic_key",            "%s",       MagicKeys,   0,  "This contains the ASCII string “U3VL” standing for USB3 Vision Leader (with ‘U’ in the LSB)"],
+    ["IPTL_reserved1",          4,  2,  0xFFFF,                 "reserved",             "0x%04x",   null,   0,  "Set to 0 on transmission, ignore on reception"],
+    ["IPTL_leader_size",        6,  2,  0xFFFF,                 "leader_size",          "0x%04x",   null,   0,  "Total number of bytes in the leader"],
+    ["IPTL_block_id",           8,  8,  0xFFFFFFFFFFFFFFFF,     "block_id",             "%s",       null,   0,  "ID of the data block.\nSequential and incrementing starting at 0.\nblock_id wraps-around to 0 when it reaches its maximum value.\nFor a transmitter, the block_id is reset to 0 each time the stream channel is opened"],
+    ["IPTL_reserved2",          16, 2,  0xFFFF,                 "reserved",             "0x%04x",   null,   0,  "Set to 0 on transmission, ignore on reception"],
+    ["IPTL_payload_type",       18, 2,  0xFFFF,                 "payload_type",         "%s",       PayloadTypes,   0,  "Image (0x0001), Chunk (0x4000), Image Extended Chunk (0x4001)"],
+    ["IPTL_timestamp",          20, 8,  0xFFFFFFFFFFFFFFFF,     "timestamp",            "%s",       null,   0,  "64-bit timestamp, in ns, representing when the block of data was generated.\nThis field should be 0 when timestamp is not supported.\nDifferent ROIs from the same exposure must use the same timestamp, as per (CR-ec253st)"],
+    ["IPTL_pixel_format",       28, 4,  0xFFFFFFFF,             "pixel_format",         "0x%08x",   null,   0,  "This field gives the pixel format of payload data. Refer to Pixel Format section"],
+    ["IPTL_size_x",             32, 4,  0xFFFFFFFF,             "size_x",               "0x%08x",   null,   0,  "Width in pixels of the image transported in the payload data section of this data block"],
+    ["IPTL_size_y",             36, 4,  0xFFFFFFFF,             "size_y",               "0x%08x",   null,   0,  "Height in lines of the image transported in the payload data section of this data block.\nFor variable frame size, the transmitter may transmit less than this value.\nIf this is the case, the trailer must provide the actual number of lines transmitted in its size_y field"],
+    ["IPTL_offset_x",           40, 4,  0xFFFFFFFF,             "offset_x",             "0x%08x",   null,   0,  "Horizontal offset in pixels from image origin.\nUsed for ROI support.\nWhen no ROI is defined this field must be set to 0.\nFor Color Filter Array (CFA), it is recommended to have offset_x increment by the full width of the CFA.\nThis is to ensure the pixel_format field matches the PixelFormat feature configured by the receiver.\nOther pixel formats might pose restrictions on the value taken by this field."],
+    ["IPTL_offset_y",           44, 4,  0xFFFFFFFF,             "offset_y",             "0x%08x",   null,   0,  "Vertical offset in lines from image origin.\nUsed for ROI support.\nWhen no ROI is defined this field must be set to 0.\nFor CFA, it is recommended to have offset_y increment by the full height of the CFA.\nThis is to ensure the pixel_format field matches the PixelFormat feature configured by the receiver.\nOther pixel formats can pose restrictions on the value taken by this field"],
+    ["IPTL_padding_x",          48, 2,  0xFFFF,                 "padding_x",            "0x%04x",   null,   0,  "Horizontal padding expressed in bytes.\nNumber of extra bytes provided at the end of each line (i.e. after the last pixel of the line) to facilitate image alignment in buffers.\nThis can be used to have 32-bit aligned image lines.\nSet to 0 when no horizontal padding is used"],
+    ["IPTL_reserved3",          50, 2,  0xFFFF,                 "reserved",             "0x%04x",   null,   0,  "Set to 0 on transmission, ignore on reception"],
+     
+    # Image Trailer
+    ["IPTT_magic_key",          0,  4,  0xFFFFFFFF,             "magic_key",            "%s",       MagicKeys,   0,  "Hard-coded magic key equal to 0x54563355 used for validation.\nThis contains the ASCII string “U3VT” standing for USB3 Vision Trailer (with ‘U’ in the LSB)"],
+    ["IPTT_reserved1",          4,  2,  0xFFFF,                 "reserved",             "0x%04x",   null,   0,  "Set to 0 on transmission, ignore on reception"],
+    ["IPTT_trailer_size",       6,  2,  0xFFFF,                 "trailer_size",         "0x%04x",   null,   0,  "Total number of bytes in the Trailer"],
+    ["IPTT_block_id",           8,  8,  0xFFFFFFFFFFFFFFFF,     "block_id",             "%s",       null,   0,  "ID of the data block.\nSequential and incrementing starting at 0.\nblock_id wraps-around to 0 when it reaches its maximum value.\nFor a transmitter, the block_id is reset to 0 each time the stream channel is opened"],    
+    ["IPTT_status",             16, 2,  0xFFFF,                 "status",               "0x%04x",   null,   0,  "Status of the streaming operation"],       
+    ["IPTT_reserved2",          18, 2,  0xFFFF,                 "reserved",             "0x%04x",   null,   0,  "Set to 0 on transmission, ignore on reception"],
+    ["IPTT_valid_payload_size", 20, 8,  0xFFFFFFFFFFFFFFFF,     "valid_payload_size",   "%s",       null,   0,  "Size in bytes of valid data in the payload data section.\nAdditional bytes that might be transmitted in the payload data section must be considered as irrelevant; they are not counted by this field"],    
+    ["IPTT_size_y",             28, 4,  0xFFFFFFFF,             "size_y",               "0x%08x",   null,   0,  "This field is the actual height, in lines, for this particular data block.\nThis is done to support variable frame size image sources once the actual number of lines provided has been confirmed.\nOnly image height may be variable (i.e. image width must be fixed).\nThis value must be smaller or equal to the size_y announced in the leader"],
+    # Image Extended Chunk Payload Type
+    ["IPTX_chunk_layout_id",    32, 4,  0xFFFFFFFF,             "chunk_layout_id",      "0x%08x",   null,   0,  "This field serves as an indicator that the chunk layout has changed and the receiver should re-parse the chunk layout in the buffer.\nWhen a chunk layout (availability or position of individual chunks) changes since the last block, the transmitter MUST change the chunk_layout_id.\nAs long as the chunk layout remains the same, the transmitter MUST keep the chunk_layout_id identical.\nWhen switching back to a layout which was already used before, the transmitter can use the same ID that was used then or use a new ID.\nA chunk_layout_id value of 0 is invalid.\nIt is reserved to be used by transmitters not supporting the layout ID functionality.\nIf the transmitter does not support the chunk_layout_id functionality, it MUST set this field to 0 for all blocks.\nThe algorithm used to compute the chunk_layout_id is left as quality of implementation."],
+    # Chunk Payload Type
+    ["IPTC_chunk_layout_id",    28, 4,  0xFFFFFFFF,             "chunk_layout_id",      "0x%08x",   null,   0,  "This field serves as an indicator that the chunk layout has changed and the receiver should re-parse the chunk layout in the buffer.\nWhen a chunk layout (availability or position of individual chunks) changes since the last block, the transmitter MUST change the chunk_layout_id.\nAs long as the chunk layout remains the same, the transmitter MUST keep the chunk_layout_id identical.\nWhen switching back to a layout which was already used before, the transmitter can use the same ID that was used then or use a new ID.\nA chunk_layout_id value of 0 is invalid.\nIt is reserved to be used by transmitters not supporting the layout ID functionality.\nIf the transmitter does not support the chunk_layout_id functionality, it MUST set this field to 0 for all blocks.\nThe algorithm used to compute the chunk_layout_id is left as quality of implementation."]
+    
+] );
+
+
+# Parsing entry point
+ProcessData()
+{
+    out.Decoded = 0;
+    CommonDecoderInit();        
+    UnitDecoderInit("U3VS");
+
+    DECODE_ABORTED_OFFSET = 0;
+    DECODE_ABORTED_FLAG = 0;
+      
+    _result =  GetVisionStreamFieldData("IPTL_magic_key", 0);  
+    signature = _result[1];
+    
+    # Set payload type string
+    _row = Find(PayloadTypes, in.PayloadType);           
+    payload_type = _row[1];
+       
+       
+    # Transfer is Leader. Leader size can be 28 for chunk and 52 for Image payload type.
+    if( signature == 0x4C563355 && ( in.DataLength == 28 || in.DataLength == 52 ) )    
+    {
+        FieldColor = RGB(209, 182, 26);
+        AddCaptionCell(" Vision ", " Stream ", "USB3 Vision Stream Channel", _MONOCOLOR);
+        AddSeparator();    
+
+        
+        AddCell( payload_type, "Leader", "This data payload represents an USB3 Vision Leader.", FieldColor, _MONOCOLOR );
+    
+        if( in.PayloadType == 0x0001 || in.PayloadType == 0x4001 )
+        {
+            # Image or Image Extended Chunk payload
+            AddImageLeaderFields();   
+        }
+        else 
+        {
+            # Chunk payload
+            AddChunkLeaderFields();
+        }        
+    }
+    # Transfer is Trailer. Trailer size can be 32 for Image and chunk and 36 for Image Extended payload type.
+    else if( signature == 0x54563355 && ( in.DataLength == 32 || in.DataLength == 36 ) ) 
+    {
+        FieldColor = RGB(245, 237,188);                
+        AddCaptionCell(" Vision ", " Stream ", "USB3 Vision Stream Channel", _MONOCOLOR);
+        AddSeparator();    
+    
+    
+        AddCell( payload_type, "Trailer", "This data payload represents an USB3 Vision Trailer.", FieldColor, _MONOCOLOR );
+      
+        if( in.PayloadType == 0x0001 )
+        {
+            # Image Payload
+            AddImageTrailerFields();
+        }
+        else if( in.PayloadType == 0x4000 )
+        {
+            # Chunk payload
+            AddChunkTrailerFields();
+        }
+        else if( in.PayloadType == 0x4001 )
+        {
+            # Image Extended Chunk payload
+            AddImageExtendedChunkTrailerFields();
+        }
+        else
+        {
+            # Just add common fields when payload type is unknown
+            AddCommonTrailerFields();
+        }
+    }
+    # Transfer is Payload
+    else 
+    {
+        FieldColor = RGB(235, 214, 103);    
+        AddCaptionCell(" Vision ", " Stream ", "USB3 Vision Stream Channel", _MONOCOLOR);
+        AddSeparator();    
+
+        
+        AddCell( payload_type, "Payload", "This data payload represents an USB3 Vision Payload.", FieldColor, _MONOCOLOR );
+        AddSeparator();    
+        # Below function may slows application so we remove it and let the data payload field to be added automatically.
+        #AddDataPayloadFieldForRest(0); 
+    }
+                  
+    return Complete();
+}
+
+AddImageLeaderFields()
+{
+    AddVisionStreamField("IPTL_magic_key");    
+    if(SimpleShowItem())
+    {   
+        AddVisionStreamField("IPTL_reserved1");
+    }
+    AddVisionStreamField("IPTL_leader_size");
+    AddVisionStreamField("IPTL_block_id");
+    if(SimpleShowItem())
+    {     
+        AddVisionStreamField("IPTL_reserved2");
+    }
+    AddVisionStreamField("IPTL_payload_type");
+    AddVisionStreamField("IPTL_timestamp");
+    AddVisionStreamField("IPTL_pixel_format");
+    AddVisionStreamField("IPTL_size_x");
+    AddVisionStreamField("IPTL_size_y");
+    AddVisionStreamField("IPTL_offset_x");
+    AddVisionStreamField("IPTL_offset_y");
+    AddVisionStreamField("IPTL_padding_x");
+    if(SimpleShowItem())
+    {      
+        AddVisionStreamField("IPTL_reserved3");
+    }    
+    
+    out.Decoded = 52;    
+}
+
+AddChunkLeaderFields()
+{
+    AddVisionStreamField("IPTL_magic_key");
+    if(SimpleShowItem())
+    {      
+        AddVisionStreamField("IPTL_reserved1");
+    }
+    AddVisionStreamField("IPTL_leader_size");
+    AddVisionStreamField("IPTL_block_id");
+    if(SimpleShowItem())
+    {      
+        AddVisionStreamField("IPTL_reserved2");
+    }
+    AddVisionStreamField("IPTL_payload_type");
+    AddVisionStreamField("IPTL_timestamp");
+    
+    out.Decoded = 28;    
+}
+
+AddImageTrailerFields()
+{
+    AddVisionStreamField("IPTT_magic_key", 0);
+    if(SimpleShowItem())
+    {        
+        AddVisionStreamField("IPTT_reserved1", 0);
+    }
+    AddVisionStreamField("IPTT_trailer_size", 0);
+    AddVisionStreamField("IPTT_block_id", 0);
+    AddVisionStreamField("IPTT_status", 0);
+    if(SimpleShowItem())
+    {      
+        AddVisionStreamField("IPTT_reserved2", 0);
+    }
+    AddVisionStreamField("IPTT_valid_payload_size", 0);
+    AddVisionStreamField("IPTT_size_y", 0);
+    
+    out.Decoded = 32;        
+}
+
+
+AddChunkTrailerFields()
+{
+    AddVisionStreamField("IPTT_magic_key", 0);
+    if(SimpleShowItem())
+    {      
+        AddVisionStreamField("IPTT_reserved1", 0);
+    }
+    AddVisionStreamField("IPTT_trailer_size", 0);    
+    AddVisionStreamField("IPTT_block_id", 0);
+    AddVisionStreamField("IPTT_status", 0);
+    if(SimpleShowItem())
+    {      
+        AddVisionStreamField("IPTT_reserved2", 0);
+    }
+    AddVisionStreamField("IPTT_valid_payload_size", 0);
+    AddVisionStreamField("IPTC_chunk_layout_id", 0);
+    
+    out.Decoded = 32;            
+}
+
+AddCommonTrailerFields()
+{
+    AddVisionStreamField("IPTT_magic_key", 0);
+    if(SimpleShowItem())
+    {      
+        AddVisionStreamField("IPTT_reserved1", 0);
+    }
+    AddVisionStreamField("IPTT_trailer_size", 0);
+    AddVisionStreamField("IPTT_block_id", 0);    
+    AddVisionStreamField("IPTT_status", 0);
+    if(SimpleShowItem())
+    {      
+        AddVisionStreamField("IPTT_reserved2", 0);
+    }
+    AddVisionStreamField("IPTT_valid_payload_size", 0);
+    
+    out.Decoded = 28;            
+}
+
+AddImageExtendedChunkTrailerFields()
+{
+    AddImageTrailerFields();    
+    AddVisionStreamField("IPTX_chunk_layout_id", 0);
+    
+    out.Decoded = 36;            
+}
+
+GetVisionStreamFieldData(FieldId, offset)
+{
+    GetFieldData(FieldId, offset, VisionStreamFields);
+}
+
+AddVisionStreamField(FieldId, offset)
+{
+    AddField(FieldId, offset, VisionStreamFields);
+}
+

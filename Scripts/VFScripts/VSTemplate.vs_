@@ -1,0 +1,261 @@
+#
+#  Copyright (c) 1998 - 2012, Computer Access Technology Corp. - All Rights Reserved
+#
+#   VSTemplate.vs_
+#
+#   Verification script
+#
+#   Brief Description: 
+#   Empty template to start writing verification script.
+#
+#   Directions:
+#   1. Copy the contents of this file into a new one in ..\Scripts\VFScripts subfolder
+#       of the main USB Suite application folder and save with extension *.vse.
+#
+#   2. Fill the body of the new file according to your needs...
+#
+
+
+
+######################################################################################################
+#                                         Module info                                                #
+######################################################################################################
+#       Filling of this block is necessary for proper verification script operation...               #
+######################################################################################################
+
+
+#
+# Specify here the brief description for your verification script.
+# This name will be shown in the verification script dialog.
+#
+set DecoderDesc = "<Your Verification Script description>";
+
+######################################################################################################
+
+
+#
+# include main Verification Script Engine definitions
+#
+%include  "VSTools.inc"
+
+
+
+##################################################################################################
+#                                   Input context fields                                         #
+##################################################################################################
+#                                                                                                #
+#   Event independent set:                                                                       #
+#                                                                                                #
+#   in.Level - transaction level of the trace event                                              #
+#                                                                                                #
+#   in.Index - Index of the event in the trace file                                              #
+#                                                                                                #
+#   in.Time  - time of the event( type : list,  having format : 2 sec 125 ns -> [2 , 125].       #
+#                                    See VSE time object in VSE manual for details )             #
+#                                                                                                #
+#   in.Channel - channel where the event occured.                                                #
+#                                                                                                #
+#   in.TraceEvent - type of trace events( application predefined constants are used. )           #
+#                                                                                                #
+#   in.Speed: Indicates the speed for the trace event.                                           #
+#                                                                                                #
+#   in.Direction: Indicates the direction for the trace event.                                   #
+#                                                                                                #
+#                                                                                                #
+#   in.Notification - type of notifications ( application predefined constants are used.         #
+#       Currently no notifications are defined  )                                                #
+#                                                                                                #
+#   The full set input context variables passed to the script depends on the event occured in    #
+#   the recorded trace.                                                                          #
+#                                                                                                #
+#   For details about the input context variables please refer to the LeCroy PSG Verification    #
+#   Script Engine (VSE) manual for USB Suite.                                                    #
+#                                                                                                #
+##################################################################################################
+
+
+##################################################################################################
+#                                   Output context fields                                        #
+##################################################################################################
+#
+#   out.Result - result of verification script working, could have values :                      #
+#                _VERIFICATION_PROGRESS,( is set by default when script starts running )         #
+#                _VERIFICATION_PASSED, _VERIFICATION_FAILED                                      #
+#                                                                                                #
+#  The last two values should be set if you decide that recorded trace does ( or not ) satisfy   #
+#  the imposed verification conditions. In both cases the verification script will stop running. #
+#                                                                                                #
+#  If you don't specify any of those values - the result of script execution will be             #
+#  set as _VERIFICATION_FAILED.                                                                  #
+#                                                                                                #
+#                                                                                                #
+#  NOTE: If you don't care about result of script running please call function                   #
+#        ScriptForDisplayOnly()  one time before stopping script - then the result will be DONE. #
+##################################################################################################
+
+
+
+
+
+######################################################################################
+#                            Global Variables and Constants                          #
+######################################################################################
+
+#
+# Specify your script-specific global definition here.
+#
+# Like:
+#
+#    set   MyVariable  = 0;
+#    const MyConstant  = "Blah";
+#    set   MyTableList = [1, "googli", 0xFF, "Yahaod"];
+
+
+################
+# START example ( Delete or comment in your actual script !!! )
+################
+
+    const MAX_NUMBER_OF_EVENTS = 10;
+    set   EventCount = 0;
+
+################
+# END example
+################
+
+######################################################################################
+
+
+
+######################################################################################
+#   OnStartScript()                                                                  #
+######################################################################################
+#                                                                                    #
+# It is a main intialization routine for setting up all necessary                    #
+# script parameters before running the script.                                       #
+#                                                                                    #
+# Specify in the body of this function initial values for global variables           #
+# and what kind of trace events should be sent to the script.                        #
+# ( By default, only all frames and Link state change events from both channels      #
+#  will be passed to the script.                                                     #
+#                                                                                    #
+#  Please see LeCroy PSG Verification Script Engine Manual for more details about    #
+#  recorded trace "events" passed to verification scripts.                           #
+#                                                                                    #
+######################################################################################
+#
+OnStartScript()
+{
+
+    ###############
+    # START example ( Delete or comment in your actual script !!! )
+    ###############
+    
+    ReportText("OnStartScript called !!!.");
+    ReportText("\n\nWait for 10 events and then exit...\n");
+    EventCount = 0;
+        
+    ###############
+    # END example #
+    ###############  
+    
+        
+    #############################################
+    # Specify which channel/level/event         #
+    # should be sent to the script              #
+    #############################################
+    
+    # SendAllChannels();
+    # SendChannel( 1 );                   # Send events from channel 1 ...
+    # SendChannel( _CHANNEL_2 );          # Send events from channel 2 ...
+    
+    #
+    # Please see VSE manual for details about VSE sending capabilities.
+    
+    
+    # Uncomment the line below - if you want don't care about result of script running
+    #
+    #ScriptForDisplayOnly();
+    
+    
+    # Uncomment the line below - if you want to disable output from
+    # ReportText()-functions. 
+    #
+    # DisableOutput();
+}
+
+
+######################################################################################
+#   ProcessEvent()                                                                   #
+######################################################################################
+#                                                                                    #
+# It is a main script function called by the application when the next waited event  #
+# occured in the evaluated trace.                                                    #
+#                                                                                    #
+######################################################################################
+#
+ProcessEvent()
+{
+    ###############
+    # START example ( Delete or comment in your actual script !!! )
+    ###############   
+    
+    report  = Format("Event:# %u,", EventCount );
+    
+    report += Format( "Channel : %s,     "  , GetChannelName() );
+    report += Format( "Event : %s,      "   , GetEventName() );   
+    report += Format( "Time  : %s,      "   , TimeToText( in.Time ) );
+    
+    #
+    # There are more useful reporting functions defined in VSTools.inc 
+    # like ReportEventInfo(), ReportUSB2PktEventInfo() etc.
+    
+        
+    
+    # ScriptPassed() - is a shortcut to out.Result = _VERIFICATION_PASSED;
+    # defined in VSTools.inc
+    #
+    if( EventCount == MAX_NUMBER_OF_EVENTS ) ScriptPassed(); 
+    
+    
+    EventCount++;
+    
+    ###############
+    # END example #
+    ###############
+    
+    return Complete();
+}
+
+
+
+
+######################################################################################
+#   OnFinishScript()                                                                 #
+######################################################################################
+#                                                                                    #
+# It is a main script function called by the application when the script completed   #
+# running. Specify in this function some resetting procedures for a successive run   #
+# of this script.                                                                    #
+#                                                                                    #
+######################################################################################
+#
+OnFinishScript()
+{
+    return 0;
+}
+
+
+
+
+######################################################################################
+######################################################################################
+######################################################################################
+
+
+######################################################################################
+#   Additional script functions.                                                     #
+######################################################################################
+#                                                                                    #
+# Write your own script-specific functions here...                                   #
+#                                                                                    #
+######################################################################################

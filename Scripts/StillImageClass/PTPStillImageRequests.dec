@@ -1,0 +1,959 @@
+ 
+# Copyright (c) 2002, Computer Access Technology Corp. - All Rights Reserved
+ 
+#   PTPStillImageRequests.dec VERSION2
+
+#   Vendor Request File for Imaging Devices Decoder
+ 
+
+%include "CATCScriptAPI.inc"             #.inc files that are included
+%include "UsbCommon.inc" 
+%include "PTPStillImage_Common.inc"
+%include "PTPStillImageCellColors.inc"
+%include "PTPStillImageTables.inc"
+
+
+ #----  Input
+ # in.Data       - Data_block to decode
+ # in.DataLength - Length of Data_block 
+ 
+ #----  Output
+ # out.Decoded   - amount of data has been decoded
+ 
+
+set OutputType      = "Still Image/PTP/MTP/PictBridge Class Requests";      
+set UsbDecodeType   = "Request";
+set UsbReqType      = "Class";
+set UsbClassCode    = 0x06;    # Class code for PTP
+set UsbScriptDecodeType = 2;   # Combined decoding for Cells and Text decoding 
+
+set wDecodeCellColor    = 0x494949; 
+
+set bReqType = 0;     #Declaring global variables
+set bRequest = 0;
+set wValue   = 0;
+set wIndex   = 0;
+set wLength  = 0;
+set DescriptorCellString = "";
+
+
+
+set FullyDecoded = 1;  # Variable that will determine if request has been fully decoded
+ProcessData()
+{   
+    FullyDecoded = 1;
+    ProcessDataInit();
+    
+    Speed        = GetDecoderHeaderByte(0);    
+    UsbSpecLevel = GetDecoderHeaderByte(1);
+    out.Decoded = 0;    
+    
+    DoRequestStringTop();   # function used for text decoding
+    
+    bReqType = GetDataByte(0);  
+    bRequest = GetDataByte(1);
+    wValue   = GetDataWord(2);
+    wIndex   = GetDataWord(4);
+    wLength  = GetDataWord(6);
+
+    # Check if it's Get_MS_Descriptor Vendor request (we check the MS vendor 
+    # descriptor here because it's like the standard description
+    #----------------------------------------------------------------------
+    _row = Find(MSFeatureTypeTable, wIndex);  
+    if(bReqType == 0xC0 && _row != null)
+    {
+        AddSeparator();
+        AddDecodedTextHeader();  # header for the text decoding
+        
+        out.Decoded += 1; # bReqType
+        out.Decoded += 1; # bRequest
+        AddRequestCell("GET_MS_DESCRIPTOR");
+    
+        out.Decoded += 2; # wValue
+        val_text = Format("Interface(%d),", wValue>>8) + Format(" Page(%d)", wValue&0x00FF);
+        tool_tip = Format("The number of interface/function is %d", wValue>>8) + Format("\nand the page number is %d.", wValue&0x00FF);
+        AddWValueCell(val_text, tool_tip);
+    
+        out.Decoded += 2; # wIndex
+        tooltip = Format("wIndex HexVal: 0x%04X", wIndex) + " (The index of the OS \nfeature descriptor that is being requested)";
+        AddWIndexCell( _row[2], tooltip );
+  	
+  	    out.Decoded += 2; # wLength
+        tooltip = "The length (in bytes) of the buffer assigned to the Data field.";
+        AddWLengthCell( tooltip );
+        
+              
+        #--------------------- Descriptors ----------------------------
+        FieldColor = wDescriptorColor;
+        
+        DescriptorCellString = _row[2] + " Descriptor";
+        UsbDescTooltipStr = DoMSVendorDescriptors(_row[1]);
+        
+        # Use simple AddCell() function here because we don't want to send this cell
+        # information to dialog view. 
+        AddCell("Descriptors", DescriptorCellString, UsbDescTooltipStr); 
+        
+        if(FullyDecoded == 1)                 # if the request is fully decoded
+        {
+            out.Decoded = in.DataLength;
+        }
+        else if(FullyDecoded == 0)
+        {
+            out.Decoded = BitCurrentFieldOffset/8;
+        }
+        
+        AddSeparator();
+                
+        return Complete();
+    }
+
+    _row = Find(ImageRequestTable, bRequest);  # will determine which request is being used
+    
+    AddSeparator();
+    AddDecodedTextHeader();  # header for the text decoding
+    SetFieldOffsetLen(8,8);  
+    FieldColor = bReqTypeColor;
+    AddPayLoadCell("bmRequestType",Format("0x%04X",bReqType),Format("bitmap with decimal value of %d",bReqType) + "\n\nCharacteristics of Request:\n   D7      Data xfer direction\n\t   0 = Host to Device\n\t   1=Device to host\n\n   D6..5   Type\n\t   0 = Standard\n\t   1 = Class\n\t   2 = Vendor\n\t   3 = Reserved\n\n   D4..0   Recipient\n\t   0 = Device\n\t   1 = Interface\n\t   2 = Endpoint\n\t   3 = Other\n\t   4..31 = Reserved\n");
+    SetFieldOffsetLen(16,8);
+    FieldColor = bRequestColor;
+    AddPayLoadCell("bRequest", _row[1], Format("bRequest HexVal: 0x%04X", bRequest), FieldColor, [_TABULARCELL, CELL_STILL_IMAGE_REQUEST]);
+    SetFieldOffsetLen(32,16);
+    FieldColor = wValueColor;
+    AddPayLoadCell("wValue", wValue, "");
+    SetFieldOffsetLen(48,16);
+    FieldColor = wIndexColor;
+    AddPayLoadCell("wIndex",wIndex,"");
+  	SetFieldOffsetLen(64,16);
+  	FieldColor = wLengthColor;
+    AddPayLoadCell("wLength",wLength,"");
+    if ( _row != null)
+    {
+        Call ( _row[1], [ in.DataLength ] );  # will call function for the specified request
+        if(FullyDecoded == 1)                 # if the request is fully decoded
+        {
+            out.Decoded = in.DataLength;
+        }
+        else if(FullyDecoded == 0)
+        {
+            out.Decoded = BitCurrentFieldOffset/8;
+        }
+    }
+    else
+    {
+        out.Decoded = 8;
+    }
+
+    AddSeparator();
+
+    ############ for Debug purposes#########
+    # GetNBits(in.Data, 0, 0);             #
+    # ShowDataBlock(in.DataLength);        #
+    ########################################       
+
+    return Complete();
+}
+
+# List of different requests for PTP
+set ImageRequestTable = 
+[
+    [   0x00, "Undefined_Request" ],                  
+    [   0x64, "Cancel_Request"		],
+    [   0x65, "Get_Extended_Event_Data"	],
+    [   0x66, "Device_Reset_Request"	],
+    [   0x67, "Get_Device_Status"		]
+];
+
+# Prints out byte stream in right window of text decoding 
+RequestRightSide()
+{
+    str2 = "";
+    for(i = 8;i<wLength+8;i++)
+    {
+        counter++;
+        
+        if(counter < 17)
+        {
+            str += Format("%02X ", GetDataByte(i));    
+        }
+        else if(counter == 17)
+        {
+            str += "...";
+        }
+    }
+    AddCaptionToDlg("Data",str+"  ","");
+    AddCaptionToDlg("--------------------------------","","");
+}
+
+# Sets up header for left window in text decoding
+DoRequestStringTop()
+{
+    str = "";
+    for (i=0; i<8; i++)
+    {
+        str += Format ("%02X ", GetDataByte(i));
+    }
+    AddCaptionToDlg("Mass Storage ", "Request  ", "");          
+    AddCaptionToDlg("Setup Data", str+"  ", "");
+    AddCaptionToDlg("------------------------------------", "", "");
+    if (bReqType & 0x80)
+    {
+        str = "Host-to-device  ";
+    }
+    else
+    {
+        str = "Device-to-host  ";
+    }
+    AddCaptionToDlg("Direction", str, "");
+    select 
+    {
+        ((bReqType & 0x60) == 0x00) : str = "Standard  ";
+        ((bReqType & 0x60) == 0x20) : str = "Class  ";
+        ((bReqType & 0x60) == 0x40) : str = "Vendor  ";
+        ((bReqType & 0x60) == 0x60) : str = "RESERVED  ";
+    };
+    AddCaptionToDlg("     Type", str, "");
+    select 
+    {
+        ((bReqType & 0x1F) == 0x00) : str = "Device  ";
+        ((bReqType & 0x1F) == 0x01) : str = "Interface  ";
+        ((bReqType & 0x1F) == 0x02) : str = "Endpoint  ";
+        ((bReqType & 0x1F) == 0x03) : str = "Other  ";
+        default                     : str = "RESERVED  ";
+    };
+    AddCaptionToDlg("Recipient", str, "");
+    AddCaptionToDlg("------------------------------------", "", "");
+}
+
+Undefined_Request()
+{
+    AddSeparator();
+    SetFieldOffsetLen(80,16);
+    FieldColor = ErrorColor;
+    AddPayLoadCell("Error","error","bRequest is not a defined request");
+}
+
+
+Cancel_Request()
+{   
+    CancellationCode = GetDataWord(8);    
+    TransactionID = GetDataLong(10);
+    
+    EndOfRequest();
+    RequestRightSide();
+    AddDecodedTextHeader();
+    
+    if(bReqType == 0x21)                          # check that cancel_request has correct bmRequestType
+    {
+        if(wValue == 0 && wIndex == 0 && wLength == 0x0006)   # check that these values are correct this request
+	    {
+	        if(CancellationCode = 0x4001)
+	        {	            
+	            # print the cells for the data of cancel_request
+	            AddSeparator();
+	            SetFieldOffsetLen(80,16);
+	            FieldColor = CancelCodeColor;
+  	            AddPayLoadCell("Cancellation Code", "0x4001", "Identifier for cancellation");
+  	            SetFieldOffsetLen(96,16);
+  	            FieldColor = CancelTransIDColor;
+	            AddPayLoadCell("TransactionID", Format("0x%04X",TransactionID), Format("Unsigned 32-bit field containing the PIMA 15740\nTransactionID(hexidecimal) and decimal value is %d",TransactionID));	
+	        }
+	
+	        else
+	        {
+	            AddSeparator();
+                SetFieldOffsetLen(80,16);
+	            FieldColor = ErrorColor;
+	            AddPayLoadCell("Error", "Error", "Cancellation Code is not 0x4001");
+            }
+	    }
+		
+	    else
+	    {
+	        AddSeparator();
+            SetFieldOffsetLen(80,16);
+	        FieldColor = ErrorColor;
+	        AddPayLoadCell("Error", "Error", "Check wValue, wIndex, or wLength for error");
+	    }
+    }
+	
+    else
+    {
+        AddSeparator();
+        SetFieldOffsetLen(80,16);
+        FieldColor = ErrorColor;
+        AddPayLoadCell("Error", "Error", "bReqType Error");
+    }
+
+} 
+
+
+Get_Extended_Event_Data()
+{
+    EventCode = GetDataWord(8);
+    TransactionID = GetDataLong(10);
+    numOfParams	= GetDataWord(14);
+    sizeOfParam1 = GetDataWord(16);
+
+    param1 = 0;
+	EndOfRequest(); 
+	RequestRightSide();
+	AddDecodedTextHeader();   
+	
+    if(bReqType == 0xA1)
+    { 
+        if(wValue == 0 && wIndex == 0)
+	    {
+	        AddSeparator(); 
+	        SetFieldOffsetLen(80,16);
+	        FieldColor = EventCodeReqColor;
+	        _Ecode = Find(PTPEventCodeTable,EventCode);
+	        msnEvents = GetNBits(EventCode,16,5);        # Gets the 5 most significant bits of "b"
+	        if(_Ecode[0] == 0xFFFF && msnEvents == 0b11000)
+	        {
+	        	  _Ecode[1] = "Vendor Extension";
+	        }
+	        else if(_Ecode[0] == 0xFFFF && msnEvents == 0b11001) 
+	        { 
+		        _Ecode[1] = "MTP Extension";
+	        }	        
+  	      AddPayLoadCell("Event Code", _Ecode[1], Format("The event code is 0x%04X",EventCode));
+	        AddSeparator();
+	        SetFieldOffsetLen(112,32);
+	        FieldColor = ExtendReqTransIDColor;
+	        AddPayLoadCell("TransactionID", Format("0x%04X",TransactionID), "An unsigned 32-bit field containing the PIMA15740 TransactionID");
+            AddSeparator();
+            SetFieldOffsetLen(128,16);
+            FieldColor = ExtendReqNumOfParamsColor;
+	        AddPayLoadCell("Number of parameters", numOfParams, "The number of event parameters associated with the event code");
+	        AddSeparator();	        	
+	        
+	        # for loop for the first parameter in this request
+	        for(i = 1; i < 2; i++)
+	        {
+	            sizeofparamNlocationcount = 1;
+	            
+	            # if and else if statements for each different size of parameter
+	            if(sizeOfParam1 == 0)
+	            {
+	                FieldColor = ErrorColor;
+	                AddPayLoadCell("Error","error","Size of parameter 1 can not be zero");
+	            }
+	            else if(sizeOfParam1 == 1)
+	            {
+	                param1X = GetDataByte(18);
+	                sizeofparamNlocation = 19;
+	            }
+	            else if(sizeOfParam1 == 2)
+	            {
+	                param1X = GetDataWord(18);
+	                sizeofparamNlocation = 20; 
+	            }
+	            else if(sizeOfParam1 == 4)
+	            {
+	                param1X = GetDataLong(18);
+	                sizeofparamNlocation = 22;
+	            }
+	            else if(sizeOfParam1 == 8)
+	            {
+	                param1a = GetDataLong(18);
+	                param1b = GetDataLong(22);	                
+	                param1X = Format("%X",param1b) + Format("%X",param1a);	                
+	                sizeofparamNlocation = 26;
+	            }
+	            else if(sizeOfParam1 > 8 && sizeOfParam1 <= 32 && sizeOfParam1 % 8 == 0)
+	            {
+	                x = sizeOfParam1;
+	                while(x!=1)
+	                {      
+	                    x = x/2;                 
+	                    counter++;      # counter is to deterimine the value of sizeOfParam which is 2 ^ counter
+	                }
+
+	                for(i = 0; i < counter;i++)
+	                { 
+	                    param1 = GetDataLong(18+i*4);
+	                    param1 = Format("%X",param1);
+	                    param1X = param1 + param1X;       # will put the 4-byte longs together to make one string     
+	                    sizeofparamNlocationcount *= 2;
+	                    
+	                }
+	                sizeofparamNlocation = 18+sizeofparamNlocationcount;     # will be the location of the pointer in the byte stream
+	            }
+	            
+	            FieldColor = ParamReqColor;
+	            SetFieldOffsetLen(144,16);
+	            AddPayLoadCell("param1size",sizeOfParam1,"Size of parameter in decimal");
+	            
+	            if(sizeOfParam1 == 1 || sizeOfParam1 == 2 || sizeOfParam1 == 4)
+	            {	     
+	                SetFieldOffsetLen(sizeofparamNlocation*8,sizeOfParam1*8);           
+	                AddPayLoadCell("param1",Format("0x%04X",param1X),sizeofparamNlocation);
+	            }
+	            else if(sizeOfParam1 == 8 || sizeOfParam1 == 16 || sizeOfParam1 == 32)
+	            {
+	                SetFieldOffsetLen(sizeofparamNlocation*8,sizeOfParam1*8);
+	                AddPayLoadCell("param1",Format("0x%s",param1X),sizeofparamNlocation);
+	            }
+	            else
+                {
+                    out.Decoded = sizeofparamNlocation;
+                }
+                AddSeparator();
+	        }
+	        for(j = 1; j < numOfParams; j++)
+            {	         
+                sizeofparamNlocation2count = 1;                
+	            sizeOfParamN = GetDataWord(sizeofparamNlocation);         
+	            ParamNlocation = sizeofparamNlocation + 2;           # will get the location of the pointer before looking at the parameter
+
+		        if(sizeOfParamN == 0)
+	            {
+	                FieldColor = ErrorColor;
+	                AddPayLoadCell("Error","error","Size of parameter can not be zero");
+	            }
+	            else if(sizeOfParamN == 1)
+	            {
+	                paramX2 = GetDataByte(ParamNlocation);
+	                sizeofparamNlocation2 = ParamNlocation+1;
+	            }
+	            else if(sizeOfParamN == 2)
+	            {
+	                paramX2 = GetDataWord(ParamNlocation);
+	                sizeofparamNlocation2 = ParamNlocation+2;
+	            }
+	            else if(sizeOfParamN == 4)
+	            {
+	                paramX2 = GetDataLong(ParamNlocation);
+	                sizeofparamNlocation2 = ParamNlocation+4;
+	            }
+	            else if(sizeOfParamN == 8)
+	            {
+	                paramNa = GetDataLong(ParamNlocation);
+	                paramNb = GetDataLong(ParamNlocation+4);
+	                paramX2 = Format("%X",paramNb)+ Format("%X",paramNa);
+	                sizeofparamNlocation2 = ParamNlocation+8;
+	            }
+	            else if(sizeOfParamN > 8 && sizeOfParamN <=32 && sizeOfParamN % 8 == 0)
+	            {
+	                x = sizeOfParamN;
+	                while(x!=1)
+	                {      
+	                    x = x/2;                 
+	                    counter++;
+	                }
+	                for(k = 0; k < counter;k++)
+	                { 
+	                    paramN = GetDataLong(ParamNlocation+k*4);
+	                    paramX2=Format("%X",paramN)+paramX2;
+	                    sizeofparamNlocation2count *= 2;
+	                }
+	                sizeofparamNlocation2 = ParamNlocation+sizeofparamNlocation2count;
+	            }
+	            FieldColor = ParamReqColor;
+	            
+	            if(j == 1)        # for the second parameter
+	            {
+	                SetFieldOffsetLen((sizeofparamNlocation+2)*8,16);                        
+	            }
+	            else              # for the the third parameter and on
+	            {
+	                SetFieldOffsetLen((sizeofparamNlocation2-sizeOfParamN)*8,16);
+	            }
+	            AddPayLoadCell(Format("SizeOfParam %d",j+1), sizeOfParamN, "Size of parameter");
+	            
+	            if(sizeOfParamN == 1)
+	            {	      
+	                SetFieldOffsetLen(sizeofparamNlocation2*8,sizeOfParamN*8);   
+	                AddPayLoadCell(Format("param %d", j+1),Format("0x%02X",paramX2),sizeofparamNlocation2,0xA92923);       
+	            }
+	            else if(sizeOfParamN == 2)
+	            {	      
+	                SetFieldOffsetLen(sizeofparamNlocation2*8,sizeOfParamN*8);   
+	                AddPayLoadCell(Format("param %d", j+1),Format("0x%04X",paramX2),sizeofparamNlocation2,0xA92923);       
+	            }
+	            else if(sizeOfParamN == 4)
+	            {	      
+	                SetFieldOffsetLen(sizeofparamNlocation2*8,sizeOfParamN*8);   
+	                AddPayLoadCell(Format("param %d", j+1),Format("0x%08X",paramX2),sizeofparamNlocation2,0xA92923);       
+	            }
+	            else if(sizeOfParamN == 8 || sizeOfParamN == 16 || sizeOfParamN == 32)
+	            {
+	                SetFieldOffsetLen(sizeofparamNlocation2*8,sizeOfParamN*8);
+	                AddPayLoadCell(Format("param %d", j+1),Format("0x%s",paramX2),sizeofparamNlocation2,0xA92923);
+	            }
+                else
+                {
+                    out.Decoded = sizeofparamNlocation2;       # sizeOfParamN was an illegal size
+                }
+              
+	            AddSeparator();	 
+	            sizeofparamNlocation = sizeofparamNlocation2;   	            
+	        }                                                                                                                                                                                                                                                    
+	    }
+		
+	    else
+	    { 
+	        AddSeparator();  
+            SetFieldOffsetLen(80,16);
+	        FieldColor = ErrorColor;
+	        AddPayLoadCell("Error", "Error", "Check wValue or wIndex for error");
+	    }
+    }
+	
+    else
+    {
+        AddSeparator();
+        SetFieldOffsetLen(80,16);
+        FieldColor = ErrorColor;
+        AddPayLoadCell("Error", "Error", "bReqType Error");
+    }
+
+}
+
+
+Device_Reset_Request()
+{
+    EndOfRequest();
+    RequestRightSide();
+    AddDecodedTextHeader();
+    if(bReqType == 0x21)
+    {
+        if(wValue == 0 && wIndex == 0 && wLength == 0x0000)
+	    {
+	        AddSeparator();
+	        AddCell("No","Data","There is no data associated with this request", ResetReqColor);  # This request has no data 
+	    }
+		
+	    else
+	    {
+	        AddSeparator();
+	        SetFieldOffsetLen(80,16);
+	        FieldColor = ErrorColor;
+	        AddPayLoadCell("Error", "Error", "Check wValue, wIndex, or wLength for error");
+	    }
+    }
+	
+    else
+    {
+        AddSeparator();
+        SetFieldOffsetLen(80,16);
+        FieldColor = ErrorColor;
+        AddPayLoadCell("Error", "Error", "bReqType Error");
+    }
+
+}
+
+
+Get_Device_Status()
+{
+    WLENGTH = GetDataWord(8);
+    Code = GetDataWord(10);
+    EndOfRequest();
+    RequestRightSide();
+    AddDecodedTextHeader();
+    _responsecode = Find(PTPResponseCodeTable,Code);
+    msn21 = GetNBits(Code,16,5);
+              
+    # OperationCodeTable has these special cases for "reserved" and "vendor-defined"
+    if(_responsecode[0] == 0xFFFF && msn21 == 0b10101)       
+    {
+        _responsecode[1] = "MTP Reseved Response Code";
+    }
+    else if(_responsecode[0] == 0xFFFF && msn21 == 0b10100)
+    {
+        _responsecode[1] = "Vendor-Extended Response Code";
+    } 
+    if(bReqType == 0xA1)
+    {
+        if(wValue == 0 && wIndex == 0)
+        {        
+            
+            AddSeparator();
+            FieldColor = StatDataLenColor;
+            SetFieldOffsetLen(80,16);
+	        AddPayLoadCell("StatDataLen", WLENGTH, "Total length of the status data");
+	        if(Code == 0x2001 || Code == 0x2019 || Code == 0x201F)     # Code must be either of these three values or there is an error
+            {
+                SetFieldOffsetLen(96,16);
+                FieldColor = GetDevStatCodeColor;
+                AddPayLoadCell("Code", _responsecode[1], "PIMA 15740 Response Code or Vendor Code: \n 0x2001 Status OK \n 0x2019 Device Busy \n 0x201F Transaction Cancelled", FieldColor, [_TABULARCELL, CELL_STILL_IMAGE_CODE]);
+                if(WLENGTH > 4 )    # size of parameters are unknown so if the length is greater than 4, the bytes that are the parameters will be put in the "bytes transferred" cell
+	            { 
+	                FullyDecoded = 0;
+	            }
+	        }
+	        else
+	        {
+	            AddSeparator();
+	            SetFieldOffsetLen(80,16);
+	            FieldColor = ErrorColor;
+	            AddPayLoadCell("Error","error","Bad Code value");
+	        }	        
+	    }                                                                                                                                                                                                                                              			
+	    else
+	    {
+	        AddSeparator();
+	        SetFieldOffsetLen(80,16);
+	        FieldColor = ErrorColor;
+	        AddPayLoadCell("Error", "error", "Check wValue or wIndex for error");
+	    }
+    }
+	
+    else
+    {
+        AddSeparator();
+        SetFieldOffsetLen(80,16);
+        FieldColor = ErrorColor;
+        AddPayLoadCell("error", "Error", "bReqType Error");
+    }  
+}
+
+
+DoMSVendorDescriptors( descriptor_type )
+{
+    InitText();
+    
+    Global_BitField_offset = REQ_DATA_OFFSET;
+    CurrentFldInit();
+    
+    EntryBaseOffset    = 0;
+    EntryFieldGroupLen = 0;
+    
+       
+    vendor_desc_string =   Call (descriptor_type);
+       
+    #out.Decoded = in.DataLength;
+       
+    return vendor_desc_string;    
+}
+
+
+MS_Feature_Extended_Compact_ID()
+{   
+    if(in.DataLength <= out.Decoded)
+    {
+        AddNotEnoughDataMessage();
+        return GetFinalText();
+    }
+    
+    if (in.DataLength - base > 16)    
+        AddLineOfText("RIGHT CLICK ON DESCRIPTORS FIELD TO SHOW ALL DESCRIPTORS DECODED!!");
+    
+    	
+	  base = 8;
+	  dwLength      = GetDataLong(base);
+	  bcdVersion    = GetDataWord(base + 4);
+	  wIndex        = GetDataWord(base + 6);
+	  bCount        = GetDataByte(base + 8);
+	  Reserved      = GetDataLong(base + 9);
+	  	
+	  	  	  
+    AddDataHeader(DescriptorCellString, in.DataLength-8);
+    
+    out.Decoded += 4;
+    AddEntry( 0, "dwLength", dwLength, 8, "", 1);
+    AddDescriptorSizeString(dwLength);    
+    AddFieldBreak();
+        
+    out.Decoded += 2;
+    AddEntry( 4, "bcdVersion", bcdVersion, 4, "Descriptor's version " , 0);    
+    AddDescriptionOnly( FormatEx( "number is %X.%02X", (bcdVersion & 0xFF00)>> 8, bcdVersion & 0xFF) );
+    AddFieldBreak();
+    
+    out.Decoded += 2;
+    di_row = Find(MSFeatureTypeTable, wIndex);
+    if(di_row != null)    
+        tooltip = di_row[2];    
+    else
+        tooltip = Format("0x%02X", wIndex);    
+    AddEntry( 6, "wIndex", wIndex, 4, "Descriptor index is", 0);    
+    AddDescriptionOnly(tooltip);
+    AddFieldBreak();
+
+    out.Decoded += 1;
+    AddEntry( 8, "bCount", bCount, 2, "The number of function ", 0);    
+    AddDescriptionOnly(Format("sections is 0x%02X",bCount));
+    AddFieldBreak();    
+
+    out.Decoded += 7;
+    AddEntry( 9, "RESERVED", Reserved , 2, "Reserved (7 Bytes)", 0);    
+    AddFieldBreak();
+    EntryFieldGroupLen += 6*8;#increment the offset 6 bytes
+            
+    base += 16;
+    
+    n = 0;
+    while( n < bCount && in.PrepareFldsForDlg)
+    {     	
+    	  if(in.DataLength <= out.Decoded)
+        {
+            AddNotEnoughDataMessage();
+            return GetFinalText();
+        }
+                
+    	  AddDataHeader(Format("Function Section %d", n+1), 24);
+        
+        out.Decoded += 1;
+        bFirstInterfaceNumber = GetDataByte(base);
+        AddEntry( 0, "bFirstInterfaceNumber", bFirstInterfaceNumber, 2, "The interface or function ", 0);    
+        AddDescriptionOnly(Format("number is 0x%02X",bFirstInterfaceNumber));
+        AddFieldBreak();
+        
+        out.Decoded += 1;
+        RESERVED = GetDataByte(base + 1);
+        AddEntry( 1, "RESERVED", RESERVED, 2, "RESERVED (1 Byte)", 0);    
+        AddFieldBreak();
+                
+        out.Decoded += 8;
+        strCompatibleID = ObtainUnicodeString(base + 2, 8);        
+        if(strCompatibleID == "")
+            tooltip = "No compatible ID";
+        else
+            tooltip = strCompatibleID;
+        AddEntry( 2, "compatibleID", "", 2, tooltip, 0);
+        AddFieldBreak();
+        EntryFieldGroupLen += 7*8;#increment the compatibleID 7 bytes
+                
+        out.Decoded += 8;
+        strSubCompatibleID = ObtainUnicodeString(base + 10, 8);        
+        if(strSubCompatibleID == "")
+            tooltip = "No subCompatibleID";
+        else
+            tooltip = strSubCompatibleID;
+        AddEntry( 10, "subCompatibleID", "", 2, tooltip, 0);
+        AddFieldBreak();
+        EntryFieldGroupLen += 7*8;#increment the sunCompatibleID 7 bytes
+        
+        out.Decoded += 6;
+        RESERVED = GetDataLong(base + 18);
+        AddEntry( 18, "RESERVED", RESERVED, 2, "RESERVED (6 Bytes)", 0);    
+        AddFieldBreak();        
+        EntryFieldGroupLen += 5*8; #increment the RESERVED 5 bytes
+                                   
+        n ++;
+        base += 24;        
+    }
+            
+    return GetFinalText(); 
+} 
+
+MS_Feature_Extended_Properties()
+{   
+    if(in.DataLength <= out.Decoded)
+    {
+        AddNotEnoughDataMessage();
+        return GetFinalText();
+    }
+    
+    if (in.DataLength - base > 10)
+        AddLineOfText("RIGHT CLICK ON DESCRIPTORS FIELD TO SHOW ALL DESCRIPTORS DECODED!!");
+    
+    base = 8;
+	  dwLength      = GetDataLong(base);
+	  bcdVersion    = GetDataWord(base + 4);
+	  wIndex        = GetDataWord(base + 6);
+	  wCount        = GetDataWord(base + 8);
+	  	  
+    AddDataHeader(DescriptorCellString, in.DataLength-8);
+    
+    out.Decoded += 4;
+    AddEntry( 0, "dwLength", dwLength, 8, "", 1);
+    AddDescriptorSizeString(dwLength);    
+    AddFieldBreak();
+        
+    out.Decoded += 2;
+    AddEntry( 4, "bcdVersion", bcdVersion, 4, "Descriptor's version " , 0);    
+    AddDescriptionOnly( FormatEx( "number is %X.%02X", (bcdVersion & 0xFF00)>> 8, bcdVersion & 0xFF) );
+    AddFieldBreak();
+    
+    out.Decoded += 2;
+    di_row = Find(MSFeatureTypeTable, wIndex);
+    if(di_row != null)
+        tooltip = di_row[2];
+    else
+        tooltip = Format("0x%02X", wIndex);    
+    AddEntry( 6, "wIndex", wIndex, 4, "Descriptor index is", 0);    
+    AddDescriptionOnly(tooltip);
+    AddFieldBreak();
+
+    out.Decoded += 2;
+    AddEntry( 8, "wCount", wCount, 4, "The number of custom property ", 0);    
+    AddDescriptionOnly(Format("sections is 0x%04X",wCount));
+    AddFieldBreak();    
+
+    base += 10;
+    
+    n = 0;
+    while( n < wCount && in.PrepareFldsForDlg)
+    {    	
+    	  if(in.DataLength <= out.Decoded)
+        {
+            AddNotEnoughDataMessage();
+            return GetFinalText();
+        }
+        
+        dwSize               = GetDataLong(base);
+        dwPropertyDataType   = GetDataLong(base + 4);
+        wPropertyNameLength  = GetDataWord(base + 8);
+        strPropertyName      = ObtainUnicodeString(base + 10, wPropertyNameLength);
+        dwPropertyDataLength = GetDataLong(base + 10 + wPropertyNameLength);
+        strPropertyData      = ObtainUnicodeString(base + 14 + wPropertyNameLength, dwPropertyDataLength);
+        
+    	  AddDataHeader(strPropertyName + " Custom Property section", 14 + wPropertyNameLength + dwPropertyDataLength);
+        
+        out.Decoded += 4;        
+        AddEntry( 0, "dwSize", dwSize, 8, "The size of this custom ", 0);    
+        AddDescriptionOnly(Format("properties section is 0x%08X",dwSize));
+        AddFieldBreak();
+        
+        out.Decoded += 4;
+        dt_row = Find(OS_Description_Ext_Properties_Data_Type, dwPropertyDataType);
+        if(dt_row != null)
+            tooltip = dt_row[1];
+        else
+            tooltip = "RESERVED";
+        AddEntry( 4, "dwPropertyDataType", dwPropertyDataType, 8, "Property data format is ", 0);
+        AddDescriptionOnly(tooltip);
+        AddFieldBreak();
+        
+        out.Decoded += 2;        
+        AddEntry( 8, "wPropertyNameLength", wPropertyNameLength, 4, "Property name length ", 0);
+        AddDescriptionOnly(Format("is 0x%04X",wPropertyNameLength));
+        AddFieldBreak();
+        
+        out.Decoded += wPropertyNameLength;             
+        if(strPropertyName == "")
+            tooltip = "No property name";
+        else
+            tooltip = strPropertyName;
+        AddEntry( 10, "bPropertyName", "", 2, tooltip, 0);
+        AddFieldBreak();
+        EntryFieldGroupLen += (wPropertyNameLength - 1)*8;#increment the bPropertyName 
+        
+        out.Decoded += 4;        
+        AddEntry( 10 + wPropertyNameLength, "dwPropertyDataLength", dwPropertyDataLength, 8, "Length of the buffer holding the property data ", 0);
+        AddDescriptionOnly(Format("is 0x%04X",dwPropertyDataLength));
+        AddFieldBreak();
+        
+        out.Decoded += dwPropertyDataLength;             
+        if(strPropertyData == "")
+            tooltip = "No property data";
+        else
+            tooltip = strPropertyData;
+        AddEntry( 14 + wPropertyNameLength, "bPropertyData", "", 2, tooltip, 0);
+        AddFieldBreak();
+        EntryFieldGroupLen += (dwPropertyDataLength - 1)*8;#increment the bPropertyData 
+        
+        
+        n ++;
+        base += (14 + wPropertyNameLength + dwPropertyDataLength);
+    }
+
+    return GetFinalText(); 
+} 
+
+MS_Feature_Genre()
+{
+	  description = " \"Genre\" descriptor is being considered for future versions of\n Windows, and no specification is currently available.";
+	      
+    AddErrorMessage(description);
+        
+    return GetFinalText();
+}
+
+AddNotEnoughDataMessage()
+{   
+    AddErrorMessage("Not enough data to decode.");
+}
+
+AddErrorMessage(message_text)
+{    
+    if( in.PrepareFldsForDlg )
+    {
+        AddStringToDlg( message_text, "", "", _ERROR );        
+    }
+    else
+    {           
+        AddBlankLine();
+        AddStringToText(message_text);
+        AddBlankLine();        
+    }
+}
+
+
+# MS OS feature descriptor types
+set MSFeatureTypeTable = 
+[
+    [   0x0001, "MS_Feature_Genre"              , "Genre" ],                  
+    [   0x0004, "MS_Feature_Extended_Compact_ID", "Extended compact ID"	],
+    [   0x0005, "MS_Feature_Extended_Properties", "Extended Properties"]    
+];
+
+
+# OS feature description Extended properties data type
+set OS_Description_Ext_Properties_Data_Type = 
+[
+    [   0x00000001, "Unicode String" ],                  
+    [   0x00000002, "Unicode String that includes environment variables"	],
+    [   0x00000003, "Free-form binary"],
+    [   0x00000004, "A little-endian 32-bit integer"],
+    [   0x00000005, "A big-endian 32-bit integer"],
+    [   0x00000006, "A NULL-terminated Unicode string that contains a symbolic link"],
+    [   0x00000007, "Multiple NULL-terminated Unicode strings"]
+        
+];
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,212 @@
+#
+#  Copyright (c) 1998 - 2009, LeCroy Corp. PSG. - All Rights Reserved
+#
+#   zExample1.vse
+#
+#   Verification script
+#
+#   Brief Description: 
+#   A generic example of processing for USB2 packets.
+#
+
+
+
+######################################################################################################
+#                                         Module info                                                #
+######################################################################################################
+#       Filling of this block is necessary for proper verification script operation...               #
+######################################################################################################
+
+
+#
+# Specify here the brief description for your verification script.
+# This name will be shown in the verification script dialog.
+#
+set DecoderDesc = "Test USB Suite VSE event sending capabilities and processing for USB2 packets";
+
+######################################################################################################
+
+
+#
+# include main Verification Script Engine definitions
+#
+%include  "VSTools.inc"
+
+
+######################################################################################
+#                            Global Variables and Constants                          #
+######################################################################################
+
+const MAX_NUMBER_OF_EVENTS = 100;
+set   EventCount = 0;
+
+######################################################################################
+
+
+
+######################################################################################
+#   OnStartScript()                                                                  #
+######################################################################################
+#                                                                                    #
+# It is a main intialization routine for setting up all necessary                    #
+# script parameters before running the script.                                       #
+#                                                                                    #
+# Specify in the body of this function initial values for global variables           #
+# and what kind of trace events should be sent to the script.                        #
+# ( By default, only all frames and Link state change events from both channels      #
+#  will be passed to the script.                                                     #
+#                                                                                    #
+#  Please see CATC Verification Script Engine Manual for more details about          #
+#  recorded trace "events" passed to verification scripts.                           #
+#                                                                                    #
+######################################################################################
+#
+
+set index = null;
+set list  = [ [1], [2], [3] ];
+
+set my_array = Array( list );
+
+OnStartScript()
+{ 
+	  ReportText("OnStart"); 	
+		
+		out.index = 10 - 12;
+		
+		ReportText( Format("out.index = %d", out.index ) );
+		
+		out.index++;
+		ReportText( Format("out.index = %d", out.index ) );
+		
+		
+		#val = my_array[ index ];
+		#my_array[ index ] = 100;
+		#list[ my_array ] = 10;
+		#val = list[ my_array ];
+	
+		#list[0][ index ] = [1];
+		#val = list[0][ index ];
+		
+    EventCount = 0;    
+    
+    #############################################
+    # Specify which channel/level/event         #
+    # should be sent to the script              #
+    #############################################  
+    
+    # Please see VSE manual for details about VSE sending capabilities.
+           
+    SendAllChannels();             # sends trace events of all channels
+    
+    #SendChannel( _USB2 );         # sends trace events for USB2 channel only   
+        
+    
+    SendLevelOnly ( _PKT );        # sends trace events of PACKET level only        
+    
+    
+    SendAllTraceEvents();
+    
+    # Send packets with bad CRCs
+    #SendPktsWithBadCRC();
+    
+    # Send specific direction
+    #SendDirection( _OUT );
+    
+    # Bus conditions
+    #SendTraceEvent( _USB2_BUS_CONDITION );
+    #SendUsb2BusConditions( _CHIRP_J );
+    
+    # Token packets
+    #SendUsb2TokenPackets( _ANY, 1, 2 );
+    #SendUsb2TokenPackets( PID_IN, _ANY, _ANY );
+    
+    # SOFs
+    #SendTraceEvent( _USB2_SOF );   
+    
+    # Data
+    #SendTraceEvent( _USB2_DATA );
+    #SendUsb2DataPackets( PID_DATA0 );
+    
+    # Handshake
+    #SendTraceEvent( _USB2_HSK );
+    #SendUsb2HskPackets( PID_NAK );  
+    
+    # Splits
+    #SendTraceEvent( _USB2_SPLIT );
+    
+    # LPM
+    #SendTraceEvent( _USB2_LPM );    
+    
+    # Uncomment the line below - if you want don't care about result of script running
+    #
+    ScriptForDisplayOnly();
+    
+    
+    # Uncomment the line below - if you want to disable output from
+    # ReportText()-functions. 
+    #
+    # DisableOutput();
+}
+
+
+######################################################################################
+#   ProcessEvent()                                                                   #
+######################################################################################
+#                                                                                    #
+# It is a main script function called by the application when the next waited event  #
+# occured in the evaluated trace.                                                    #
+#                                                                                    #
+######################################################################################
+#
+ProcessEvent()
+{       
+    
+    
+    #
+    # Using reporting functions defined in VSTools.inc 
+    # This functions print out the values of most input context variables for USB2 packets.
+    #
+    
+    ReportEventInfo();
+    ReportBusConditionEventInfo();
+    ReportUSB2PktEventInfo();        
+    
+    # ScriptPassed() - is a shortcut to out.Result = _VERIFICATION_PASSED;
+    # defined in VSTools.inc
+    #
+    if( EventCount == MAX_NUMBER_OF_EVENTS ) ScriptPassed(); 
+    
+    EventCount++;    
+    
+    return Complete();
+}
+
+
+######################################################################################
+#   OnFinishScript()                                                                 #
+######################################################################################
+#                                                                                    #
+# It is a main script function called by the application when the script completed   #
+# running. Specify in this function some resetting procedures for a successive run   #
+# of this script.                                                                    #
+#                                                                                    #
+######################################################################################
+#
+OnFinishScript()
+{
+    return 0;
+}
+
+
+######################################################################################
+######################################################################################
+######################################################################################
+
+
+######################################################################################
+#   Additional script functions.                                                     #
+######################################################################################
+#                                                                                    #
+# Write your own script-specific functions here...                                   #
+#                                                                                    #
+######################################################################################

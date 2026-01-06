@@ -1,0 +1,47 @@
+#
+#  Copyright (c) 2001, Computer Access Technology Corp. - All Rights Reserved
+# Midi Payload data decoder
+
+%include "DecoderTools.inc"    #include useful decoder functions
+%include "USBCommon.inc"    #include useful decoder functions
+%include "MidiData.inc"
+
+set ModuleType  = "DataBlock Decoder";
+set OutputType  = "MidiDataIN";
+
+# The following values are for usb analyzer decoding
+set UsbClassCode = 0x01;
+set UsbSubClassCode = 0x01;
+set UsbDecodeType = "Endpoint";
+set UsbEndpId = 78;
+set UsbEndpType = "Bulk";
+set UsbEndpDir = "In";
+set UsbMaxPktSize=512;
+set UsbMaxXferSize=16384;   
+
+
+#
+# Parsing entry point
+#
+const VDATAdColour = 0xB31C54;
+
+
+ProcessData()
+{
+    dcdByts=0;
+    GetNBits( in.Data, 0, 0 );
+	ndecode=0;
+	for (dcdByts=0; dcdByts<in.DataLength; )
+	{
+		ndecode=DecodeMidiPacket();
+		if (ndecode+dcdBytes+2 == in.DataLength) {Pad1Byte(2); ndecode++;}
+		if (ndecode+dcdBytes+1 == in.DataLength) {Pad1Byte(3); ndecode++;}
+		dcdByts+=ndecode;
+		AddSeparator();
+	}
+
+    #out.Decoded = in.DataLength;
+    out.Decoded = dcdByts;
+
+    return Complete();
+}

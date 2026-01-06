@@ -1,0 +1,243 @@
+;*******************************************************************************
+;*
+;*  FILENAME: hid.req
+;*
+;*  Copyright (C) 1999 Computer Access Technology Corporation
+;*
+;*  DESCRIPTION
+;*    This is the request file for USB Human Interface Devices(HID.
+;*    This file is prepared as per the Specification Revision 1.0.
+;*
+;*  REVISION HISTORY
+;*    17MAY99 First created -ag-
+;*    08AUG99 Modified as per Revision 1.1 -ag-
+;*
+;*******************************************************************************
+
+;*******************************************************************************
+; Specify the name for this set of requests as GroupName. This name is listed 
+; under Decode Vendor/Class Request menu depending on the GroupType specified 
+; and the Type field of the request you are trying to decode. 
+;*******************************************************************************
+GroupName=HID Class
+GroupType=Class
+ClassCode=0x03
+
+AllRequests={
+0x01=GET_REPORT
+0x02=GET_IDLE
+0x03=GET_PROTOCOL
+0x09=SET_REPORT
+0x0A=SET_IDLE
+0x0B=SET_PROTOCOL
+}
+
+;*******************************************************************************
+; GET_REPORT    : The Get_Report request allows the host to receive a report via 
+;                 the control pipe
+; bmRequestType : 0xA1
+; bRequest      : 0x01
+; wValue        : Report Type and Report ID
+; wIndex        : Interface
+; wLength       : Report Length
+; Data          : Report
+;*******************************************************************************
+; start GET_REPORT
+Request(0x01)={
+
+  wValue={
+     HIBYTE={
+       WordValue={
+         0x0001=Input Report
+         0x0002=Output Report
+         0x0003=Feature Report
+       }  
+     }
+     LOBYTE={
+       FormatValue=Report ID %d
+     }
+  }
+  wIndex={ 
+    Depends(bmRequestType)={
+      0xA2={
+        FormatValue=Interface %i
+      }
+    }
+  }
+  Data={
+    Length=?
+    Bytes(0,?)={
+      FormatValue=Report:
+    }
+  }
+}
+; end GET_REPORT
+
+;*******************************************************************************
+; SET_REPORT    : The Set_Report request allows the host to send a report to the
+;                 device, possibly setting the state of input, output, or 
+;                 feature controls
+; bmRequestType : 0x21
+; bRequest      : 0x09
+; wValue        : Report Type and Report ID
+; wIndex        : Interface
+; wLength       : Report Length
+; Data          : Report
+;*******************************************************************************
+; start SET_REPORT
+Request(0x09)={
+
+  wValue={
+     HIBYTE={
+       WordValue={
+         0x0001=Input Report,
+         0x0002=Output Report,
+         0x0003=Feature Report,
+       }  
+     }
+     LOBYTE={
+       FormatValue=Report ID %d
+     }
+  }
+  wIndex={ 
+    Depends(bmRequestType)={
+      0x21={
+        FormatValue=Interface %i
+      }
+    }
+  }
+  Data={
+    Length=?
+    Bytes(0,?)={
+      FormatValue=Report:
+    }
+  }
+}
+; end SET_REPORT
+
+;*******************************************************************************
+; GET_IDLE      : The Get_Idle request reads the current idle rate for a 
+;                 particular Input report
+; bmRequestType : 0xA1
+; bRequest      : 0x02
+; wValue        : Zero and Report ID
+; wIndex        : Interface
+; wLength       : 0x01
+; Data          : Idle Rate
+;*******************************************************************************
+; start GET_IDLE
+Request(0x02)={
+
+  wValue={
+    FormatValue=Report ID %d
+  }
+  wIndex={ 
+    Depends(bmRequestType)={
+      0xA1={
+        FormatValue=Interface %i
+      }
+    }
+  }
+  Data={
+    Length=1
+    Bytes(0,0)={
+      FormatValue=Current Idle Rate is %d
+    }
+  }
+}
+; end GET_IDLE
+
+;*******************************************************************************
+; SET_IDLE      : The Set_Idle request silences a particular report on the 
+;                 Interrupt pipe until a new event occurs or the specified 
+;                 amount of time passes
+; bmRequestType : 0x21
+; bRequest      : 0x0A
+; wValue        : Duration and Report ID
+; wIndex        : Endpoint
+; wLength       : 0x00
+; Data          : None
+;*******************************************************************************
+; start SET_IDLE
+Request(0x0A)={
+
+  wValue={
+     HIBYTE={
+       FormatValue=Duration %d,
+     }
+     LOBYTE={
+       FormatValue= Report ID %d
+     }
+  }
+  wIndex={ 
+    Depends(bmRequestType)={
+      0x21={
+        FormatValue=Interface %i
+      }
+    }
+  }
+}
+; end SET_IDLE
+
+;*******************************************************************************
+; GET_PROTOCOL  : The Get_Protocol switches between the boot protocol and the 
+;                 report protocol(vice versa)
+; bmRequestType : 0xA1
+; bRequest      : 0x03
+; wValue        : 0x0000
+; wIndex        : Interface
+; wLength       : 0x01
+; Data          : 0=Boot Protocol
+;                 1=Report Protocol
+;*******************************************************************************
+; start GET_PROTOCOL
+Request(0x03)={
+
+  wIndex={ 
+    Depends(bmRequestType)={
+      0xA1={
+        FormatValue=Endpoint %d
+      }
+    }
+  }
+  Data={
+    Length=1
+    Bytes(0,0)={
+      WordValue={
+        0x00=Boot Protocol Used
+        0x01=Report Protocol Used
+      }
+    }
+  }  
+}
+; end GET_PROTOCOL
+
+;*******************************************************************************
+; SET_PROTOCOL  : The Set_Protocol switches between the boot protocol and the 
+;                 report protocol(vice versa)
+; bmRequestType : 0x21
+; bRequest      : 0x0B
+; wValue        : 0=Boot Protocol
+;                 1=Report Protocol
+; wIndex        : Interface
+; wLength       : 0x0000
+; Data          : None
+;*******************************************************************************
+; start SET_PROTOCOL
+Request(0x0B)={
+
+  wValue={
+    WordValue={
+      0x0000=Boot Protocol
+      0x0001=Item Protocol
+    }
+  }
+  wIndex={ 
+    Depends(bmRequestType)={
+      0x21={
+        FormatValue=Interface %i
+      }
+    }
+  }
+}
+; end SET_PROTOCOL

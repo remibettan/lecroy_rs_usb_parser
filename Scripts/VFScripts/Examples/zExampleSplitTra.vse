@@ -1,0 +1,160 @@
+#
+#  Copyright (c) 1998 - 2009, LeCroy Corp. PSG. - All Rights Reserved
+#
+#   zExample1.vse
+#
+#   Verification script
+#
+#   Brief Description: 
+#   A generic example of processing for USB split transactions.
+#
+
+
+######################################################################################################
+#                                         Module info                                                #
+######################################################################################################
+#       Filling of this block is necessary for proper verification script operation...               #
+######################################################################################################
+#
+# Specify here the brief description for your verification script.
+# This name will be shown in the verification script dialog.
+#
+set DecoderDesc = "Test USB Suite VSE event sending capabilities and processing for USB split transactions";
+
+######################################################################################################
+
+
+#
+# include main Verification Script Engine definitions
+#
+%include  "VSTools.inc"
+
+
+
+######################################################################################
+#                            Global Variables and Constants                          #
+######################################################################################
+
+const MAX_NUMBER_OF_EVENTS = 100;
+set   EventCount = 0;
+
+######################################################################################
+
+
+
+######################################################################################
+#   OnStartScript()                                                                  #
+######################################################################################
+#                                                                                    #
+# It is a main intialization routine for setting up all necessary                    #
+# script parameters before running the script.                                       #
+#                                                                                    #
+# Specify in the body of this function initial values for global variables           #
+# and what kind of trace events should be sent to the script.                        #
+# ( By default, only all frames and Link state change events from both channels      #
+#  will be passed to the script.                                                     #
+#                                                                                    #
+#  Please see CATC Verification Script Engine Manual for more details about          #
+#  recorded trace "events" passed to verification scripts.                           #
+#                                                                                    #
+######################################################################################
+#
+OnStartScript()
+{  
+    EventCount = 0;    
+    
+    #############################################
+    # Specify which channel/level/event         #
+    # should be sent to the script              #
+    #############################################  
+    
+    # Please see VSE manual for details about VSE sending capabilities.
+           
+    SendAllChannels();             # sends trace events of all channels
+    
+    #SendChannel( _USB2 );         # sends trace events for USB2 channel only   
+        
+    
+    SendLevelOnly ( _SPL_TRA );    # sends trace events of SPLIT TRANSACTION level only    
+    
+    # Send all transactions
+    SendAllTraceEvents(); 
+    
+    # Send SETUP transactions
+    #SendTraceEvent( _T_SETUP );
+    
+    # Send IN transactions
+    #SendTraceEvent( _T_IN );    
+    
+    
+    # Uncomment the line below - if you want don't care about result of script running
+    #
+    ScriptForDisplayOnly();
+    
+    
+    # Uncomment the line below - if you want to disable output from
+    # ReportText()-functions. 
+    #
+    # DisableOutput();
+}
+
+
+######################################################################################
+#   ProcessEvent()                                                                   #
+######################################################################################
+#                                                                                    #
+# It is a main script function called by the application when the next waited event  #
+# occured in the evaluated trace.                                                    #
+#                                                                                    #
+######################################################################################
+#
+ProcessEvent()
+{        
+    #
+    # Using reporting functions defined in VSTools.inc 
+    # This functions print out the values of most input context variables for USB split transactions.
+    #
+    
+    ReportEventInfo();        
+    ReportSplitTraEventInfo();
+    
+    # ScriptPassed() - is a shortcut to out.Result = _VERIFICATION_PASSED;
+    # defined in VSTools.inc
+    #
+    if( EventCount == MAX_NUMBER_OF_EVENTS ) ScriptPassed(); 
+    
+    EventCount++;
+    
+    return Complete();
+}
+
+
+######################################################################################
+#   OnFinishScript()                                                                 #
+######################################################################################
+#                                                                                    #
+# It is a main script function called by the application when the script completed   #
+# running. Specify in this function some resetting procedures for a successive run   #
+# of this script.                                                                    #
+#                                                                                    #
+######################################################################################
+#
+OnFinishScript()
+{
+    return 0;
+}
+
+
+
+######################################################################################
+######################################################################################
+######################################################################################
+
+
+######################################################################################
+#   Additional script functions.                                                     #
+######################################################################################
+#                                                                                    #
+# Write your own script-specific functions here...                                   #
+#                                                                                    #
+######################################################################################

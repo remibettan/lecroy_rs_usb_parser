@@ -1,0 +1,209 @@
+#
+#  Copyright (c) 2015 Teledyne LeCroy, Inc.
+#
+#   CCEventTest.vse
+#
+#   Verification script
+#
+#   Brief Description: 
+#   A generic example of processing CC packets.
+#
+
+
+######################################################################################################
+#                                         Module info                                                #
+######################################################################################################
+#       Filling of this block is necessary for proper verification script operation...               #
+######################################################################################################
+#
+# Specify here the brief description for your verification script.
+# This name will be shown in the verification script dialog.
+#
+set DecoderDesc = "CC Event Analysis";
+
+######################################################################################################
+
+#
+# include main Verification Script Engine definitions
+#
+%include  "VSTools.inc"
+
+
+######################################################################################
+#                            Global Variables and Constants                          #
+######################################################################################
+
+const TRUE  = 1;
+const FALSE = 0;
+
+set FormatString_StringValue  = "\t%-20s \t\t= %s\n";
+set FormatString_IntValue     = "\t%-20s \t\t= %d\n";
+set FormatString_HexValue     = "\t%-20s \t\t= %x\n";
+set EventCount = 0;
+
+OnStartScript()
+{
+    EventCount = 0;
+    SendAllChannels();
+    SendLevelOnly ( _PKT );        # sends trace events of PACKET level only        
+    SendAllTraceEvents();
+    ScriptForDisplayOnly();
+}
+
+######################################################################################
+#   ProcessEvent()                                                                   #
+######################################################################################
+#                                                                                    #
+# It is a main script function called by the application when the next waited event  #
+# occured in the evaluated trace.                                                    #
+#                                                                                    #
+######################################################################################
+#
+ProcessEvent()
+{
+    DecodeCCMessage();
+    return Complete();
+}
+
+######################################################################################
+#   OnFinishScript()                                                                 #
+######################################################################################
+#                                                                                    #
+# It is a main script function called by the application when the script completed   #
+# running. Specify in this function some resetting procedures for a successive run   #
+# of this script.                                                                    #
+#                                                                                    #
+######################################################################################
+#
+OnFinishScript()
+{
+    return 0;
+}
+
+DecodeCCMessage()
+{
+    if(in.TraceEvent == _CC_PACKET)
+    {        
+        ReportText( FormatEx("\nTrace Event = %d, EventCount = %d, Packet# = %d", in.TraceEvent, EventCount, in.Index) );
+        report_str = "";
+       
+        report_str += DecodeVersion2CCMessage();        
+                       
+        ReportText ( report_str );
+        ReportText( "--------------------------------------------" );
+        
+        EventCount++;
+    }
+}
+
+DecodeVersion2CCMessage()
+{
+    report_str = "";
+    
+    report_str += FormatEx( FormatString_StringValue, "CC1_Pins", GetCCPins());
+    report_str += FormatEx( FormatString_StringValue, "Ad_Curr", GetCCRpValue() );
+    
+    report_str += FormatEx( FormatString_IntValue, "CC1_Pins_Changed", in.CC1_Pins_Changed );
+    report_str += FormatEx( FormatString_IntValue, "Ad_Curr_Changed", in.Ad_Curr_Changed );
+    
+    report_str += FormatEx( FormatString_StringValue, "Left_CC1", GetCCPortState(in.Left_CC1) );
+    report_str += FormatEx( FormatString_StringValue, "Left_CC2", GetCCPortState(in.Left_CC2) );
+
+    report_str += FormatEx( FormatString_StringValue, "Left_PrevState", GetCCState(in.Left_PrevState) );
+    report_str += FormatEx( FormatString_StringValue, "Left_CurrState", GetCCState(in.Left_CurrState) );
+    report_str += FormatEx( FormatString_StringValue, "Left_MiddleState", GetCCState(in.Left_MiddleState) );
+    report_str += FormatEx( FormatString_IntValue, "Left_StateChange", in.Left_StateChange );
+    
+    report_str += FormatEx( FormatString_IntValue, "Left_CC1StateChange", in.Left_CC1StateChange );
+    report_str += FormatEx( FormatString_IntValue, "Left_CC2StateChange", in.Left_CC2StateChange );
+
+    report_str += FormatEx( FormatString_StringValue, "Right_CC1", GetCCPortState(in.Right_CC1) );
+    report_str += FormatEx( FormatString_StringValue, "Right_CC2", GetCCPortState(in.Right_CC2) );
+    
+    report_str += FormatEx( FormatString_StringValue, "Right_PrevState", GetCCState(in.Right_PrevState) );
+    report_str += FormatEx( FormatString_StringValue, "Right_CurrState", GetCCState(in.Right_CurrState) );
+    report_str += FormatEx( FormatString_StringValue, "Right_MiddleState", GetCCState(in.Right_MiddleState) );
+    report_str += FormatEx( FormatString_IntValue, "Right_StateChange", in.Right_StateChange );
+    
+    report_str += FormatEx( FormatString_IntValue, "Right_CC1StateChange", in.Right_CC1StateChange );
+    report_str += FormatEx( FormatString_IntValue, "Right_CC2StateChange", in.Right_CC2StateChange );
+
+    return report_str;
+}
+
+GetCCPins()
+{
+    cc_pins = "";    
+    cc_pins = select
+    {
+        in.CC1_Pins == 1    : "Connected";
+        in.CC1_Pins == 0    : "Disconnected";
+    };    
+    return cc_pins;
+}
+
+GetCCRpValue()
+{
+    ad_curr = "";
+    ad_curr = select
+    {
+        in.Ad_Curr == _CC_RP_NONE   : "None";
+        in.Ad_Curr == _CC_RP_DEF    : "Default";
+        in.Ad_Curr == _CC_RP_15A    : "1.5 A";
+        in.Ad_Curr == _CC_RP_30A    : "3.0 A";     
+    };
+    return ad_curr;
+}
+
+GetCCPortState(cc_port_state)
+{
+    port_state = "?";
+    port_state = select
+    {
+        cc_port_state == _CC_PORT_STATE_UNKNOWN       : "Unknown";
+        cc_port_state == _CC_PORT_STATE_OPEN          : "Open";
+        cc_port_state == _CC_PORT_STATE_RP            : "Rp";
+        cc_port_state == _CC_PORT_STATE_RD            : "Rd";     
+        cc_port_state == _CC_PORT_STATE_RA            : "Ra";     
+        cc_port_state == _CC_PORT_STATE_VCONN         : "VConn";     
+        cc_port_state == _CC_PORT_STATE_RD_RA         : "Rd | Ra"; 
+        cc_port_state == _CC_PORT_STATE_RD_RA_OPEN    : "Rd | Ra | Open";
+        cc_port_state == _CC_PORT_STATE_RP_VCONN      : "Rp | VConn";
+        cc_port_state == _CC_PORT_STATE_RP_VCONN_OPEN : "Rp | VConn | Open";
+        
+    };
+    return port_state;
+}
+
+GetCCState(curr_state)
+{
+    cc_state = "";
+    cc_state = select
+    {
+        curr_state == _INVALID_STATE              : "None";
+        curr_state == _SRC_UNATTACHED             : "Unattached.SRC";
+        curr_state == _SRC_ATTACH_WAIT            : "AttachWait.SRC";
+        curr_state == _SRC_ATTACHED               : "Attached.SRC";     
+        curr_state == _SRC_TRY                    : "Try.SRC";     
+        
+        curr_state == _SNK_UNATTACHED             : "Unattached.SNK";
+        curr_state == _SNK_ATTACH_WAIT            : "AttachWait.SNK";
+        curr_state == _SNK_ATTACHED               : "Attached.SNK";     
+        curr_state == _SNK_TRY_WAIT               : "TryWait.SNK";     
+        
+        curr_state == _AUDIO_ACCESSORY_ATTACHED   : "AudioAccessory";     
+        curr_state == _SRC_DEBUG_ACCESSORY        : "DebugAccessory.SRC";     
+        curr_state == _POWERED_ACCESSORY_ATTACHED : "PoweredAccessory";     
+        
+        curr_state == _DISABLED                   : "Disabled";
+        curr_state == _UNDEFINED_STATE            : "Undefined";
+        curr_state == _XXX_ATTACHED               : "Attached.Unknown";
+        
+        curr_state == _AUDIO_ADAPTER              : "AudioAdapter";
+        curr_state == _SNK_DEBUG_ACCESSORY        : "DebugAccessory.SNK";
+        
+        curr_state == _SNK_TRY                    : "Try.SNK";
+        curr_state == _SRC_TRY_WAIT               : "TryWait.SRC";
+    };
+    return cc_state;
+}

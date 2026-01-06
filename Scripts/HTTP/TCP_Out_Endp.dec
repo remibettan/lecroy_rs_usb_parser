@@ -1,0 +1,19 @@
+
+#
+#  TCP Class Out Endpoint
+#
+
+%include "TCP_Endp.inc"
+
+#------------------------  Common Globals -----------------------------------
+set OutputType    = "TCP (Transmission Control Protocol) Out Endp";
+set UsbClassCode  = 0xFF; # Vendor Specific
+set UsbEndpDir    = "Out";
+set UsbEndpId     = 9; # just a unique value for each endpoint of the same Class/Vendor/Product to distinguish them
+#-------------------------------------------------------------------------------
+
+#~~~~ Parsing entry point ~~~~
+ProcessData()
+{
+    return ProcessData_TCP();
+}

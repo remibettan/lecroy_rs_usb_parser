@@ -1,0 +1,1743 @@
+ 
+# Copyright (c) 2006, LeCroy Corp PSG. - All Rights Reserved
+ 
+#   AudioRequests.dec
+
+#   Vendor Request File for Audio 1.0 Decoder
+ 
+
+%include "CATCScriptAPI.inc"             #.inc files that are included
+%include "UsbCommon.inc" 
+%include "AudioTables.inc"
+%include "Audio1.0CurrentEntityIdMap_EditMe.inc"
+%include "AudioCellColors.inc"
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block 
+#
+#----  Output
+# out.Decoded   - amount of data has been decoded
+#
+
+const Tabular_Def_Table = Map( 
+[   
+    #----------------------------------------------------------------------------------------------------------------------
+    #       id                     ,      colId                          , 		containerCellId
+    #----------------------------------------------------------------------------------------------------------------------
+    [ CELL_REQUEST                 , TABULAR_SCRIPT_COLUMN_ID_SUBTYPE    , TABULAR_SCRIPT_CONTAINER_CELL_ID_NONE ],
+    [ CELL_WVALUE                  , TABULAR_SCRIPT_COLUMN_ID_NONE       , TABULAR_SCRIPT_CONTAINER_CELL_ID_MISC ]
+] );
+
+#############################################################################
+#                               View Settings                               #
+#############################################################################
+#
+#    In this section user can set up which fields are to be shown and 
+#    which are to be hidden in expanded and collapsed states.
+#    Zero-value everywhere means that fields will not be shown,
+#    otherwise means opposite.
+#
+
+
+# ----------------------- All Field View Settings ---------------------------
+#   These settings have priority above separate field View Settings in
+#   expanded state ONLY.
+#   In order separate field View Settings to work properly
+#   BOTH All Field View Settings should be set to 0.
+#
+#   Due to the fact that ViewAll-setting and HideAll-setting are 
+#   exceptive propositions - ViewAll has been set a higher priority.
+# ---------------------------------------------------------------------------
+
+const ADR_ViewAll              = 0;
+const ADR_HideAll              = 0;
+# ---------------------------------------------------------------------------
+
+
+# -----------------------  Separate Field View Settings ---------------------
+# The FIRST value in list-variables defines if the field is to be shown or
+# hidden in COLLAPSED state. 
+# 0 - means the field is to be shown.
+# 1 - means the field is to be hidden.
+# 
+# The SECOND value in list-variables defines if the field is to be shown or
+# hidden in EXPANDED state. 
+# 0 - means the field is to be shown.
+# 1 - means the field is to be hidden.
+#
+# i.e.  const RPD_Field = [0, 1]# - means that field 'Field' will be hidden
+# in collapsed state and will be shown in expanded state. 
+#
+
+
+
+
+#                       [collapsed, expanded]   
+const ADR_bmRequestType       = [1, 1];
+const ADR_EntityID            = [1, 1];
+const ADR_LwIndex             = [1, 1];
+const ADR_wValue              = [1, 1];
+const ADR_wLength             = [1, 1];
+const ADR_wIndex              = [1, 1];
+const ADR_bCopyProtect        = [1, 1];
+const ADR_wMixer              = [1, 1];
+const ADR_bSelector           = [1, 1];
+const ADR_wVolume             = [1, 1];
+const ADR_bMute               = [1, 1];
+const ADR_bMid                = [1, 1];
+const ADR_bBass               = [1, 1];
+const ADR_bTreble             = [1, 1];
+const ADR_bmBandsPresent      = [1, 1];
+const ADR_bBand               = [1, 1];
+const ADR_bAGC                = [1, 1];
+const ADR_wDelay              = [1, 1];
+const ADR_bBassBoost          = [1, 1];
+const ADR_bLoudness           = [1, 1];
+const ADR_bEnable             = [1, 1];
+const ADR_bMode               = [1, 1];
+const ADR_bSpaciousness       = [1, 1];
+const ADR_bReverbLevel        = [1, 1];
+const ADR_wReverbTime         = [1, 1];
+const ADR_breverbFeedback     = [1, 1];
+const ADR_bChorusLevel        = [1, 1];
+const ADR_wChorusRate         = [1, 1];
+const ADR_wChorusDepth        = [1, 1];
+const ADR_wRatio              = [1, 1];
+const ADR_wMaxAmpl            = [1, 1];
+const ADR_wThreshold          = [1, 1];
+const ADR_wAttackTime         = [1, 1];
+const ADR_wReleaseTime        = [1, 1];
+const ADR_bOn                 = [1, 1];
+const ADR_tSampleFreq         = [1, 1];
+const ADR_bPitchEnable        = [1, 1];
+const ADR_bEntityID           = [1, 1];
+
+#-----------------------------------------------------------------------------
+ 
+
+set OutputType      = "Audio 1.0 Class Requests";      
+set UsbDecodeType   = "Request";
+set UsbReqType      = "Class";
+set UsbClassCode    = 0x01;    # Class code for Audio
+set UsbScriptDecodeType = 1;   # Combined decoding for Cells and Text decoding 
+set UsbProtocol     = 0;         # this is used to seperate the 1.0 from 2.0set UsbSpecVersion 	= 0x0001;
+
+
+set bReqType = 0;     #Declaring global variables
+set bRequest = 0;
+set wValue   = 0;
+set wIndex   = 0;
+set wLength  = 0;
+set EntiyId  = 0;
+set AttributeString = "";
+set BaseColor = 0;
+set EntityString = "";
+
+
+
+set FullyDecoded = 1;  # Variable that will determine if request has been fully decoded
+ProcessData()
+{
+    CommonDecoderInit();    
+    
+    UnitDecoderInit("ADR");
+    
+    SetCellColor(AudioCaptionColor);
+    
+    AddCaptionCell("Audio","Class","In order to view comments in text field, user must expand this caption cell",_MONOCOLOR);  # will allow for the expansion of certain fields
+    RestoreCellColor();
+    AddSeparator();
+    
+    FullyDecoded = 1;
+    out.Decoded = 0;      
+
+    if (in.DataLength < 8)
+    {
+        AddPLCellMonoNoDlg("Error", "Illegal Payload", "Nothing is being decoded", __ERROR);
+        return Complete();
+    }
+
+    GetNBits( in.Data, 0, 0 );      #Initialize pointer/counter for NextNBits_()
+    
+    bReqType = NextNBits_(8);
+    #AddPayLoadCell("bmRequestType", Format("0x%02X", bReqType), "Request Type bitmap");
+    bRequest = NextNBits_(8);
+
+    _row = Find(AudioCSRequesCodes_v1_Table, bRequest);  # will determine which request is being used  
+    
+    AddRequestCell (_row[1]);
+    decoded = Call( _row[1] );
+    
+    out.Decoded = 2 + decoded;
+    
+    ############ for Debug purposes#########
+    # GetNBits(in.Data, 0, 0);             #
+    # ShowDataBlock(in.DataLength);        #
+    ########################################       
+
+    return Complete();
+}
+
+
+DecodeRequestToText()
+{
+    return DecodeRequestToTextCommon( AudioCSRequesCodes_v1_Table );    
+}
+
+
+REQUEST_CODE_UNDEFINED()
+{
+	return 0;
+}
+
+SET_CUR()
+{
+	return doGeneralDecoding();
+}
+
+GET_CUR()
+{
+	return doGeneralDecoding();
+}
+
+SET_MIN()
+{
+	return doGeneralDecoding();
+}
+
+GET_MIN()
+{
+	return doGeneralDecoding();
+}
+
+SET_MAX()
+{
+	return doGeneralDecoding();
+}
+
+GET_MAX()
+{
+	return doGeneralDecoding();
+}
+
+SET_RES()
+{
+	return doGeneralDecoding();
+}
+
+GET_RES()
+{
+	return doGeneralDecoding();
+}
+
+SET_MEM()
+{
+	return doMemoryDecoding();
+}
+GET_MEM()
+{
+	return doMemoryDecoding();
+}
+	
+GET_STAT()
+{
+	PLReservedCheck(16);
+
+	number = NextNBits_(8);
+	if (bReqType == 0xA1)
+	{
+			VS= "ADR_LwIndex";
+			AddBlockPLCell("Interface", Format("0x%02X",number), Format("Interface %d",number));
+	}
+	else if (bReqType == 0xA2)
+	{
+			VS= "ADR_LwIndex";
+			AddBlockPLCell("Endpoint", Format("0x%02X",number), Format("Endpoint %d",number));
+	}
+	else
+	{
+			VS= "ADR_LwIndex";
+			AddBlockPLCell("Unknown", Format("0x%02X",number), Format("Unknonw %d",number), _ERROR);
+	}
+	
+	EntityID = NextNBits_(8);
+	_row = Find(CurrentEntityIdMap, EntityID);
+	AddPayLoadCell("EntityID", EntityID, _row[1]);
+	
+	wLength = NextDataWord_();
+	AddPayLoadCell("wLength", Format("%d",wLength), "Status message length, should set to 0");
+	/*
+	if (wLength > 0)
+	{
+		AddExtraBytesPayloadCell(wLength);
+		return 6 + wLength;
+	}
+	else
+	{
+		return 6;
+	}
+	*/
+	return 6;
+}
+
+doMemoryDecoding()
+{
+	wValue = NextDataWord_();
+	AddPayLoadCell("wValue", Format("0x%04X",wValue),"a zero-based offset value that can be used to access\nonly parts of the Entity’s parameter space. "
+	                , FieldColor, [_TABULARCELL, CELL_WVALUE, "TEXT_CAPTION"]);
+	number = NextNBits_(8);
+	if (bReqType == 0xA1 || bReqType == 0x21)
+	{
+		AddPayLoadCell("Interface", Format("0x%02X",number), Format("Interface %d",number));
+	}
+	else if (bReqType == 0xA2 || bReqType == 0x22)
+	{
+			VS= "ADR_LwIndex";
+			AddBlockPLCell("Endpoint", Format("0x%02X",number), Format("Endpoint %d",number));
+	}
+	else
+	{
+			VS= "ADR_LwIndex";
+			AddBlockPLCell("Unknown", Format("0x%02X",number), Format("Unknonw %d",number), _ERROR);
+	}
+	
+	wLength = NextDataWord_();
+	AddPayLoadCell("wLength", Format("%d",wLength), "Length of parameter block");
+	/*
+	if (wLength > 0)
+	{
+		AddExtraBytesPayloadCell(wLength);
+		return 6 + wLength;
+	}
+	else
+	{
+		return 6;
+	}
+	*/
+	return 6;
+}
+	
+
+
+doGeneralDecoding()
+{
+	wValue = NextDataWord_();
+	if (bReqType == 0xA2 || bReqType == 0x22)
+	{
+		  if ( EndpointRequestDecodingSubclass == 1)
+		  {
+		      _row = Find(AudioEndpointControlSelectors_v1_Table, (wValue >> 8) );
+		      AddPayLoadCell("wValue", _row[1], "AudioStreaming Requests Control Selector"
+		                    , FieldColor, [_TABULARCELL, CELL_WVALUE, "TEXT_CAPTION"]);
+		  }
+		  else if ( EndpointRequestDecodingSubclass == 2)
+		  {
+		      _row = Find(AudioMIDIEndpointControlSelectorsTable, (wValue >> 8) );
+		      AddPayLoadCell("wValue", _row[1], "MIDIStreaming Requests Control Selector"
+		                    , FieldColor, [_TABULARCELL, CELL_WVALUE, "TEXT_CAPTION"]);
+		  }
+		  else
+		  {
+		  	  _row = [0xFF, "Illegal"];
+		  	  AddPayLoadCell("wValue", Format("0x%04X", wValue), "Unknown Requests Control Selector"
+		  	                , FieldColor, [_TABULARCELL, CELL_WVALUE, "TEXT_CAPTION"]);
+		  }
+		  wValueHasAdded = 1;
+	}
+	else
+	{
+   	    highIndex = PeekNBits(16) & 0x00FF;
+	    _row = Find(CurrentEntityIdMap, highIndex);
+	    wValueHasAdded = 0;
+	}
+	if (_row[0] != 0xFF && _row[0] != 0x00)
+	{
+		return 2 + Call(_row[1]);
+	}
+	else
+	{
+		if (wValueHasAdded == 0)
+		    AddPayLoadCell("wValue", Format("0x%04X", wValue), Format("wValue = %d", wValue), FieldColor, [_TABULARCELL, CELL_WVALUE, "TEXT_CAPTION"]);
+		wIndex = NextDataWord_();
+		AddPayLoadCell("wIndex", Format("0x%04X", wIndex), Format("wIndex = %d", wIndex));
+		wLength = NextDataWord_();
+		AddPayLoadCell("wLength", Format("%d",wLength), Format("wLength = %d", wLength));
+		warning_color = 0x00FFFF;
+		AddCell("Hint", "Entity ID?", "We did not see a match on the entity IDs,\n and that could cause by the Entity IDs does not match\nour default settings. Please open the file under\n Scripts\\AudioClass\\Audio1.0CurrentEntityIdMap_EditMe.inc\n for details.", warning_color);
+		/*
+		if (wLength > 0)
+		{
+			AddExtraBytesPayloadCell(wLength);
+			return 6 + wLength;			
+		}
+		*/
+		return 6;
+	}
+}
+
+Terminal()
+{
+	_row = Find(AudioTerminalControlSelectors_v1_Table, wValue);
+	AddPayLoadCell("wValue", _row[1], "Control Selector", FieldColor, [_TABULARCELL, CELL_WVALUE, "TEXT_CAPTION"]);
+	number = NextNBits_(8);
+	if (bReqType == 0xA1 || bReqType == 0x21)
+	{
+			VS= "ADR_LwIndex";
+			AddBlockPLCell("Interface", Format("0x%02X",number), Format("Interface %d",number));
+	}
+	else
+	{
+			VS= "ADR_LwIndex";
+			AddBlockPLCell("Unknown", Format("0x%02X",number), Format("Unknonw %d",number), _ERROR);
+	}
+	EntityId = NextNBits_(8);
+	AddPayLoadCell("EntityId", "Terminal ID", Format("EntityId = 0x%02X", EntityId));
+	
+	if (_row[0] != 0xFF && _row[0] != 0x00)
+	{
+		wLength = NextDataWord_();
+		AddPayLoadCell("wLength", Format("%d",wLength), Format("wLength = %d", wLength));
+		return 2 + Call(_row[1]);
+	}
+	else
+	{
+		wLength = NextDataWord_();
+		AddPayLoadCell("wLength", Format("%d",wLength), Format("wLengthe = %d", wLength));
+		/*
+		if (wLength > 0)
+		{
+			AddExtraBytesPayloadCell(wLength);
+			return 4 + wLength;			
+		}
+		else
+		{
+			return 4;		
+		}
+		*/
+		return 4;
+	}
+}
+
+COPY_PROTECT_CONTROL()
+{
+	
+	if (wLength == 1)
+	{
+		bCopyProtect = NextNBits_(8);
+		AddPayLoadCell("bCopyProtect", Format("0x%02X", bCopyProtect), "The setting for the CUR attribute of the\nCopyProtect Control.\n0x00: CPL0\n0x01: CPL1\n0x02: CPL2");
+		return 3;
+	}/*
+	else if (wLength > 0)
+	{
+		AddExtraBytesPayloadCell(wLength);
+		return 2 + wLength;			
+	}*/
+	else
+	{
+		return 2;
+	}
+}
+	
+MixerUnit()
+{
+	VS = "ADR_wValue";
+	AddBlockPLCell("ICN/OCN", Format("0x%02X", wValue >> 8) + Format("/0x%02X", wValue & 0x00FF), "Input Channel Number / Output Channel Number");	
+
+	number = NextNBits_(8);
+	if (bReqType == 0xA1 || bReqType == 0x21)
+	{
+			VS= "ADR_LwIndex";
+			AddBlockPLCell("Interface", Format("0x%02X",number), Format("Interface %d",number));
+	}
+	else
+	{
+			VS= "ADR_LwIndex";
+			AddBlockPLCell("Unknown", Format("0x%02X",number), Format("Unknonw %d",number), _ERROR);
+	}
+	EntityId = NextNBits_(8);
+	AddPayLoadCell("EntityId", "Mixer Unit ID", Format("EntityId = 0x%02X", EntityId));	
+	wLength = NextDataWord_();
+	AddPayLoadCell("wLength", Format("%d",wLength), Format("wLength = %d", wLength));
+	if (wValue == 0xFFFF)
+	{
+		index = 0;
+		while (wLength >= index * 2 + 2)
+		{
+			wMixer = NextDataWord_();
+			VS = "ADR_wMixer";
+			AddBlockPLCell(Format("wMixer %d", index), Format("0x%04X", wMixer, "The setting for the attribute of the programmable Mixer Control"));
+			index ++;
+		}
+		return 4 + index * 2;
+	}
+	else if (wValue == 0x0000)
+	{
+		index = 0;
+		while (wLength >= index * 2 + 2)
+		{
+			wMixer = NextDataWord_();
+			VS = "ADR_wMixer";
+			AddBlockPLCell(Format("wMixer %d", index), Format("0x%04X", wMixer, "The setting for the attribute of the Mixer Control"));
+			index ++;
+		}
+		return 4 + index * 2;
+	}		
+	else if (wLength == 2)
+	{
+		wMixer = NextDataWord_();
+		if (wMixer == 0x8000)
+		{
+			toolTip = "0x8000: -max dB (CUR attribute only)";
+		}
+		else
+		{
+			if (wMixer > 0x8000)
+			{
+				wMixer = wMixer | 0xFFFF0000; # make 2's comp for dword value
+			}
+			toolTip = Format("0x%04X:",wMixer) + Format(" %d * 0.00390625 dB",wMixer );
+		}
+		AddPayLoadCell("wMixer", Format("0x%04X", wMixer), toolTip);
+		return 4 + 2;
+	}/*
+	else if (wLength > 0)
+	{
+		AddExtraBytesPayloadCell(wLength);
+		return 4 + wLength;			
+	}*/
+	else
+	{
+		return 4;		
+	}
+}
+
+SelectorUnit()
+{
+	AddPayLoadCell("wValue", Format("0x%04X", wValue), "wValue, should set to zero", FieldColor, [_TABULARCELL, CELL_WVALUE, "TEXT_CAPTION"]);
+
+	number = NextNBits_(8);
+	if (bReqType == 0xA1 || bReqType == 0x21)
+	{
+		  VS= "ADR_LwIndex";
+			AddBlockPLCell("Interface", Format("0x%02X",number), Format("Interface %d",number));
+	}
+	else
+	{
+			VS= "ADR_LwIndex";
+			AddBlockPLCell("Unknown", Format("0x%02X",number), Format("Unknonw %d",number), _ERROR);
+	}
+	EntityId = NextNBits_(8);
+	AddPayLoadCell("EntityId", "Selector Unit ID", Format("EntityId = 0x%02X", EntityId));	
+	wLength = NextDataWord_();
+	AddPayLoadCell("wLength", Format("%d",wLength), Format("wLength = %d", wLength));
+	if (wLength == 1)	
+	{
+		bSelector = NextNBits_(8);
+		AddPayLoadCell("bSelector", Format("0x%02X", bSelector), "The setting for the attrbute of the Selector Control");
+		return 4 + 1;
+	}/*
+	else if (wLength > 0)
+	{
+		AddExtraBytesPayloadCell(wLength);
+		return 4 + wLength;			
+	}*/
+	else
+	{
+		return 4;		
+	}
+}
+
+FeatureUnit()
+{
+	CS = wValue >> 8;
+	_row = Find(AudioFeatureUnitControlSelectors_v1_Table, CS);
+	CN = wValue & 0x00FF;
+	VS = "ADR_wValue";
+	AddBlockPLCell("CS & CN", _row[1] + Format(" & 0x%02X", CN), "Control Selector(CS) and the channel number (CN)");
+
+	number = NextNBits_(8);
+	if (bReqType == 0xA1 || bReqType == 0x21)
+	{
+			VS= "ADR_LwIndex";
+			AddBlockPLCell("Interface", Format("0x%02X",number), Format("Interface %d",number));
+	}
+	else
+	{
+			VS= "ADR_LwIndex";
+			AddBlockPLCell("Unknown", Format("0x%02X",number), Format("Unknonw %d",number), _ERROR);
+	}
+	EntityId = NextNBits_(8);
+	AddPayLoadCell("EntityId", "Feature Unit ID", Format("EntityId = 0x%02X", EntityId));	
+	if ( CS != 0xFF && CS != 0x00)
+	{
+		wLength = NextDataWord_();
+		AddPayLoadCell("wLength", Format("%d",wLength), Format("wLength = %d", wLength));
+		return 2 + Call(_row[1]);
+	}
+	else
+	{
+		wLength = NextDataWord_();
+		AddPayLoadCell("wLength", Format("%d",wLength), Format("wLength = %d", wLength));
+		/*
+		if (wLength > 0)
+		{
+			AddExtraBytesPayloadCell(wLength);
+			return 4 + wLength;			
+		}
+		else
+		{
+			return 4;		
+		}
+		*/
+		return 4;
+	}
+}
+
+MUTE_CONTROL()
+{
+
+	if ((wValue & 0x00FF) == 0xFF)
+	{
+		for (i = 0; i < wLength; i++ )	
+		{
+			bMute = NextNBits_(8);
+			VS= "ADR_bMute";
+			AddBlockPLCell(Format("bMute %d",i), Format("0x%02X", bMute), "The setting for the addressed Mute Control’s CUR attribute.\nMuted when TRUE, not muted when FALSE.");
+		}
+		return 2 + i;
+	}
+	else if (wLength == 1)
+	{
+		bMute = NextNBits_(8);
+		AddPayLoadCell("bMute", Format("0x%02X", bMute), "The setting for the addressed Mute Control’s CUR attribute.\nMuted when TRUE, not muted when FALSE.");
+		return 2 + 1;
+	}/*
+	else if (wLength > 0)
+	{
+		AddExtraBytesPayloadCell(wLength);
+		return 2 + wLength;			
+	}*/
+	else
+	{
+		return 2;		
+	}
+}	
+		
+VOLUME_CONTROL()
+{
+
+	if ((wValue & 0x00FF) == 0xFF)
+	{
+		for (i = 0; 2 * i < wLength; i++ )	
+		{
+			wVolume = NextDataWord_();
+			if (wVolume == 0x8000)
+			{
+				toolTip = "0x8000: -max dB (CUR attribute only)";
+			}
+			else
+			{
+				if (wVolume > 0x8000)
+				{
+					wVolume = wVolume | 0xFFFF0000; # make 2's comp for dword value
+				}
+				toolTip = Format("Settings for Volume Control 0x%04X: ",wVolume) + Format("%d * 0.00390625 dB", wVolume);
+			}
+			VS= "ADR_wVolume";
+			AddBlockPLCell(Format("wVolume %d",i), Format("0x%04X", wVolume), toolTip);
+		}
+		return 2 + i * 2;
+	}
+	else if (wLength == 2)
+	{
+		wVolume = NextDataWord_();
+		if (wVolume == 0x8000)
+		{
+			toolTip = "0x8000: -max dB (CUR attribute only)";
+		}
+		else
+		{
+			decimal = wVolume;
+			if (wVolume > 0x8000)
+			{
+				decimal = wVolume | 0xFFFF0000; # make 2's comp for dword value
+			}
+			toolTip = Format("Settings for Volume Control 0x%04X: ",wVolume) + Format("%d * 0.00390625 dB", decimal);
+		}
+		AddPayLoadCell("wVolume", Format("0x%04X", wVolume), toolTip);
+		return 4;
+	}/*
+	else if (wLength > 0)
+	{
+		AddExtraBytesPayloadCell(wLength);
+		return 2 + wLength;			
+	}*/
+	else
+	{
+		return 2;		
+	}
+}
+
+BASS_CONTROL()
+{
+	if ((wValue & 0x00FF) == 0xFF)
+	{
+		for (i = 0; i < wLength; i++ )	
+		{
+			bBase = NextNBits_(8);
+			if (bBase > 0x7F)
+			{
+				bBase = bBase | 0xFFFFFF00; # make 2's comp for dword value
+			}
+			toolTip = Format("Settings for Bass Control 0x%02X: ",bBase) + Format("%d * 0.25 dB", bBase);
+			VS= "ADR_bBass";
+			AddBlockPLCell(Format("bBase %d",i), Format("0x%02X", bBase), toolTip);
+		}
+		return 2 + i;
+	}
+	else if (wLength == 1)
+	{
+		bBase = NextNBits_(8);
+		if (bBase > 0x7F)
+		{
+			bBase = bBase | 0xFFFFFF00; # make 2's comp for dword value
+		}
+		toolTip = Format("Settings for Bass Control 0x%02X: ",bBase) + Format("%d * 0.25 dB", bBase);
+		AddPayLoadCell("bBase", Format("0x%02X", bBase), toolTip);
+		return 2 + 1;
+	}/*
+	else if (wLength > 0)
+	{
+		AddExtraBytesPayloadCell(wLength);
+		return 2 + wLength;			
+	}*/
+	else
+	{
+		return 2;		
+	}
+}
+
+MID_CONTROL()
+{
+	if ((wValue & 0x00FF) == 0xFF)
+	{
+		for (i = 0; i < wLength; i++ )	
+		{
+			bMid = NextNBits_(8);
+			if (bMid > 0x7F)
+			{
+				bMid = bMid | 0xFFFFFF00; # make 2's comp for dword value
+			}
+			toolTip = Format("Settings for Mid Control 0x%02X: ",bBase) + Format("%d * 0.25 dB", bBase);
+			VS= "ADR_bMid";
+			AddBlockPLCell(Format("bMid %d",i), Format("0x%02X", bMid), toolTip);
+		}
+		return 2 + i;
+	}
+	else if (wLength == 1)
+	{
+		bMid = NextNBits_(8);
+		if (bMid > 0x7F)
+		{
+			bMid = bMid | 0xFFFFFF00; # make 2's comp for dword value
+		}
+		toolTip = Format("Settings for Mid Control 0x%02X: ",bBase) + Format("%d * 0.25 dB", bBase);
+		AddPayLoadCell("bMid", Format("0x%02X", bMid), toolTip);
+		return 2 + 1;
+	}/*
+	else if (wLength > 0)
+	{
+		AddExtraBytesPayloadCell(wLength);
+		return 2 + wLength;			
+	}*/
+	else
+	{
+		return 2;		
+	}
+}
+
+TREBLE_CONTROL()
+{
+
+	if ((wValue & 0x00FF) == 0xFF)
+	{
+		for (i = 0; i < wLength; i++ )	
+		{
+			bTreble = NextNBits_(8);
+			if (bTreble > 0x7F)
+			{
+				bTreble = bTreble | 0xFFFFFF00; # make 2's comp for dword value
+			}
+			toolTip = Format("Settings for Treble Control 0x%02X: ",bBase) + Format("%d * 0.25 dB", bBase);
+			VS= "ADR_bTreble";
+			AddBlockPLCell(Format("bTreble %d",i), Format("0x%02X", bTreble), toolTip);
+		}
+		return 2 + i;
+	}
+	else if (wLength == 1)
+	{
+		bTreble = NextNBits_(8);
+		if (bTreble > 0x7F)
+		{
+			bTreble = bTreble | 0xFFFFFF00; # make 2's comp for dword value
+		}
+		toolTip = Format("Settings for Treble Control 0x%02X: ",bBase) + Format("%d * 0.25 dB", bBase);
+		AddPayLoadCell("bTreble", Format("0x%02X", bTreble), toolTip);
+		return 2 + 1;
+	}/*
+	else if (wLength > 0)
+	{
+		AddExtraBytesPayloadCell(wLength);
+		return 2 + wLength;			
+	}*/
+	else
+	{
+		return 2;		
+	}
+}
+
+GRAPHIC_EQUALIZER_CONTROL()
+{
+	if (wLength >= 4)
+	{
+		bmBandsPresent = NextNBits_(32);
+		AddPayLoadCell("bmBandsPresent", Format("0x%08X", bmBandsPresent), "A bit set indicates the band is present:\nD0: Band 14\nB1: Band 15\n...\nD29:Band 43\nD30: Reserved\n...");
+		for (i = 4; i < wLength ; i ++)
+		{
+			bBand = NextNBits_(8);
+			if (bBand > 0x7F)
+			{
+				bBand = bBand | 0xFFFFFF00; # make 2's comp for dword value
+			}
+			toolTip = Format("Settings for Band Control 0x%02X: ",bBase) + Format("%d * 0.25 dB", bBase);
+			VS= "ADR_bBand";
+			AddBlockPLCell(Format("bBand %d",i-4), Format("0x%02X", bBand), toolTip);
+		}
+	}/*
+	else if (wLength > 0)
+	{
+		AddExtraBytesPayloadCell(wLength);
+		return 2 + wLength;			
+	}*/
+	else
+	{
+		return 2;		
+	}
+}
+	
+AUTOMATIC_GAIN_CONTROL()
+{
+
+	if ((wValue & 0x00FF) == 0xFF)
+	{
+		for (i = 0; i < wLength; i++ )	
+		{
+			bAGC = NextNBits_(8);
+			VS= "ADR_bAGC";
+			AddBlockPLCell(Format("bAGC %d",i), Format("0x%02X", bAGC), "The setting for the attribute of the addressed Automatic Gain Control.\nOn when TRUE, off when FALSE.");
+		}
+		return 2 + i;
+	}
+	else if (wLength == 1)
+	{
+		bAGC = NextNBits_(8);
+		AddPayLoadCell("bAGC", Format("0x%02X", bAGC), "The setting for the attribute of the addressed Automatic Gain Control.\nOn when TRUE, off when FALSE.");
+		return 2 + 1;
+	}/*
+	else if (wLength > 0)
+	{
+		AddExtraBytesPayloadCell(wLength);
+		return 2 + wLength;			
+	}*/
+	else
+	{
+		return 2;		
+	}
+}	
+		
+DELAY_CONTROL()
+{
+
+	if ((wValue & 0x00FF) == 0xFF)
+	{
+		for (i = 0; 2 * i < wLength; i++ )	
+		{
+			wDelay = NextDataWord_();
+			VS= "ADR_wDelay";
+			AddBlockPLCell(Format("wDelay %d",i), Format("0x%04X", wDelay), Format("0x%04X", wDelay) + Format(":  %d * 0.015625 ms", wDelay));
+		}
+		return 2 + i * 2;
+	}
+	else if (wLength == 2)
+	{
+		wDelay = NextDataWord_();
+		AddPayLoadCell("wDelay", Format("0x%04X", wDelay), Format("0x%04X", wDelay) + Format(":  %d * 0.015625 ms", wDelay));
+		return 4;
+	}/*
+	else if (wLength > 0)
+	{
+		AddExtraBytesPayloadCell(wLength);
+		return 2 + wLength;			
+	}*/
+	else
+	{
+		return 2;		
+	}
+}
+
+BASS_BOOST_CONTROL()
+{
+
+	if ((wValue & 0x00FF) == 0xFF)
+	{
+		for (i = 0; i < wLength; i++ )	
+		{
+			bBassBoost = NextNBits_(8);
+			VS= "ADR_bBassBoost";
+			AddBlockPLCell(Format("bBassBoost %d",i), Format("0x%02X", bBassBoost), "The setting for the addressed Bass Boost Control’s CUR attribute.\nOn when TRUE, off when FALSE.");
+		}
+		return 2 + i;
+	}
+	else if (wLength == 1)
+	{
+		bBassBoost = NextNBits_(8);
+		AddPayLoadCell("bBassBoost", Format("0x%02X", bBassBoost), "The setting for the addressed Bass Boost Control’s CUR attribute.\nOn when TRUE, off when FALSE.");
+		return 2 + 1;
+	}/*
+	else if (wLength > 0)
+	{
+		AddExtraBytesPayloadCell(wLength);
+		return 2 + wLength;			
+	}*/
+	else
+	{
+		return 2;		
+	}
+}	
+
+LOUDNESS_CONTROL()
+{
+
+	if ((wValue & 0x00FF) == 0xFF)
+	{
+		for (i = 0; i < wLength; i++ )	
+		{
+			bLoudness = NextNBits_(8);
+			VS= "ADR_bLoudness";
+			AddBlockPLCell(Format("bLoudness %d",i), Format("0x%02X", bLoudness), "The setting for the addressed Loudness Control’s CUR attribute.\nOn when TRUE, off when FALSE.");
+		}
+		return 2 + i;
+	}
+	else if (wLength == 1)
+	{
+		bLoudness = NextNBits_(8);
+		AddPayLoadCell("bLoudness", Format("0x%02X", bLoudness), "The setting for the addressed Loudness Control’s CUR attribute.\nOn when TRUE, off when FALSE.");
+		return 2 + 1;
+	}/*
+	else if (wLength > 0)
+	{
+		AddExtraBytesPayloadCell(wLength);
+		return 2 + wLength;			
+	}*/
+	else
+	{
+		return 2;		
+	}
+}
+
+ProcessingUnit_UP_DOWNMIX()
+{
+	CS = wValue;
+	_row = Find(AudioUpDownMixProcessingUnitControlSelectors_v1_Table, CS);
+
+	number = NextNBits_(8);
+	if (bReqType == 0xA1 || bReqType == 0x21)
+	{
+			VS= "ADR_LwIndex";
+			AddBlockPLCell("Interface", Format("0x%02X",number), Format("Interface %d",number));
+	}
+	else
+	{
+			VS= "ADR_LwIndex";
+			AddBlockPLCell("Unknown", Format("0x%02X",number), Format("Unknonw %d",number), _ERROR);
+	}	
+	EntityId = NextNBits_(8);
+	AddPayLoadCell("EntityId", "Processing Unit ID/UP DOWN MIX", Format("EntityId = 0x%02X", EntityId));	
+	if ( CS != 0xFF && CS != 0x00)
+	{
+			wLength = NextDataWord_();
+		  AddPayLoadCell("wLength", Format("%d",wLength), Format("wLength = %d", wLength));
+		  return 2 + Call(_row[1]);
+	}
+	else
+	{
+		wLength = NextDataWord_();
+		AddPayLoadCell("wLength", Format("%d",wLength), Format("wLength = %d", wLength));
+		/*
+		if (wLength > 0)
+		{
+			AddExtraBytesPayloadCell(wLength);
+			return 4 + wLength;			
+		}
+		else
+		{
+			return 4;		
+		}
+		*/
+		return 4;
+	}
+}
+
+UD_ENABLE_CONTROL()
+{
+
+	if (wLength == 1)
+	{
+		bEnable = NextNBits_(8);
+		AddPayLoadCell("bEnable", Format("0x%02X", bEnable), "The setting for the Enable Processing Control CUR attribute.\nEnabled when TRUE, disabled when FALSE.");
+		return 2 + 1;
+	}/*
+	else if (wLength > 0)
+	{
+		AddExtraBytesPayloadCell(wLength);
+		return 2 + wLength;			
+	}*/
+	else
+	{
+		return 2;		
+	}
+}
+
+UD_MODE_SELECT_CONTROL()
+{
+
+	if (wLength == 1)
+	{
+		bMode = NextNBits_(8);
+		AddPayLoadCell("bMode", Format("0x%02X", bMode), "The setting for the attribute of the Mode Select Control.");
+		return 2 + 1;
+	}/*
+	else if (wLength > 0)
+	{
+		AddExtraBytesPayloadCell(wLength);
+		return 2 + wLength;			
+	}*/
+	else
+	{
+		return 2;		
+	}
+}
+	
+ProcessingUnit_DOLBY_PROLOGIC()
+{
+	CS = wValue;
+	_row = Find(AudioDolbyPrologicProcessingUnitControlSelectors_v1_Table, CS);
+
+	number = NextNBits_(8);
+	if (bReqType == 0xA1 || bReqType == 0x21)
+	{
+			VS= "ADR_LwIndex";
+			AddBlockPLCell("Interface", Format("0x%02X",number), Format("Interface %d",number));
+	}
+	else
+	{
+			VS= "ADR_LwIndex";
+			AddBlockPLCell("Unknown", Format("0x%02X",number), Format("Unknonw %d",number), _ERROR);
+	}
+	EntityId = NextNBits_(8);
+	AddPayLoadCell("EntityId", "Processing Unit ID/DOLBY_PROLOGIC", Format("EntityId = 0x%02X", EntityId));		
+	if ( CS != 0xFF && CS != 0x00)
+	{
+		wLength = NextDataWord_();
+		AddPayLoadCell("wLength", Format("%d",wLength), Format("wLength = %d", wLength));
+		return 2 + Call(_row[1]);
+	}
+	else
+	{
+		wLength = NextDataWord_();
+		AddPayLoadCell("wLength", Format("%d",wLength), Format("wLength = %d", wLength));
+		/*
+		if (wLength > 0)
+		{
+			AddExtraBytesPayloadCell(wLength);
+			return 4 + wLength;			
+		}
+		else
+		{
+			return 4;		
+		}
+		*/
+		return 4;
+	}
+}
+
+DP_ENABLE_CONTROL()
+{
+
+	if (wLength == 1)
+	{
+		bEnable = NextNBits_(8);
+		AddPayLoadCell("bEnable", Format("0x%02X", bEnable), "The setting for the Enable Processing Control CUR attribute.\nEnabled when TRUE, disabled when FALSE.");
+		return 2 + 1;
+	}/*
+	else if (wLength > 0)
+	{
+		AddExtraBytesPayloadCell(wLength);
+		return 2 + wLength;			
+	}*/
+	else
+	{
+		return 2;		
+	}
+}
+
+DP_MODE_SELECT_CONTROL()
+{
+
+	if (wLength == 1)
+	{
+		bMode = NextNBits_(8);
+		AddPayLoadCell("bMode", Format("0x%02X", bMode), "The setting for the attribute of the Mode Select Control.");
+		return 2 + 1;
+	}/*
+	else if (wLength > 0)
+	{
+		AddExtraBytesPayloadCell(wLength);
+		return 2 + wLength;			
+	}*/
+	else
+	{
+		return 2;		
+	}
+}
+
+
+ProcessingUnit_AUDIO_3D_STEREO_EXTENDER()
+{
+	CS = wValue;
+	_row = Find(Audio3DStereoExtenderProcessingUnitControlSelectors_v1_Table, CS);
+
+	number = NextNBits_(8);
+	if (bReqType == 0xA1 || bReqType == 0x21)
+	{
+			VS= "ADR_LwIndex";
+			AddBlockPLCell("Interface", Format("0x%02X",number), Format("Interface %d",number));
+	}
+	else
+	{
+			VS= "ADR_LwIndex";
+			AddBlockPLCell("Unknown", Format("0x%02X",number), Format("Unknonw %d",number), _ERROR);
+	}	
+	EntityId = NextNBits_(8);
+	AddPayLoadCell("EntityId", "Processing Unit ID/AUDIO_3D_STEREO_EXTENDER", Format("EntityId = 0x%02X", EntityId));
+	if ( CS != 0xFF && CS != 0x00)
+	{
+		wLength = NextDataWord_();
+		AddPayLoadCell("wLength", Format("%d",wLength), Format("wLength = %d", wLength));
+		return 2 + Call(_row[1]);
+	}
+	else
+	{
+		wLength = NextDataWord_();
+		AddPayLoadCell("wLength", Format("%d",wLength), Format("wLength = %d", wLength));
+		/*
+		if (wLength > 0)
+		{
+			AddExtraBytesPayloadCell(wLength);
+			return 4 + wLength;			
+		}
+		else
+		{
+			return 4;		
+		}
+		*/
+		return 4;
+	}
+}
+
+AUDIO_3D_ENABLE_CONTROL()
+{
+	if (wLength == 1)
+	{
+		bEnable = NextNBits_(8);
+		AddPayLoadCell("bEnable", Format("0x%02X", bEnable), "The setting for the Enable Processing Control CUR attribute.\nEnabled when TRUE, disabled when FALSE.");
+		return 2 + 1;
+	}/*
+	else if (wLength > 0)
+	{
+		AddExtraBytesPayloadCell(wLength);
+		return 2 + wLength;			
+	}*/
+	else
+	{
+		return 2;		
+	}
+}
+
+AUDIO_SPACIOUSNESS_CONTROL()
+{
+
+	if (wLength == 1)
+	{
+		bSpaciousness = NextNBits_(8);
+		AddPayLoadCell("bSpaciousness", Format("0x%02X", bSpaciousness), "The setting for the attribute of the Spaciousness Control.");
+		return 2 + 1;
+	}/*
+	else if (wLength > 0)
+	{
+		AddExtraBytesPayloadCell(wLength);
+		return 2 + wLength;			
+	}*/
+	else
+	{
+		return 2;		
+	}
+}
+
+
+ProcessingUnit_REVERBERATION()
+{
+	CS = wValue;
+	_row = Find(AudioReverberationProcessingUnitControlSelectors_v1_Table, CS);
+
+	number = NextNBits_(8);
+	if (bReqType == 0xA1 || bReqType == 0x21)
+	{
+			VS= "ADR_LwIndex";
+			AddBlockPLCell("Interface", Format("0x%02X",number), Format("Interface %d",number));
+	}
+	else
+	{
+			VS= "ADR_LwIndex";
+			AddBlockPLCell("Unknown", Format("0x%02X",number), Format("Unknonw %d",number), _ERROR);
+	}
+	EntityId = NextNBits_(8);
+	AddPayLoadCell("EntityId", "Processing Unit ID/REVERBERATION", Format("EntityId = 0x%02X", EntityId));	
+	if ( CS != 0xFF && CS != 0x00)
+	{
+		wLength = NextDataWord_();
+		AddPayLoadCell("wLength", Format("%d",wLength), Format("wLength = %d", wLength));
+		return 2 + Call(_row[1]);
+	}
+	else
+	{
+		wLength = NextDataWord_();
+		AddPayLoadCell("wLength", Format("%d",wLength), Format("wLength = %d", wLength));
+		/*
+		if (wLength > 0)
+		{
+			AddExtraBytesPayloadCell(wLength);
+			return 4 + wLength;			
+		}
+		else
+		{
+			return 4;		
+		}
+		*/
+		return 4;
+	}
+}
+
+RV_ENABLE_CONTROL()
+{
+	if (wLength == 1)
+	{
+		bEnable = NextNBits_(8);
+		AddPayLoadCell("bEnable", Format("0x%02X", bEnable), "The setting for the Enable Processing Control CUR attribute.\nEnabled when TRUE, disabled when FALSE.");
+		return 2 + 1;
+	}/*
+	else if (wLength > 0)
+	{
+		AddExtraBytesPayloadCell(wLength);
+		return 2 + wLength;			
+	}*/
+	else
+	{
+		return 2;		
+	}
+}
+
+REVERB_LEVEL_CONTROL()
+{
+	if (wLength == 1)
+	{
+		bReverbLevel = NextNBits_(8);
+		AddPayLoadCell("bReverbLevel", Format("0x%02X", bReverbLevel), "The setting for the attribute of the Reverb Level Control.");
+		return 2 + 1;
+	}/*
+	else if (wLength > 0)
+	{
+		AddExtraBytesPayloadCell(wLength);
+		return 2 + wLength;			
+	}*/
+	else
+	{
+		return 2;		
+	}
+}
+	
+REVERB_TIME_CONTROL()
+{
+
+	if (wLength == 2)
+	{
+		wReverbTime = NextDataWord_();
+		AddPayLoadCell("wReverbTime", Format("0x%04X", wReverbTime), "The setting for the attribute of the Reverb Time Control.");
+		return 2 + 2;
+	}/*
+	else if (wLength > 0)
+	{
+		AddExtraBytesPayloadCell(wLength);
+		return 2 + wLength;			
+	}*/
+	else
+	{
+		return 2;		
+	}
+}
+
+REVERB_FEEDBACK_CONTROL()
+{
+
+	if (wLength == 1)
+	{
+		breverbFeedback = NextNBits_(8);
+		AddPayLoadCell("breverbFeedback", Format("0x%02X", breverbFeedback), "The setting for the attribute of the Reverb Delay Feedback Control.");
+		return 2 + 1;
+	}/*
+	else if (wLength > 0)
+	{
+		AddExtraBytesPayloadCell(wLength);
+		return 2 + wLength;			
+	}*/
+	else
+	{
+		return 2;		
+	}
+}
+	
+ProcessingUnit_CHORUS()
+{
+	CS = wValue;
+	_row = Find(AudioChorusProcessingUnitControlSelectors_v1_Table, CS);
+
+	number = NextNBits_(8);
+	if (bReqType == 0xA1 || bReqType == 0x21)
+	{
+			VS= "ADR_LwIndex";
+			AddBlockPLCell("Interface", Format("0x%02X",number), Format("Interface %d",number));
+	}
+	else
+	{
+			VS= "ADR_LwIndex";
+			AddBlockPLCell("Unknown", Format("0x%02X",number), Format("Unknonw %d",number), _ERROR);
+	}	
+	EntityId = NextNBits_(8);
+	AddPayLoadCell("EntityId", "Processing Unit ID/CHORUS", Format("EntityId = 0x%02X", EntityId));	
+	if ( CS != 0xFF && CS != 0x00)
+	{
+		wLength = NextDataWord_();
+		AddPayLoadCell("wLength", Format("%d",wLength), Format("wLength = %d", wLength));
+		return 2 + Call(_row[1]);
+	}
+	else
+	{
+		wLength = NextDataWord_();
+		AddPayLoadCell("wLength", Format("%d",wLength), Format("wLength = %d", wLength));
+		/*
+		if (wLength > 0)
+		{
+			AddExtraBytesPayloadCell(wLength);
+			return 4 + wLength;			
+		}
+		else
+		{
+			return 4;		
+		}
+		*/
+		return 4;
+	}
+}
+
+CH_ENABLE_CONTROL()
+{
+	if (wLength == 1)
+	{
+		bEnable = NextNBits_(8);
+		AddPayLoadCell("bEnable", Format("0x%02X", bEnable), "The setting for the Enable Processing Control CUR attribute.\nEnabled when TRUE, disabled when FALSE.");
+		return 2 + 1;
+	}/*
+	else if (wLength > 0)
+	{
+		AddExtraBytesPayloadCell(wLength);
+		return 2 + wLength;			
+	}*/
+	else
+	{
+		return 2;		
+	}
+}
+
+CHORUS_LEVEL_CONTROL()
+{
+	if (wLength == 1)
+	{
+		bChorusLevel = NextNBits_(8);
+		AddPayLoadCell("bChorusLevel", Format("0x%02X", bChorusLevel), "The setting for the attribute of the Chorus Level Control.");
+		return 2 + 1;
+	}/*
+	else if (wLength > 0)
+	{
+		AddExtraBytesPayloadCell(wLength);
+		return 2 + wLength;			
+	}*/
+	else
+	{
+		return 2;		
+	}
+}
+
+CHORUS_RATE_CONTROL()
+{
+
+	if (wLength == 2)
+	{
+		wChorusRate = NextDataWord_();
+		AddPayLoadCell("wChorusRate", Format("0x%04X", wChorusRate), "The setting for the attribute of the Chorus Modulation Rate Control.");
+		return 2 + 2;
+	}/*
+	else if (wLength > 0)
+	{
+		AddExtraBytesPayloadCell(wLength);
+		return 2 + wLength;			
+	}*/
+	else
+	{
+		return 2;		
+	}
+}
+		
+CHORUS_DEPTH_CONTROL()
+{
+
+	if (wLength == 2)
+	{
+		wChorusDepth = NextDataWord_();
+		AddPayLoadCell("wChorusDepth", Format("0x%04X", wChorusDepth), "The setting for the attribute of the Chorus Modulation Depth Control.");
+		return 2 + 2;
+	}/*
+	else if (wLength > 0)
+	{
+		AddExtraBytesPayloadCell(wLength);
+		return 2 + wLength;			
+	}*/
+	else
+	{
+		return 2;		
+	}
+}
+
+ProcessingUnit_DYN_RANGE_COMP()
+{
+	CS = wValue;
+	_row = Find(AudioDynamicRangeCompressorProcessingUnitControlSelectors_v1_Table, CS);
+	
+	number = NextNBits_(8);
+	if (bReqType == 0xA1 || bReqType == 0x21)
+	{
+			VS= "ADR_LwIndex";
+			AddBlockPLCell("Interface", Format("0x%02X",number), Format("Interface %d",number));
+	}
+	else
+	{
+			VS= "ADR_LwIndex";
+			AddBlockPLCell("Unknown", Format("0x%02X",number), Format("Unknonw %d",number), _ERROR);
+	}	
+	EntityId = NextNBits_(8);
+	AddPayLoadCell("EntityId", "Processing Unit ID/DYN_RANGE_COMP", Format("EntityId = 0x%02X", EntityId));
+	if ( CS != 0xFF && CS != 0x00)
+	{
+		wLength = NextDataWord_();
+		AddPayLoadCell("wLength", Format("%d",wLength), Format("wLength = %d", wLength));
+		return 2 + Call(_row[1]);
+	}
+	else
+	{
+		wLength = NextDataWord_();
+		AddPayLoadCell("wLength", Format("%d",wLength), Format("wLength = %d", wLength));
+		/*
+		if (wLength > 0)
+		{
+			AddExtraBytesPayloadCell(wLength);
+			return 4 + wLength;			
+		}
+		else
+		{
+			return 4;		
+		}
+		*/
+		return 4;
+	}
+}
+
+DR_ENABLE_CONTROL()
+{
+
+	if (wLength == 1)
+	{
+		bEnable = NextNBits_(8);
+		AddPayLoadCell("bEnable", Format("0x%02X", bEnable), "The setting for the Enable Processing Control CUR attribute.\nEnabled when TRUE, disabled when FALSE.");
+		return 2 + 1;
+	}/*
+	else if (wLength > 0)
+	{
+		AddExtraBytesPayloadCell(wLength);
+		return 2 + wLength;			
+	}*/
+	else
+	{
+		return 2;		
+	}
+}
+
+COMPRESSION_RATE_CONTROL()
+{
+
+	if (wLength == 2)
+	{
+		wRatio = NextDataWord_();
+		AddPayLoadCell("wRatio", Format("0x%04X", wRatio), "The setting for the attribute of the Compression Ratio Control.");
+		return 2 + 2;
+	}/*
+	else if (wLength > 0)
+	{
+		AddExtraBytesPayloadCell(wLength);
+		return 2 + wLength;			
+	}*/
+	else
+	{
+		return 2;		
+	}
+}
+
+MAXAMPL_CONTROL()
+{
+
+	if (wLength == 2)
+	{
+		wMaxAmpl = NextDataWord_();
+		AddPayLoadCell("wMaxAmpl", Format("0x%04X", wMaxAmpl), "The setting for the attribute of the MaxAmpl Control.");
+		return 2 + 2;
+	}/*
+	else if (wLength > 0)
+	{
+		AddExtraBytesPayloadCell(wLength);
+		return 2 + wLength;			
+	}*/
+	else
+	{
+		return 2;		
+	}
+}
+
+THRESHOLD_CONTROL()
+{
+
+	if (wLength == 2)
+	{
+		wThreshold = NextDataWord_();
+		AddPayLoadCell("wThreshold", Format("0x%04X", wThreshold), "The setting for the attribute of the Threshold Control.");
+		return 2 + 2;
+	}/*
+	else if (wLength > 0)
+	{
+		AddExtraBytesPayloadCell(wLength);
+		return 2 + wLength;			
+	}*/
+	else
+	{
+		return 2;		
+	}
+}
+
+ATTACK_TIME()
+{
+
+	if (wLength == 2)
+	{
+		wAttackTime = NextDataWord_();
+		AddPayLoadCell("wAttackTime", Format("0x%04X", wAttackTime), "The setting for the attribute of the Attack Time Control.");
+		return 2 + 2;
+	}/*
+	else if (wLength > 0)
+	{
+		AddExtraBytesPayloadCell(wLength);
+		return 2 + wLength;			
+	}*/
+	else
+	{
+		return 2;		
+	}
+}
+
+RELEASE_TIME()
+{
+
+	if (wLength == 2)
+	{
+		wReleaseTime = NextDataWord_();
+		AddPayLoadCell("wReleaseTime", Format("0x%04X", wReleaseTime), "The setting for the attribute of the Release Time Control.");
+		return 2 + 2;
+	}/*
+	else if (wLength > 0)
+	{
+		AddExtraBytesPayloadCell(wLength);
+		return 2 + wLength;			
+	}*/
+	else
+	{
+		return 2;		
+	}
+}
+
+ExtensionUnit()
+{
+	_row = Find(AudioExtensionUnitControlSelectors_v1_Table, wValue);
+	AddPayLoadCell("wValue", _row[1], "Control Selector", FieldColor, [_TABULARCELL, CELL_WVALUE, "TEXT_CAPTION"]);
+
+	number = NextNBits_(8);
+	if (bReqType == 0xA1 || bReqType == 0x21)
+	{
+			VS= "ADR_LwIndex";
+			AddBlockPLCell("Interface", Format("0x%02X",number), Format("Interface %d",number));
+	}
+	else
+	{
+			VS= "ADR_LwIndex";
+			AddBlockPLCell("Unknown", Format("0x%02X",number), Format("Unknonw %d",number), _ERROR);
+	}
+	EntityId = NextNBits_(8);
+	AddPayLoadCell("EntityId", "Terminal ID", Format("EntityId = 0x%02X", EntityId));
+	if (_row[0] != 0xFF && _row[0] != 0x00)
+	{
+		wLength = NextDataWord_();
+		AddPayLoadCell("wLength", Format("%d",wLength), Format("wLength = %d", wLength));
+		return 2 + Call(_row[1]);
+	}
+	else
+	{
+		wLength = NextDataWord_();
+		AddPayLoadCell("wLength", Format("%d",wLength), Format("wLength = %d", wLength));
+		/*
+		if (wLength > 0)
+		{
+			AddExtraBytesPayloadCell(wLength);
+			return 4 + wLength;			
+		}
+		else
+		{
+			return 4;		
+		}
+		*/
+		return 4;
+	}
+}
+
+
+XU_ENABLE_CONTROL()
+{
+
+	if (wLength == 1)
+	{
+		bOn = NextNBits_(8);
+		AddPayLoadCell("bOn", Format("0x%02X", bOn), "The setting for the Enable Processing Control.\nEnabled when TRUE, disabled when FALSE.");
+		return 2 + 1;
+	}/*
+	else if (wLength > 0)
+	{
+		AddExtraBytesPayloadCell(wLength);
+		return 2 + wLength;			
+	}*/
+	else
+	{
+		return 2;		
+	}
+}
+
+SAMPLING_FREQ_CONTROL()
+{
+	  wIndex = NextDataWord_();
+	  AddPayLoadCell("wIndex", Format("Endpoint 0x%04X", wIndex), Format(" Endpoint = %d", wIndex));
+	  wLength = NextDataWord_();
+	  
+		if (wLength == 3)
+		{
+			tSampleFreq = NextData3Bytes_();
+			AddPayLoadCell("tSampleFreq", Format("0x%06X Hz", tSampleFreq), "The sampling frequency expressed in Hz.");
+			return 4 + 3;
+		}/*
+		else if (wLength > 0)
+		{
+			AddExtraBytesPayloadCell(wLength);
+			return 4 + wLength;			
+		}*/
+		else
+		{
+			return 4;		
+		}
+}  
+
+PITCH_CONTROL()
+{
+	  wIndex = NextDataWord_();
+	  AddPayLoadCell("wIndex", Format("Endpoint 0x%04X", wIndex), Format(" Endpoint = %d", wIndex));
+	  wLength = NextDataWord_();
+		if (wLength == 1)
+		{
+			bPitchEnable = NextNBits_(8);
+			AddPayLoadCell("bPitchEnable", Format("0x%02X", bPitchEnable), "Pitch Control on when TRUE, off when FALSE.");
+			return 4 + 1;
+		}/*
+		else if (wLength > 0)
+		{
+			AddExtraBytesPayloadCell(wLength);
+			return 4 + wLength;			
+		}*/
+		else
+		{
+			return 4;		
+		}
+}
+
+ASSOCIATION_CONTROL()
+{
+	  wIndex = NextDataWord_();
+	  AddPayLoadCell("wIndex", Format("Endpoint 0x%04X", wIndex), Format(" Endpoint = %d", wIndex));
+	  wLength = NextDataWord_();
+		if (wLength == 1)
+		{
+			bEntityID = NextNBits_(8);
+			AddPayLoadCell("bEntityID", Format("0x%02X", bEntityID), "The ID of the Entity that is currently associated with this endpoint.");
+			return 4 + 1;
+		}/*
+		else if (wLength > 0)
+		{
+			AddExtraBytesPayloadCell(wLength);
+			return 4 + wLength;			
+		}*/
+		else
+		{
+			return 4;		
+		}
+}
+
+####################################################################################
+#                       USBTracer specific caption cell                            #
+####################################################################################
+
+AddSpecCaptionCell(caption, text, tooltip, FieldColor, addparam, addparam1, addparam2 )
+{
+    AddCell(caption, text, tooltip, FieldColor, _USBBULK_HEADER, addparam, addparam1, addparam2 );
+    return 1;
+}

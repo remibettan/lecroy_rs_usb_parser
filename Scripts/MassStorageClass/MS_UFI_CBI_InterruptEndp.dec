@@ -1,0 +1,49 @@
+#
+#  Copyright (c) 2003, Computer Access Technology Corp. - All Rights Reserved
+#
+#  MS_UFI_CBI_InterruptEndp.dec
+#
+#  Mass Storage UFI Control-Bulk-Interrupt Interrupt Endpoint Decoder
+#
+
+%include "CATCScriptAPI.inc"    #include usefull decoder functions
+%include "UsbCommon.inc"
+
+%include "MS_Common.inc"
+%include "MS_CBI_InterruptEndp.inc"
+
+
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block 
+#
+#----  Output
+# out.Decoded   - amount of data has been decoded
+#
+
+
+set OutputType     = "Mass Strg UFI CBI Interrupt Endp";
+set UsbDecodeType  = "Endpoint";
+set UsbEndpId      = 9; # just a unique value for each endpoint of the same Class/Vendor/Product to distinguish them
+set UsbClassCode   = 0x8; # Mass Storage Class
+set UsbSubClass    = 0x4; #This one is UFI
+set UsbEndpType    = "Interrupt";
+set UsbEndpDir     = "In";
+set UsbMaxXferSize = 2;   
+set UsbScriptDecodeType  = 2; # Combined decoding for Cells and Text decoding  
+
+#
+# Parsing entry point
+#
+
+ProcessData()
+{
+    InitType2Decoder();
+    ProcessCBIEndpointData();
+    return Complete();
+}
+
+
+  
+ 

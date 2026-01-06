@@ -1,0 +1,3015 @@
+#S******************************************************************************
+#*
+#*  FILENAME: StandardRequests.dec
+#*
+#*  Copyright (C) 1999 Computer Access Technology Corporation
+#*
+#*  DESCRIPTION
+#*    This is the request file for standard WUSB device requests.
+#*    This is the original file from USB device requests v 1.0
+#*    This file is prepared as per the WUSB Specification Revision 1.0.
+#*
+#*  REVISION HISTORY
+#*            File Created -mp-
+#*    27MAY99 Added description for the requests -ag-
+#*    09AUG99 Modified to correct typo -ag-
+#*    01OCT01 Added OTG SET_FEATURE Feature Selectors -dhj-
+#*    14DEC05 Convert to WUSB spec 1.0 request      -JZ-
+#*    03JAN06 WA_Descriptors.inc and Hid_descr.inc include paths corrected (missing "..\")
+#*    08JUN07 Added include file "StandardRequests_EDIT_OTG_WUSB_FLAG.inc" and
+#*            updated code in SET_FEATURE to use StdReqDeviceTypeFLAG and properly
+#*            decode between OTG & WUSB Devices. Also removed tabs. - RK
+#*    10JUN08 Updated according to USB 3.0 ver0.85 
+#*    05JUL08 Added error handling  
+#*    01SEP08 Updated according to USB 3.0 ver0.9   
+#*******************************************************************************
+%include "CATCScriptAPI.inc"             #.inc files that are included
+%include "UsbCommon.inc"
+%include "Companies.inc"
+#%include "StandardDescriptors.inc"
+%include "WA_Descriptors.inc"
+%include "Hid_descr.inc"
+%include "StandardRequests_EDIT_OTG_WUSB_FLAG.inc"
+%include "StandardRequestsForUSB3.inc"
+%include "ErrorHandlingMessages.inc"
+
+const Tabular_Def_Table = Map( 
+[   
+    #-----------------------------------------------------------------------------------------------------
+    #       id           ,      colId                          , 		containerCellId
+    #-----------------------------------------------------------------------------------------------------
+    [ CELL_REQUEST   , TABULAR_SCRIPT_COLUMN_ID_SUBTYPE  , TABULAR_SCRIPT_CONTAINER_CELL_ID_NONE ],
+    [ CELL_WVALUE    , TABULAR_SCRIPT_COLUMN_ID_NONE     , TABULAR_SCRIPT_CONTAINER_CELL_ID_MISC ]
+   
+] );
+
+##//ViewSettings
+#############################################################################
+#                               View Settings                               #
+#############################################################################
+#
+#    In this section user can set up which fields are to be shown and
+#    which are to be hidden in expanded and collapsed states.
+#    Zero-value everywhere means that fields will not be shown,
+#    otherwise means opposite.
+#
+
+
+# ----------------------- All Field View Settings ---------------------------
+#   These settings have priority above separate field View Settings in
+#   expanded state ONLY.
+#   In order separate field View Settings to work properly
+#   BOTH All Field View Settings should be set to 0.
+#
+#   Due to the fact that ViewAll-setting and HideAll-setting are
+#   exceptive propositions - ViewAll has been set a higher priority.
+#
+#
+#  Prefix =  "WSB";
+# ---------------------------------------------------------------------------
+
+const WSB_ViewAll              = 0;
+const WSB_HideAll              = 0;
+# ---------------------------------------------------------------------------
+
+
+# -----------------------  Separate Field View Settings ---------------------
+# The FIRST value in list-variables defines if the field is to be shown or
+# hidden in COLLAPSED state.
+# 0 - means the field is to be shown.
+# 1 - means the field is to be hidden.
+#
+# The SECOND value in list-variables defines if the field is to be shown or
+# hidden in EXPANDED state.
+# 0 - means the field is to be shown.
+# 1 - means the field is to be hidden.
+#
+# i.e.  const XPR_Field = [0, 1]; - means that field 'Field' will be hidden
+# in collapsed state and will be shown in expanded state.
+#
+
+
+#                   [collapsed, expanded]
+const WSB_bReqType           = [1, 1];
+const WSB_bRequest           = [1, 1];
+const WSB_wValue             = [1, 1];
+const WSB_wIndex             = [1, 1];
+const WSB_wLength            = [1, 1];
+const WSB_Data_Selct         = [1, 0];
+const WSB_LQI                = [1, 0];
+const WSB_MAS_Availability   = [1, 1];
+const WSB_Notif_TP           = [1, 0];
+const WSB_Bcn_TP             = [1, 0];
+const WSB_Count_Packets      = [1, 1];
+const WSB_Packet_Counts      = [1, 0];
+const WSB_Overrun            = [1, 0];
+const WSB_Packet_Num         = [1, 0];
+const WSB_Channel_Time       = [1, 0];
+const WSB_Capture_Packet     = [1, 1];
+const WSB_FCS                = [1, 0];
+const WSB_Buffer_Ovrflw      = [1, 0];
+const WSB_PayLoad            = [1, 1];
+const WSB_MAC                = [1, 1];
+const WSB_Beacon             = [1, 1];
+const WSB_Control            = [1, 1];
+const WSB_Command            = [1, 1];
+const WSB_Data               = [1, 1];
+const WSB_Agg_Data           = [1, 1];
+const WSB_Unknown            = [1, 1];
+const WSB_Dest_ID            = [1, 1];
+const WSB_Src_ID             = [1, 1];
+const WSB_Vers               = [1, 0];
+const WSB_Sec                = [1, 0];
+const WSB_Policy             = [1, 0];
+const WSB_Rtry               = [1, 0];
+const WSB_D_Id               = [1, 0];
+const WSB_Frag_Num           = [1, 0];
+const WSB_DU_Num             = [1, 0];
+const WSB_M_Frg              = [1, 0];
+const WSB_Duration           = [1, 0];
+const WSB_M_Dat              = [1, 0];
+const WSB_Acc                = [1, 0];
+const WSB_Feature            = [1, 0];
+const WSB_Value              = [1, 0];
+const WSB_Test_Mode          = [1, 0];
+const WSB_Config             = [1, 0];
+const WSB_Altr_Setting       = [1, 1];
+const WSB_Sync_Frame         = [1, 0];
+const WSB_Swtch_Tm           = [1, 0];
+const WSB_DRPIEData          = [1, 0];
+const WSB_Rsv_Pri            = [1, 0];
+const WSB_Trans_Tm           = [1, 0];
+const WSB_Trans_Adj          = [1, 0];
+const WSB_Rcv_Flt            = [1, 0];
+const WSB_Rcv_Chnl           = [1, 0];
+const WSB_Strt_Tm            = [1, 0];
+const WSB_End_Tm             = [1, 0];
+const WSB_Hndshk_Type        = [1, 0];
+const WSB_Status             = [1, 0];
+const WSB_tTKID              = [1, 0];
+const WSB_Rsv                = [1, 0];
+const WSB_CDID               = [1, 0];
+const WSB_Nonce              = [1, 0];
+const WSB_MIC                = [1, 0];
+const WSB_Encrpt_Val         = [1, 0];
+const WSB_CHID               = [1, 0];
+const WSB_CK                 = [1, 0];
+const WSB_Sec_Data           = [1, 1];
+
+
+
+
+ #----  Input
+ # in.Data       - Data_block to decode
+ # in.DataLength - Length of Data_block
+
+ #----  Output
+ # out.Decoded   - amount of data has been decoded
+
+
+set OutputType      = "Standard Requests";
+set UsbDecodeType   = "Request";
+set UsbReqType      = "Standard";
+set UsbClassCode    = 0x00;    # Class code for Standard
+set UsbScriptDecodeType = 1;   # Combined decoding for Cells and Text decoding
+
+
+set bReqType = 0;     #Declaring global variables
+set bRequest = 0;
+set wValue   = 0;
+set wIndex   = 0;
+set wLength  = 0;
+set wPayloadColor = 0x2F5FCF;
+set wDataColor = 0xABCDEF;
+set wSubDataColor = 0xFEDCFF;
+#set ERROR_COLOR = 0x0000FF;
+
+
+
+set FullyDecoded = 1;  # Variable that will determine if request has been fully decoded
+
+#
+# Decoder entry point
+#
+
+ProcessData()
+{
+	
+    CommonDecoderInit();
+    ClassDescriptorTable = null;
+    #SaveFieldSettings();
+    UnitDecoderInit("WSB");
+
+    FullyDecoded = 1;
+    #ProcessDataInit();
+
+    Speed        = GetDecoderHeaderByte(2);    
+    tempSpeedFlag = Speed; # Gets Speed value from in.context[2]
+	if(tempSpeedFlag == Super_Speed_Plus_Mode || tempSpeedFlag == SSIC_HS_Mode) 
+		tempSpeedFlag = Super_Speed_Mode;
+    
+#    UsbSpecLevel = GetDecoderHeaderByte(?); # currently not supported in SW
+#    gDeviceCompliantSpec = UsbSpecLevel; # currently uses hard coded value in StandardRequests_EDIT_OTG_WUSB_FLAG.inc
+    
+    out.Decoded = 0;
+
+#    DoRequestStringTop();   # function used for text decoding
+
+    bReqType = GetDataByte(0);
+    bRequest = GetDataByte(1);
+    wValue   = GetDataWord(2);
+    wIndex   = GetDataWord(4);
+    wLength  = GetDataWord(6);
+
+
+    #AddCell( "Request", Format( "0x%X", bRequest ) );
+
+    #FieldColor = 0x9218d4;
+    #AddPayLoadCell("Script","Decoding","");
+
+
+    
+    _row = Find(AllStandardRequestsTable, bRequest);  # will determine which request is being used
+
+    if (_row[0] == 0xFF)
+    {
+        AddSeparator();
+        AddDecodedTextHeader();  # header for the text decoding
+        AddReqTypeCell();
+        AddRequestCell( _row[1] );
+        AddWValueCell ();
+        AddWIndexCell ();
+        AddWLengthCell();
+
+        out.Decoded = 8;
+    }
+    else
+    {
+   
+  
+        AddRequestCell( _row[1] );
+        Call ( _row[1] );  # will call function for the specified request
+    }
+
+    AddSeparator();
+
+    ############ for Debug purposes#########
+    #GetNBits(in.Data, 0, 0);             #
+    #ShowDataBlock(in.DataLength);        #
+    ########################################
+
+    return Complete();
+}
+
+
+
+##################################################
+#            Spec settings                       #
+##################################################
+
+
+
+###########################################################
+# USB 2.0  Table 9-3 Standard Device Requests             #
+# WUSB 1.0 Table 7-3 Wireless USB Standard Request Codes  #
+###########################################################
+set AllStandardRequestsTable =
+[
+    [ 0xFF, "Illegal"           , null                     ],
+    [ 0x00, "GET_STATUS"        , "GET_STATUS_text"        ],
+    [ 0x01, "CLEAR_FEATURE"     , "CLEAR_FEATURE_text"     ],
+    [ 0x02, "Reserved"          , "Reserved_text"          ],
+    [ 0x03, "SET_FEATURE"       , "SET_FEATURE_text"       ],
+    [ 0x04, "Reserved"          , "Reserved_text"          ],
+    [ 0x05, "SET_ADDRESS"       , "SET_ADDRESS_text"       ],
+    [ 0x06, "GET_DESCRIPTOR"    , "GET_DESCRIPTOR_text"    ],
+    [ 0x07, "SET_DESCRIPTOR"    , "SET_DESCRIPTOR_text"    ],
+    [ 0x08, "GET_CONFIGURATION" , "GET_CONFIGURATION_text" ],
+    [ 0x09, "SET_CONFIGURATION" , "SET_CONFIGURATION_text" ],
+    [ 0x0A, "GET_INTERFACE"     , "GET_INTERFACE_text"     ],
+    [ 0x0B, "SET_INTERFACE"     , "SET_INTERFACE_text"     ],
+    [ 0x0C, "SYNC_FRAME"        , "SYNC_FRAME_text"        ],
+#    [ 0x0D, "SET_ENCRYPTION"    , "SET_ENCRYPTION_text"    ],
+    [ 0x0E, "GET_ENCRYPTION"    , "GET_ENCRYPTION_text"    ],
+    [ 0x0F, "SET_HANDSHAKE"     , "SET_HANDSHAKE_text"     ],
+    [ 0x10, "GET_HANDSHAKE"     , "GET_HANDSHAKE_text"     ],
+    [ 0x11, "SET_CONNECTION"    , "SET_CONNECTION_text"    ],
+    [ 0x12, "SET_SECURITY_DATA" , "SET_SECURITY_DATA_text" ],
+    [ 0x13, "GET_SECURITY_DATA" , "GET_SECURITY_DATA_text" ],
+    [ 0x15, "PD_GET_BATTERY_STATUS","PD_GET_BATTERY_STATUS_text"],
+    [ 0x17, "SET_INTERFACE_DS"  , "SET_INTERFACE_DS_text"  ],
+    [ 0x18, "AUTH_IN"           , null                     ],
+    [ 0x19, "AUTH_OUT"          , null                     ],
+    [ 0x30, "SET_SEL"           , "SET_SEL_text"           ],
+    [ 0x31, "SET_ISOCH_DELAY"   , "SET_ISOCH_DELAY_text"   ]
+#    [ 0x32, "GET_LINK_ERR_COUNT", "GET_LINK_ERR_COUNT_text"]
+];
+
+############################################################
+# USB 2.0      Table 9-6 Standard Feature Selectors        #
+# USB OTG 1.3  Table 6-3 On-The-Go Feature Selectors       #
+# WUSB 1.0     Table 7-4 Wireless USB Feature Selectors    #
+############################################################
+set DeviceFeatureSelectorTable =
+[
+    [0xFFFF, "UNDEFINED"           ],  #default value
+    [0x0001, "DEVICE_REMOTE_WAKEUP"],
+    [0x0002, "TEST_MODE"           ],
+    [0x0003, "WUSB_DEVICE"         ],  #Conflicts w/ OTG Feature --> Meaning of wValue determined based on FLAG set by USER in "StandardRequests_EDIT_OTG_WUSB_FLAG.inc"
+    [0x0004, "a_hnp_support"       ],  #OTG Feature
+    [0x0005, "a_alt_hnp_support"   ]   #OTG Feature
+];
+
+
+###########################################################
+# USB 2.0  Table 9-6 Standard Feature Selectors           #
+###########################################################
+set EndpointFeatureSelectorTable =
+[
+    [0xFF, "UNDEFINED"    ],
+    [0x00, "ENDPOINT_HALT"]
+];
+
+
+########################################################################
+# WUSB 1.0 Table 7-4 & 7-5 Features Modifiable via ClearFeature()      #
+########################################################################
+set WUSBFeatureSelectorTable =
+[
+    [0xF, "UNDEFINED"      ],
+    [0x0, "TX DRP IE"      ],
+    [0x1, "DEV XMIT_PACKET"],
+    [0x2, "COUNT PACKETS"  ],
+    [0x3, "CAPTURE PACKETS"]
+];
+
+
+########################################################################
+# WUSB 1.0 Table 7-6 Device-Level Status Selector Encodings for wIndex #
+########################################################################
+
+set DeviceStatusSelectorTable =
+[
+    [0xFF, "UNDEFINED"              , null                                     , null                                 ],
+    [0x00, "USB 2.0 Standard Status", "DoGetStatusUSBStandardStatusDecoding"   , "DoGetStatusUSBStandardStatusText"   ],
+    [0x01, "Wireless USB Feature"   , "DoGetStatusWUSBFeatureDecoding"         , "DoGetStatusWUSBFeatureText"         ],
+    [0x02, "Channel Info"           , "DoGetStatusChannelInfoDecoding"         , "DoGetStatusChannelInfoText"         ],
+    [0x03, "Received Data"          , "DoGetStatusReceivedDataDecoding"        , "DoGetStatusReceivedDataText"        ],
+    [0x04, "MAS Availability"       , "DoGetStatusMASAvailabilityDecoding"     , "DoGetStatusMASAvailabilityText"     ],
+    [0x05, "Current Transmit Power" , "DoGetStatusCurrentTransmitPowerDecoding", "DoGetStatusCurrentTransmitPowerText"]
+];
+
+
+###########################################################
+# WUSB 1.0 Figure 7-2 USB 2.0 Standard Status Information #
+# Returned by a GetStatus() Request to a Device           #
+###########################################################
+
+set DeviceStatusBitmapTable =
+[
+   [ 0, "Self Powered"    ],
+   [ 1, "Remote Wakeup"   ],
+   [ 2, "U1 Enable"       ],
+   [ 3, "U2 Enable"       ],
+   [ 4, "LTM Enable"      ]
+];
+
+##############################################################################
+# WUSB 1.0 Figure 7-3 Information Returned By GetStatus(WirelessUSBFeatures) #
+##############################################################################
+
+set WUsbStatusBitmapTable =
+[
+   [ 0, "TX DRP IE"       ],
+   [ 1, "DEV XMIT_PACKET" ],
+   [ 2, "COUNT PACKETS"   ],
+   [ 3, "CAPTURE PACKET"  ]
+];
+
+######################################################
+# WUSB 1.0 Table 7-10 Definition of LQI values       #
+######################################################
+
+GetLQIValueTooltip( LQIValue )
+{
+    if (LQIValue < 0 || LQIValue > 255 )
+        return "LQI Value out of range";
+    else if (LQIValue == 0)
+        return "Too low to be accurately measured";
+    else if (LQIValue > 31)
+        return "Reserved";
+    else # 1-31
+        return Format("%d dB", LQIValue - 7 );
+}
+
+
+
+################################################################
+# USB 2.0  Table 9-5 Descriptor Type                           #
+# WUSB 1.0 Table 7-25 WUSB Standard Extension Descriptor Type  #
+################################################################
+
+set DescriptorTypeTable =
+[
+   [ 0xFF, "Illegal" ],
+   [ 0x01, "DEVICE type" ],
+   [ 0x02, "CONFIG type" ],
+   [ 0x03, "STRING type" ],
+   [ 0x04, "INTERFACE type (ERROR! Should only be part of GetDescriptor(Config))" ],
+   [ 0x05, "ENDPOINT type (ERROR! Should only be part of GetDescriptor(Config))" ],
+   [ 0x06, "DEVICE_QUALIFIER" ],
+   [ 0x07, "OTHER_SPEED_CONFIGURATION" ],
+   [ 0x08, "INTERFACE_POWER type (ERROR! Should only be part of GetDescriptor(Config))" ],
+   [ 0x09, "OTG type (ERROR! Should only be part of GetDescriptor(Config))" ],
+   [ 0x0B, "INTERFACE_ASSOCIATION type (ERROR! Should only be part of GetDescriptor(Config))" ],
+   [ 0x0C, "SECURITY"       ],
+   [ 0x0D, "KEY"            ],
+   [ 0x0E, "ENCRYPTION type"],
+   [ 0x0F, "BOS"            ],
+   [ 0x10, "DEVICE CAPABILITY"],
+   [ 0x11, "WIRELESS_ENDPOINT_COMPANION"],
+  # [ 0x22, "HID type" ],
+  # [ 0x23, "RADIO CONTROL type"]
+   [ 0x30, "SUPERSPEED_USB_ENDPOINT_COMPANION"],
+   [ 0x31, "SUPERSPEEDPLUS_ISOCHRONOUS_ENDPOINT_COMPANION"]
+];
+
+
+##########################################################################
+#  WUSB 1.0 Table 7-22 row #2 Status Description                         #
+##########################################################################
+set HandshakeStatusTable =
+[
+    [0xFF, null, null],
+    [0x00, "Normal", "The handshake sequence proceeds"            ],
+    [0x01, "Aborted", "Aborted per security policy"               ],
+    [0x02, "Aborted", "Handshake in progress with same master key"],
+    [0x03, "Aborted", "TKID conflict"                             ]
+];
+
+##########################################################################
+#  USB 2.0 Table 9-7 Test Mode Selectors                                 #
+##########################################################################
+GetTestModeSelectorTooltip(value)
+{
+    if (value == 0x00)
+        return "Reserved";
+    else if (value == 0x01)
+        return "Test_J";
+    else if (value == 0x02)
+        return "Test_K";
+    else if (value == 0x03)
+        return "Test_SE0_NAK";
+    else if (value == 0x04)
+        return "Test_Packet";
+    else if (value == 0x05)
+        return "Test_Force_Enable";
+    else if (value >= 0x06 && value <= 0x3E )
+        return "Reserved for standard test selectors";
+    else if (value >= 0x3F && value <= 0xBF)
+        return "Reserved";
+    else if (value >= 0xC0 && value <= 0xFF)
+        return "Reserved for vendor-specific test modes";
+    else
+        return "Invalid";
+}
+
+
+DecodeChannelTime()
+{
+    val = NextNBits_(24);
+    if (LittleEndian == 1)
+    {
+        ReceptionTime = ((val & 0xFF0000) >> 16)  |
+               (val & 0x00FF00)          |
+               ((val & 0x0000FF) << 16);
+    }
+    else
+    {
+        ReceptionTime = val;
+    }
+    return Format ("0x%05X:%02X", ReceptionTime>> 7, ReceptionTime & 0x7F);
+}
+
+#*******************************************************************************
+# GET_STATUS    : This request returns the status for the specified recipient
+#                 that have changed since the previous acknowledgement
+# bReqType      : 0x80/0x81/0x82
+# bRequest      : 0x00
+# wValue        : 0x0000
+# wIndex        : Device/Interface/Endpoint
+# wLength       : Variable
+# Data          : Device,Interface, Endpoint Status, or Wireless Data
+#*******************************************************************************
+
+GET_STATUS()
+{
+    ##############################################
+    #               Device                       #
+    ##############################################
+    if( bReqType == 0x80 )
+    {
+        selector = Find(DeviceStatusSelectorTable, wIndex);
+
+         if (wValue != 0)
+            AddWValueCell("", FormatEx(_err_Illegal_Value,"wValue",wValue,0 ) ,1 );  
+         else
+            AddWValueCell("", "Correct Value of 0",0 ); 
+         
+         if( StdReqDeviceTypeFLAG == WUSB_Device )
+         {
+            AddWIndexCell( selector[1], "Status selector",0 );
+         }
+         else
+         {
+           if (tempSpeedFlag == Super_Speed_Mode)
+                tempstr = "USB 3.0 Standard Status";
+           else
+                tempstr = "USB 2.0  Standard Status";
+            
+           if (wIndex != 0)
+              AddWIndexCell("", FormatEx(_err_Illegal_Value,"wIndex",wIndex,0 ) ,1 );  
+           else
+              AddWIndexCell(tempstr, "Status Selector",0 ); 
+         }
+         
+         if (wLength != 2)
+            AddWLengthCell( FormatEx(_err_Illegal_Value,"wLength",wLength,2 ) ,1 );  
+         else
+            AddWLengthCell( "Correct Value of 2",0 );         
+        
+        # if( StdReqDeviceTypeFLAG == WUSB_Device )
+            Call( selector[2] );
+    }
+    ##############################################
+    #                Interface                   #
+    ##############################################
+    else if (bReqType == 0x81)
+    {
+    		if ( tempSpeedFlag == Super_Speed_Mode )
+             DecodeGetStatusForInterface();
+        else
+        {
+            FieldColor = ERROR_COLOR;
+            FormatValue=Format("Interface # %d Status", wIndex);
+            out.Decoded = 8;
+            if ( in.DataLength >= 10 )
+            {
+               value = GetDataWord(8);
+               AddErrorMonoCell(FormatValue, Format ("0x%04X", value) , "Interface status not defined!");
+               out.Decoded += 2;
+            }
+        }        
+    }
+    ##############################################
+    #                 Endpoint                   #
+    ##############################################
+    else if (bReqType == 0x82)
+    {
+       
+         if (wValue != 0)
+            AddWValueCell("", FormatEx(_err_Illegal_Value,"wValue",wValue,0 ) ,1 );  
+         else
+            AddWValueCell("", "Correct Value of 0",0 ); 
+
+        if (wLength != 2)
+            AddWLengthCell( FormatEx(_err_Illegal_Value,"wLength",wLength,2 ) ,1 );  
+        else
+            AddWLengthCell( "Correct Value of 2",0 );     
+       
+       SetCellColor(wIndexColor);
+       
+        if (wIndex & 0x80)
+        {
+            FormatValue=Format("Endpoint # %d IN Status", wIndex & 0x0F);
+        }
+        else
+        {
+            FormatValue=Format("Endpoint # %d OUT Status", wIndex & 0x0F);
+        }
+        out.Decoded = 8;
+
+        if ( in.DataLength >= 10 )
+        {
+            value = GetDataWord(8);
+            
+            if (value & 1)
+            {
+                AddGenWIndexCell(FormatValue, "Endpoint Halted" , Format ("Status = 0x%04X", value) );
+            }
+            else
+            {
+                AddGenWIndexCell(FormatValue, "Good" ,  Format ("Status = 0x%04X", value) );
+            }
+            out.Decoded += 2;
+         RestoreCellColor();
+         }
+        else
+           AddErrorMonoCell("Error", "Not enough data", "Not enough data to decode current request");
+    }
+    ###############################################
+    #            ReqType Illegal                  #
+    ###############################################
+    else
+    {
+        AddIllegalTypeCell( "GET STATUS" );
+        out.Decoded = 8;
+    }
+
+}
+
+/*
+GET_STATUS_text()
+{
+    temp_str = "GET_STATUS";
+    temp_str += NewLine();
+    temp_str += NewLine();
+    ##############################################
+    #               Device                       #
+    ##############################################
+    if( bReqType == 0x80 )
+    {
+        selector = Find(DeviceStatusSelectorTable, wIndex);
+        temp_str += Call(selector[3]);
+    }
+    ##############################################
+    #                Interface                   #
+    ##############################################
+    else if (bReqType == 0x81)
+    {
+        temp_str += Format("Interface # %d Status not defined!", wIndex);
+    }
+    ##############################################
+    #                 Endpoint                   #
+    ##############################################
+    else if (bReqType == 0x82)
+    {
+        if (wIndex & 0x80)
+        {
+            temp_str += Format("Endpoint # %d IN Status: ", wIndex & 0x0F);
+        }
+        else
+        {
+            temp_str += Format("Endpoint # %d OUT Status: ", wIndex & 0x0F);
+        }
+
+        if (value & 1)
+        {
+            temp_str += "Endpoint Halted";
+        }
+        else
+        {
+            temp_str += "Good";
+        }
+        temp_str += NewLine();
+    }
+    ###############################################
+    #            ReqType Illegal                  #
+    ###############################################
+    else
+    {
+        temp_str += Format("The bmRequestType value 0x%02X is illegal.", bReqType);
+        temp_str += NewLine();
+    }
+
+    return (temp_str);
+}
+
+*/
+
+#####################################################################
+#            GET_STATUS sub Functions                               #
+#####################################################################
+DoGetStatusUSBStandardStatusDecoding()
+{
+    out.Decoded = 8;
+    if (in.DataLength - 8 >=2)
+    {
+        value = GetDataWord(8);
+        FieldColor = wDataColor;
+        FormatValue = "Data Select";
+        if ( tempSpeedFlag == Super_Speed_Mode )
+           toolTip = ToBitDecode( USB3DeviceStatusBitmapTable, value, "" );
+        else
+           toolTip = ToBitDecode( DeviceStatusBitmapTable, value, "" );
+        AddPayLoadCell(FormatValue, Format("0x%04X",value), toolTip);
+        out.Decoded += 2;
+    }
+    if (out.Decoded < 10)
+        AddErrorMonoCell("Error", "Not enough data", "Not enough data to decode current request");
+}
+
+DoGetStatusWUSBFeatureDecoding()
+{
+    out.Decoded = 8;
+    if (in.DataLength - 8 >=1)
+    {
+        value = GetDataByte(8);
+        FieldColor = wDataColor;
+        FormatValue = "Data Select";
+        toolTip = ToBitDecode( WUsbStatusBitmapTable, value, "" );
+        AddPayLoadCell(FormatValue, Format("0x%02X",value), toolTip);
+        out.Decoded += 1;
+    }
+    if (out.Decoded < 9)
+        AddErrorMonoCell("Error", "Not enough data", "Not enough data to decode current request");
+}
+
+DoGetStatusChannelInfoDecoding()
+{
+    out.Decoded = 8;
+    if (in.DataLength - 8 >=1)
+    {
+        value = GetDataByte(8);
+        FieldColor = wDataColor;
+        FormatValue = "LQI";
+        toolTip = GetLQIValueTooltip (LQI);;
+        AddPayLoadCell(FormatValue, Format("0x%02X",value), toolTip);
+        out.Decoded += 1;
+    }
+    if (out.Decoded < 9)
+        AddErrorMonoCell("Error", _err_NotEnoughData_Header, _err_NotEnoughData_ToolTip);
+}
+
+DoGetStatusReceivedDataDecoding()
+{
+    ##########################################################
+    # because we do not have previous packet info            #
+    # we need to use the following way to determine          #
+    # either count packets data format or                    #
+    # Capture Packet data format                             #
+    ##########################################################
+    out.Decoded = 8;
+    if (in.DataLength - 8 >=1)
+    {
+        first_byte = PeekNBits_(8);
+        FieldColor = wDataColor;
+
+    # By specification, if Capture Packet data format, bits[7:2] are reserved
+    # and must be set to zero
+        if ((first_byte & 0b11111100) != 0)
+            DoCountPacketsDecoding();
+    # then we check if the size indicated by the bits[6:0] match the actural
+    # length
+        else if ((first_byte & 0b01111111) * 10 + 1 == in.DataLength - 8)
+            DoCountPacketsDecoding();
+        else
+            DoCapturePacketDecoding();
+    }
+
+}
+
+DoGetStatusMASAvailabilityDecoding()
+{
+    out.Decoded = 8;
+    if (in.DataLength - 8 >=4)
+    {
+        toolTip = "256-bit map, where each bit location corresponds to a MAS slot in the MAC layer superframe";
+        AddDecSeparator();
+        FieldColor = wPayloadColor;
+        AddPayLoadCell( "MAS Availability", "MAS Availability", toolTip, _MONOFIELD);
+        ShowDataBlock(32);
+        out.Decoded += 4;
+    }
+    if (out.Decoded < 12)
+        AddErrorMonoCell("Error", "Not enough data", "Not enough data to decode current request");
+}
+
+DoGetStatusCurrentTransmitPowerDecoding()
+{
+    out.Decoded = 8;
+    if (in.DataLength - 8 >= 1)
+    {
+        FieldColor = wDataColor;
+        bTxNotificationTP = GetDataByte(8);
+        AddPayLoadCell("Notif TP", Format("%d",bTxNotificationTP), "Notification Transmit Power");
+        out.Decoded ++;
+    }
+    if (in.DataLength - 8 >= 2)
+    {
+        bTxBeaconTP       = GetDataByte(9);
+        AddPayLoadCell("Bcn TP", Format("%d",bTxBeaconTP), "Beacon Transmit Power");
+        out.Decoded ++;
+    }
+    if (out.Decoded < 10)
+        AddErrorMonoCell("Error", "Not enough data", "Not enough data to decode current request");
+}
+
+DoCountPacketsDecoding()
+{
+    FieldColor = wDataColor;
+    AddPLCellMonoNoDlg("Count Packets", "Count Packets");
+    if (in.DataLength - 8 >= 1)
+    {
+        overrun     = NextNBits_(1);
+        if (overrun)
+            overrunText = "Overrun";
+        else
+            overrunText = "Not Overrun";
+        AddPayLoadCell("Overrun", Format("%d",overrun), overrunText);
+        packetCount = NextNBits_(7);
+        AddPayLoadCell("Packet Counts", Format("%d",packetCount), "Total number of packets");
+        out.Decoded ++;
+    }
+
+
+    for (i = 0; i < packetCount ; i++)
+    {
+        AddDecSeparator();
+        if (in.DataLength - 8 >= i * 10 + 3 + 1)
+        {
+            value = DecodeChannelTime();
+            AddPayLoadCell("Channel Time",value , "Channel Time of the packet");
+            out.Decoded +=3;
+        }
+        if (in.DataLength - 8 >= i * 10 + 9 + 1)
+        {
+            DoMACHeaderDecoding(6);
+            out.Decoded +=6;
+        }
+        if (in.DataLength - 8 >= i * 10 + 10 + 1)
+        {
+            FieldColor = wSubDataColor;
+          LQI    = GetDataByte(i * 10 + 18);
+          toolTip = GetLQIValueTooltip (LQI);
+          AddPayLoadCell("LQI", Format("%d",LQI), toolTip);
+          out.Decoded ++;
+       }
+    }
+    if (out.Decoded < 10 * packetCount + 1)
+        AddErrorMonoCell("Error", "Not enough data", "Not enough data to decode current request");
+}
+
+DoCapturePacketDecoding()
+{
+
+    FieldColor = wDataColor;
+    AddPLCellMonoNoDlg("Capture Packet", "Capture Packet");
+    if (in.DataLength - 8 >= 1)
+    {
+        PLReservedCheck(6);
+        bufferOverflow = NextNBits_(1);
+        if ( bufferOverflow )
+            OverflowText = "buffer overflowed";
+        else
+            OverflowText = "buffer overflowed";
+        AddPayLoadCell("Buffer Ovrflw", Format("%d",bufferOverflow), OverflowText);
+        invalidFCS = NextNBits_(1);
+        if (invalidFCS)
+            FCSText = "FCS valid";
+        else
+            FCSText = "FCS invalid";
+        AddPayLoadCell("FCS", Format("%d",invalidFSC), FCSText);
+        out.Decoded ++;
+    }
+    if (in.DataLength - 8 >= 1 + 3)
+    {
+        value = DecodingCannelTime();
+        AddPayLoadCell("Channel Time",value, "Channel Time of the packet");
+        out.Decoded += 3;
+    }
+    if (in.DataLength - 8 >= 1 + 3 + 10)
+    {
+        DoMACHeaderText(10);
+        out.Decoded += 10;
+    }
+    AddDecSeparator();
+    FieldColor = wPayLoadColor;
+    if (in.DataLength - 8 > 16)
+    {
+        AddPLCellMonoNoDlg("PayLoad","PayLoad");
+        ShowDataBlock(in.DataLength - 8 - 15);
+        AddDecSeparator();
+        FieldColor = wDataColor;
+        LQI = GetDataByte( in.DataLength - 1 );
+        toolTip = GetLQIValueTooltip (LQI);
+        AddPayLoadCell("LQI", Format("%d",LQI), toolTip);
+        out.Decoded = in.DataLength;
+    }
+    else
+        AddErrorMonoCell("Error", "Not enough data", "Not enough data to decode current request");
+
+}
+
+
+/*
+#####################################################################
+#            GET_STATUS_text sub Functions                          #
+#####################################################################
+DoGetStatusUSBStandardStatusText()
+{
+
+    value = GetDataWord(8);
+    bitValue = ToBitString(value, 16);
+    temp_str1 = Format("Data bits: %s", bitValue);
+    temp_str1 += NewLine();
+    temp_str1 += ToBitDecode( DeviceStatusBitmapTable, value, "" );
+    temp_str1 += NewLine();
+    return temp_str1;
+
+}
+
+DoGetStatusWUSBFeatureText()
+{
+    value = GetDataByte(8);
+    bitValue = ToBitString(value, 8);
+    temp_str1 = Format("Data bits: %s", bitValue);
+    temp_str1 += NewLine();
+    temp_str1 += ToBitDecode( WUsbStatusBitmapTable, value, "" );
+    temp_str1 += NewLine();
+    return temp_str1;
+}
+
+DoGetStatusChannelInfoText()
+{
+    value = GetDataByte(8);
+    LQIText = GetLQIValueTooltip (value);
+    temp_str1 = Format("LQI: %s", LQIText);
+    temp_str1 += NewLine();
+    return temp_str1;
+}
+
+DoGetStatusReceivedDataText()
+{
+    ##########################################################
+    # because we do not have previous packet info            #
+    # we need to use the following way to determine          #
+    # either count packets data format or                    #
+    # Capture Packet data format                             #
+    ##########################################################
+
+    first_byte = GetDataByte(8);
+
+    # By specification, if Capture Packet data format, bits[7:2] are reserved
+    # and must be set to zero
+    if ((first_byte & 0b11111100) != 0)
+        return DoCountPacketsText();
+    # then we check if the size indicated by the bits[6:0] match the actural
+    # length
+    else if ((first_byte & 0b01111111) * 10 + 1 == in.DataLength - 8)
+        return DoCountPacketsText();
+    else
+        return DoCapturePacketText();
+}
+
+DoGetStatusMASAvailabilityText()
+{
+    temp_str1 = "256-bit map, where each bit location corresponds to a MAS slot in the MAC layer superframe";
+    temp_str1 += NewLine();
+    return temp_str1;
+}
+
+DoGetStatusCurrentTransmitPowerText()
+{
+    bTxNotificationTP = GetDataByte(8);
+    temp_str1 = Format("Notification Transmit Power: %d", bTxNotificationTP);
+    temp_str1 += NewLine();
+    bTxBeaconTP       = GetDataByte(9);
+    temp_str1 += Format("Beacon Transmit Power: %d", bTxBeaconTP);
+    temp_str1 += NewLine();
+    return temp_str1;
+}
+
+
+DoCountPacketsText()
+{
+    InitText();
+    IsTooltip = 0;
+    AddDataHeader("Count Packets Length", in.DataLength-8);
+    byte0 = GetDataByte(8);
+    packetCount = byte0 & 0x7F; # mask the 7th bit, and get the packet count
+    overrun     = byte0 >> 7;
+
+    AddEntry(0, "Packet Counts", packetCount, 3, "Bits[0:6] - Total number of packets", 0);
+    AddFieldBreak();
+
+    if (overrun)
+        OverrunText = "Bits[7] - Overrun";
+    else
+        overrunText = "Bits[7] - Not Overrun";
+    AddEntry(0, "Overrun", overrun, 1, overrunText, 0);
+    AddFieldBreak();
+
+    # make sure we have
+    for (i = 0; i < packetCount ; i++)
+    {
+        offset = i * 10 + 1;
+        #AddLineOfText(Format("Packet Number %d",i));
+        value = DecodeChannelTime();
+        AddStringEntry(offset, "Channel Time","==>", value ,0);
+        AddFieldBreak();
+        offset +=3;
+      DoMACHeaderText(offset, 6);
+      offset += 6;
+      LQI    = GetDataByte(offset + 8);
+      toolTip = GetLQIValueTooltip (LQI);
+      AddEntry(offset, "LQI", LQI, 2, toolTip, 0);
+      AddFieldBreak();
+    }
+    return GetFinalText();
+}
+
+DoCapturePacketText()
+{
+    InitText();
+    IsTooltip = 0;
+    AddDataHeader("Capture Packet Length", in.DataLength-8);
+    ReceiveStatus = GetDataWord(8);
+    invalidFCS = ReceiveStatus & 0x01;
+    if (invalidFCS)
+        FCSText = "Bits[0] - FCS valid";
+    else
+        FCSText = "Bits[0] - FCS invalid";
+
+    AddEntry(0, "FCS Validation", invalidFSC, 1, FCSText, 0);
+    AddFieldBreak();
+
+    bufferOverflow = (ReceiveStatus >> 1) & 0x01;
+    if ( bufferOverflow )
+        OverflowText = "Bits[1] - buffer overflowed";
+    else
+        OverflowText = "Bits[1] - buffer overflowed";
+    AddEntry(0, "Buffer Overflow", bufferOverflow, 1, OverflowText, 0);
+    AddFieldBreak();
+    value = DecodingCannelTime();
+    AddStringEntry(1, "Channel Time","", value ,0);
+    AddFieldBreak();
+    DoMACHeaderText(4, 10);
+    LQI = GetDataWord( 8 + in.DataLength - 8 - 1 );
+    toolTip = GetLQIValueTooltip (LQI);
+    AddEntry(offset, "LQI", LQI, 2, toolTip, 0);
+    AddFieldBreak();
+    return GetFinalText();
+}
+
+*/
+#####################################################################
+#            Common Used sub Functions                              #
+#####################################################################
+
+
+DoMACHeaderDecoding(length)
+{
+    #########################################################################
+    #   Define Mac Header Color group according to the Application standard #
+    #########################################################################
+    MAC_HEADER_color                 = 0x0D784D;
+    MAC_FRAME_CONTROL_color          = 0x0D784D;
+    MAC_FC_PROTOCOL_VERS_color       = 0x15C77C;
+    MAC_FC_FRAME_TYPE_UNKNOWN_color  = 0x0000FF;
+    MAC_FC_FRAME_TYPE_BEACON_color   = 0xEECCFD;
+    MAC_FC_FRAME_TYPE_CONTROL_color  = 0xE0E000;
+    MAC_FC_FRAME_TYPE_COMMAND_color  = 0x48A4FF;
+    MAC_FC_FRAME_TYPE_DATA_color     = 0x005EBB;
+    MAC_FC_FRAME_TYPE_AGG_DATA_color = 0x003A75;
+    MAC_FC_SECURE_color              = 0x0D784D;
+    MAC_FC_ACK_POLICY_color          = 0x15C77C;
+    MAC_FC_RETRY_color               = 0x16DA87;
+    MAC_FC_USER_PRIORITY_color       = 0x16DA87;
+    MAC_FC_STREAM_INDEX_color        = 0x16DA87;
+    MAC_FC_CONTROL_TYPE_color        = 0x1ED68D;
+    MAC_FC_COMMAND_TYPE_color        = 0x1ED68D;
+    MAC_FC_COMMAND_DIR_color         = 0x16DA87;
+    MAC_FC_RESERVED_color            = 0x16DA87;
+    MAC_DEST_ID_color                = 0x0D8D58;
+    MAC_SRC_ID_color                 = 0x11A768;
+    MAC_SEQUENCE_CONTROL_color       = 0x42EAA3;
+    MAC_SC_RESERVED_color            = 0x42EAA3;
+    MAC_MXDU_NUMBER_color            = 0x30E896;
+    MAC_FRAG_NUMBER_color            = 0x30E896;
+    MAC_MORE_FRAGS_color             = 0x42EA9F;
+    MAC_MORE_FRAMES_color            = 0x65DFB6;
+    MAC_DURATION_color               = 0x54DCAC;
+    MAC_ACCESS_METHOD_color          = 0x78E0BA;
+
+
+    if (!(length == 10 || length == 6 ))
+        return null;
+    ProtocolVersion = NextNBits_(3);
+    SEC             = NextNBits_(1);
+    ACKPolicy       = NextNBits_(2);
+    FrameType       = NextNBits_(3);
+    DelivId_CtrlType = NextNBits_(4);
+    Retry           = NextNBits_(1);
+    Resv            = NextNBits_(2);
+    DestId          = GetDataWord(startingByte + 2);
+    SrcId           = GetDataWord(startingByte + 4);
+    if (length == 10)
+    {
+        FragmentNumber = NextNBits_(3);
+        MXDUNumber     = NextNBits_(11);
+        MoreFragments  = NextNBits_(1);
+        SCReserved     = NextNBits_(1);
+        Duration       = NextNBits_(14);
+        MoreFrames     = NextNBits_(1);
+        AccessMethod   = NextNBits_(1);
+    }
+    FieldColor = MAC_HEADER_color;
+    AddPayLoadCell("MAC", "MAC", "MAC header Field (Expand/Collapse)", _MONOFIELD);
+    if (FrameType == 0)
+    {
+        FieldColor = MAC_FC_FRAME_TYPE_BEACON_color;
+        AddPayLoadCell("Beacon","Beacon", Format("Frame Type - %d: Beacon Frame", FrameType), _MONOFIELD);
+    }
+    else if (FrameType == 1)
+    {
+        FieldColor = MAC_FC_FRAME_TYPE_CONTROL_color;
+        AddPayLoadCell("Control","Control", Format("Frame Type - %d: Control Frame", FrameType), _MONOFIELD);
+    }
+    else if (FrameType == 2)
+    {
+        FieldColor = MAC_FC_FRAME_TYPE_COMMAND_color;
+        AddPayLoadCell("Command","Command", Format("Frame Type - %d: Command Frame", FrameType), _MONOFIELD);
+    }
+    else if (FrameType == 3)
+    {
+        FieldColor = MAC_FC_FRAME_TYPE_DATA_color;
+        AddPayLoadCell("Data","Data", Format("Frame Type - %d: Data Frame", FrameType), _MONOFIELD);
+    }
+    else if (FrameType == 4)
+    {
+        FieldColor = MAC_FC_FRAME_TYPE_AGG_DATA_color;
+        AddPayLoadCell("Agg Data","Agg Data", Format("Frame Type - %d: Aggregated Data Frame", FrameType), _MONOFIELD);
+    }
+    else
+    {
+        FieldColor = MAC_FC_FRAME_TYPE_UNKNOWN_color;
+        AddPayLoadCell("Unknown","UnKnown", Format("Frame Type - %d: Known Frame", FrameType), _MONOFIELD);
+    }
+
+    FieldColor = MAC_DEST_ID_color;
+    AddPayLoadCell("Dest ID", Format("0x%04X",DestId), "Destination ID");
+
+    FieldColor = MAC_SRC_ID_color;
+    AddPayLoadCell("Src ID", Format("0x%04X",SrcId), "Source ID");
+
+
+    FieldColor = MAC_FC_PROTOCOL_VERS_color;
+    AddPayLoadCell("Vers", Format("%d",ProtocolVersion), "Protocol Version Number");
+
+    FieldColor = MAC_FC_SECURE_color;
+    AddPayLoadCell("Sec", Format("%d",SEC), "Security bit");
+
+    select
+    {
+        ACKPolicy == 0:
+        {
+            Text = "No";
+            toolTip = "0:Ack Policy - No-ACK";
+        }
+        ACKPolicy == 1:
+        {
+            Text = "Imm";
+            toolTip = "1:Ack Policy - Imm-ACK";
+        }
+        ACKPolicy == 2:
+        {
+            Text = "B";
+            toolTip = "2:Ack Policy - B-ACK";
+        }
+        ACKPolicy == 3:
+        {
+            Text = "Request";
+            toolTip = "3:Ack Policy - B-ACK Request";
+        }
+    };
+
+    FieldColor = MAC_FC_ACK_POLICY_color;
+    AddPayLoadCell("Policy", Text, toolTip);
+
+    FieldColor = MAC_FC_RETRY_color;
+    AddPayLoadCell("Rtry", Format("%d",Retry), "Retry");
+
+    FieldColor = MAC_FC_STREAM_INDEX_color;
+    AddPayLoadCell("D Id", Format("%d",DelivId_CtrlType), "Frame Subtype / Delivery ID");
+
+    if (length == 10)
+    {
+        FieldColor = MAC_FRAG_NUMBER_color;
+        AddPayLoadCell("Frag Num", Format("0x%X",FragmentNumber), "Fragment Number");
+
+        FieldColor = MAC_MXDU_NUMBER_color;
+        AddPayLoadCell("DU Num", Format("0x%03X",MXDUNumber), "MSDC or MCDU Number");
+
+        FieldColor = MAC_MORE_FRAGS_color;
+        AddPayLoadCell("M Frg", Format("%X",MoreFragments), "More Fragments");
+
+        FieldColor = MAC_DURATION_color;
+        AddPayLoadCell("Duration", Format("%d",Duration), "Duration");
+
+        FieldColor = MAC_MORE_FRAMES_color;
+        AddPayLoadCell("M Dat", Format("%X",MoreFrames),"More Frames");
+
+        FieldColor = MAC_ACCESS_METHOD_color;
+        if (AccessMethod)
+            toolTip = "1:Access Method is Distributed Reservation Protocol";
+        else
+            toolTip = "0:Access Method is Prioritized Channel Access";
+        AddPayLoadCell("Acc", Format("%d",AccessMethod), toolTip);
+
+    }
+
+}
+
+
+/*
+DoMACHeaderText(offset, length)
+{
+
+    if (!(length == 10 || length == 6 ))
+        return null;
+    ProtocolVersion = NextNBits_(3);
+    SEC             = NextNBits_(1);
+    ACKPolicy       = NextNBits_(2);
+    FrameType       = NextNBits_(3);
+    DelivId_CtrlType = NextNBits_(4);
+    Retry           = NextNBits_(1);
+    Resv            = NextNBits_(2);
+    DestId          = GetDataWord(startingByte + 2);
+    SrcId           = GetDataWord(startingByte + 4);
+    if (length == 10)
+    {
+        FragmentNumber = NextNBits_(3);
+        MXDUNumber     = NextNBits_(11);
+        MoreFragments  = NextNBits_(1);
+        SCReserved     = NextNBits_(1);
+        Duration       = NextNBits_(14);
+        MoreFrames     = NextNBits_(1);
+        AccessMethod   = NextNBits_(1);
+    }
+    #AddLineOfText(Format("Offset %d - Offset %d : MACHeader Info", offset, offset + length));
+    if (FrameType == 0)
+        AddEntry( offset , "Frame Type", FrameType, 2, "Frame Type: Beacon Frame", 0);
+    else if (FrameType == 1)
+        AddEntry( offset , "Frame Type", FrameType, 2, "Frame Type: Control Frame", 0);
+    else if (FrameType == 2)
+        AddEntry( offset, "Frame Type", FrameType, 2, "Frame Type: Command Frame", 0);
+    else if (FrameType == 3)
+        AddEntry( offset , "Frame Type", FrameType, 2, "Frame Type: Data Frame", 0);
+    else if (FrameType == 4)
+        AddEntry( offset , "Frame Type", FrameType, 2, "Frame Type: Aggredated Frame", 0);
+    else
+        AddEntry( offset , "Frame Type", FrameType, 2, "Frame Type: Reserved Frame", 0);
+    AddFieldBreak();
+    AddEntry(offset, "Dest ID", DestID, 4, "Destination ID", 0);
+    AddFieldBreak();
+    AddEntry(offset, "Src ID", SrcID, 4, "Source ID", 0);
+    AddFieldBreak();
+    select
+    {
+        ACKPolicy == 0:
+        {
+            Text = "No";
+            toolTip = "0:Ack Policy - No-ACK";
+        }
+        ACKPolicy == 1:
+        {
+            Text = "Imm";
+            toolTip = "1:Ack Policy - Imm-ACK";
+        }
+        ACKPolicy == 2:
+        {
+            Text = "B";
+            toolTip = "2:Ack Policy - B-ACK";
+        }
+        ACKPolicy == 3:
+        {
+            Text = "Request";
+            toolTip = "3:Ack Policy - B-ACK Request";
+        }
+    };
+    AddStringEntry(offset, "Policy", Text, toolTip, 0);
+    AddFieldBreak();
+    AddEntry(offset, "Rtry", Retry, 1, "Retry", 0);
+    AddFieldBreak();
+    AddEntry(offset, "D Id", DelivId_CtrlType, 1, "Frame Subtype / Delivery ID", 0);
+    AddFieldBreak();
+    if (length == 10)
+    {
+        AddEntry(offset, "Frag Num", FragmentNumber, 1, "Fragment Number", 0);
+        AddFieldBreak();
+        AddEntry(offset, "DU Num", MXDUNumber, 3, "MSDC or MCDU Number", 0);
+        AddFieldBreak();
+        AddEntry(offset, "M Frg", MoreFragments, 1, "More Fragments", 0);
+        AddFieldBreak();
+        AddEntry(offset, "Duration", Duration, 4, "Duration", 0);
+        AddFieldBreak();
+        AddEntry(offset, "M Dat", MoreFrames,1 ,"More Frames", 0);
+        AddFieldBreak();
+        if (AccessMethod)
+            toolTip = "1:Access Method is Distributed Reservation Protocol";
+        else
+            toolTip = "0:Access Method is Prioritized Channel Access";
+        AddEntry(offset, "Acc", AccessMethod, 1, toolTip, 0);
+        AddFieldBreak();
+    }
+}
+*/
+#*******************************************************************************
+# CLEAR_FEATURE : This request is used to clear or disable a specific feature
+# bReqType : 0x00/01/02
+# bRequest      : 0x01
+# wValue        : Feature Selector
+# wIndex        : Zero/Interface/Endpoint
+# wLength       : 0x00
+# Data          : None
+#*******************************************************************************
+CLEAR_FEATURE()
+{
+
+    if( tempSpeedFlag == Super_Speed_Mode )
+		{
+			  DoClearFeatureForUSB3();
+			  return 0;
+		}
+    ##############################################
+    #               Device                       #
+    ##############################################
+    if (bReqType == 0x00)
+    {
+
+        row = Find(DeviceFeatureSelectorTable, wValue);
+        AddWValueCell( "", row[1] );
+        
+        if (wIndex != 0)
+            AddWIndexCell("", FormatEx(_err_Illegal_Value,"wIndex",wIndex,0 ) ,1 );  
+         else
+            AddWIndexCell("", "Correct Value of 0",0 ); 
+        
+        
+         if (wLength != 0)
+            AddWLengthCell( FormatEx(_err_Illegal_Value,"wLength",wLength,2 ) ,1 );  
+         else
+            AddWLengthCell( "Correct Value of 0",0 );   
+        
+        if ( row[1] == "WUSB_DEVICE" )
+        {
+            WUSBSelector = GetDataByte(4); # The lower byte of wIndex is WUSB feature selector (WUSB 1.0 7.3.1.1)
+            FeatureValue = GetDataByte(5); # The higher byte of wIndex is zero or WUSB feature value
+            indexRow = Find(WUSBFeatureSelectorTable, WUSBSelector);
+
+            FieldColor = wDataColor;
+            SetFieldOffsetLen( 48, 8 );
+            AddPayLoadCell("Feature", indexRow[1], Format("0x%02X",WUSBSelector));
+
+            FieldColor = wDataColor;
+            IncFieldOffset( 8 );
+            AddPayLoadCell("Value", Format("0x%02X", FeatureValue), "WUSB Feature Value");
+            AddWLengthCell ("Length of the payload, should set to 0");
+        }
+
+    }
+    ##############################################
+    #               Interface                    #
+    ##############################################
+    else if (bReqType == 0x01)
+    {
+        FieldColor = ERROR_COLOR;
+        FormatValue=Format("Clear Interface # %d Feature", wIndex);
+        AddGenWValueCell( FormatValue, Format ("0x%04X", wValue) , "Error: Interface CLEAR_FEATURE not defined!");
+        
+         if (wLength != 0)
+            AddWLengthCell( FormatEx(_err_Illegal_Value,"wLength",wLength,2 ) ,1 );  
+         else
+            AddWLengthCell( "Correct Value of 0",0 );   
+    }
+    ##############################################
+    #              Endpoint                      #
+    ##############################################
+    else if (bReqType == 0x02)
+    {
+        FieldColor = wDataColor;
+        if (wIndex & 0x80)
+        {
+            FormatValue=Format("Clear Endpoint # %d IN Feature", wIndex & 0xF);
+        }
+        else
+        {
+            FormatValue=Format("Clear Endpoint # %d OUT Feature", wIndex & 0x0F );
+        }
+        if (wValue == 0)
+        {
+            AddGenWValueCell( "wValue" , "ENDPOINT_HALT" , "value = 0");
+            if (wIndex & 0x80)          
+                AddGenWIndexCell( "wIndex" , Format ("Endpoint %d IN", wIndex & 0xF), FormatValue);
+            else
+                AddGenWIndexCell( "wIndex" , Format ("Endpoint %d OUT", wIndex & 0xF), FormatValue);           
+        }
+        else
+        {
+            FieldColor = ERROR_COLOR;
+            AddGenWValueCell( "wValue", Format ("Undefined: 0x&04X", wValue) , "Error.  Only legal value is 0." );
+        }
+         if (wLength != 0)
+            AddWLengthCell( FormatEx(_err_Illegal_Value,"wLength",wLength,2 ) ,1 );  
+         else
+            AddWLengthCell( "Correct Value of 0",0 );  
+    }
+    ###############################################
+    #            ReqType Illegal                  #
+    ###############################################
+    else
+    {
+        AddIllegalTypeCell( "CLEAR FEATURE" );
+    }
+
+    out.Decoded = 8;
+
+}
+# end CLEAR_FEATURE
+/*
+CLEAR_FEATURE_text()
+{
+    return "No Data to decode for CLEAR FEATURE";
+}
+*/
+
+#*******************************************************************************
+# SET_FEATURE   : This request is used to set or enable a specific feature
+# bReqType : 0x00/0x01/0x02
+# bRequest      : 0x03
+# wValue        : Feature Selector
+# wIndex        : Zero/Interface/Endpoint
+# wLength       : 0x00
+# Data          : None
+#*******************************************************************************
+SET_FEATURE()
+{
+    if ( IsPDFeature( wValue ) )
+	{
+        PD_DecodeSetPDFeature();
+		return 0;
+    }
+	if( tempSpeedFlag == Super_Speed_Mode )
+	{
+		  DoSetFeatureForUSB3();
+		  return 0;
+	}
+
+    ##############################################
+    #               Device                       #
+    ##############################################
+    if (bReqType == 0x00)
+    {     	 	
+        row = Find(DeviceFeatureSelectorTable, wValue);
+        #AddWValueCell("", row[1] );  --> This line is replicated in instances below to add customization for OTG_DEVICE under WUSB_DEVICE (they conflict)
+
+        if (row[1] == "TEST_MODE" )
+        {
+            AddWValueCell(row[1], FormatEx("wValue = 0x%04X\n\n",wValue) + row[1]);
+            TestModeSelector = GetDataByte(5);
+            TestModeText = GetTestModeSelectorTooltip(TestModeSelector);
+            FieldColor = wDataColor;
+            SetFieldOffsetLen( 40, 8 );
+            AddPayLoadCell("Test Mode", Format("0x%02X", TestModeSelector), TestModeText);
+            AddWLengthCell ("Length of the payload, should set to 0");
+        }
+
+        else if ( row[1] == "WUSB_DEVICE" )
+        {
+            #Are WUSB_Devices what the USER is decoding? (Flag defined/set in "StandardRequests_EDIT_OTG_WUSB_FLAG.inc".) If so decode.
+            if( StdReqDeviceTypeFLAG == WUSB_Device )
+            {
+                AddWValueCell(row[1], FormatEx("wValue = 0x%04X\n\n",wValue) + row[1] + "\n\nNOTE: If this device is an OTG device, to decode\ndecode properly, set the StdReqDeviceTypeFLAG in\nfile 'StandardRequests_EDIT_OTG_WUSB_FLAG.inc'\nlocated in the Scripts\Standard folder." );
+                WUSBSelector = GetDataByte(4); # The lower byte of wIndex is WUSB feature selector (WUSB 1.0 7.3.1.1)
+                FeatureValue = GetDataByte(5); # The higher byte of wIndex is zero or WUSB feature value
+                indexRow = Find(WUSBFeatureSelectorTable, wIndex);
+
+                FieldColor = wDataColor;
+                SetFieldOffsetLen( 40, 8 );
+                AddPayLoadCell("Feature", indexRow[1], Format("0x%02X",WUSBSelctor));
+                IncFieldOffset( 8 );
+                AddPayLoadCell("Value", Format("0x%02X", featureValue), "WUSB Feature Value");
+                AddWLengthCell ("Length of the payload, should set to 0");
+            }
+            #Else, the USER is decoding OTG_Devices --> The Flag is set/defined in "StandardRequests_EDIT_OTG_WUSB_FLAG.inc".
+            else
+            {
+                AddWValueCell("b_hnp_enable", Format("wValue = 0x%04X\n\nOTG Feature: b_hnp_enable\n\nNOTE: If this device is a WUSB device, to decode\ndecode properly, set the StdReqDeviceTypeFLAG in\nfile 'StandardRequests_EDIT_OTG_WUSB_FLAG.inc'\nlocated in the Scripts\\Standard folder.",wValue) );
+                SetCellColor(FieldColor);
+                index_tooltip = Format("wIndex = 0x%04X",wIndex);
+                length_tooltip= Format("wLength = 0x%04X",wLength);
+                if(wIndex != 0)
+                {
+                    SetCellColor(ERROR_COLOR);
+                    index_tooltip += "\n\n ERROR - Only Legal Value is 0!";
+                }
+                AddWIndexCell( "", index_tooltip);
+                RestoreCellColor();
+                if(wLength != 0)
+                {
+                    SetCellColor(ERROR_COLOR);
+                    length_tooltip += "\n\n ERROR - Only Legal Value is 0!";
+                }
+                AddWLengthCell(length_tooltip);
+                RestoreCellColor();
+            }
+        }
+        else
+        {
+            AddWValueCell(row[1], FormatEx("wValue = 0x%04X\n\n",wValue) + row[1] );
+            SetCellColor(FieldColor);                               #Going to Call RestoreCellColor below regardless of color not changing, saving the color value
+            index_tooltip = Format("wIndex = 0x%04X",wIndex);
+            length_tooltip= Format("wLength = 0x%04X",wLength);
+            if( (row[0]==4)||(row[0]==5) )                          #If Feature Selector = 4 or 5, check for zeroes
+            {
+                if(wIndex != 0)
+                {
+                    SetCellColor(0x0000FF);
+                    index_tooltip += "\n\n ERROR - Only Legal Value is 0!";
+                }
+            }
+            AddWIndexCell("", index_tooltip);
+            RestoreCellColor();
+            if( (row[0] == 4)||(row[0]==5) )
+            {
+                if(wLength != 0)
+                {
+                    SetCellColor(ERROR_COLOR);
+                    length_tooltip += "\n\n ERROR - Only Legal Value is 0!";
+                }
+            }
+            AddWLengthCell(length_tooltip);
+            RestoreCellColor();
+        }
+    }
+    ##############################################
+    #               Interface                    #
+    ##############################################
+    else if (bReqType == 0x01)
+    {
+        FieldColor = ERROR_COLOR;
+        FormatValue=Format("Set Interface # %d Feature", wIndex);
+        AddGenWValueCell(FormatValue, Format ("0x%04X", wValue) , "Error: Interface SET_FEATURE not defined!");
+        AddWLengthCell ("Length of the payload, should set to 0");
+    }
+    ##############################################
+    #              Endpoint                      #
+    ##############################################
+    else if (bReqType == 0x02)
+    {
+        if (wIndex & 0x80)
+        {
+            FormatValue=Format("Set Endpoint # %d IN Feature", wIndex & 0xF);
+        }
+        else
+        {
+            FormatValue=Format("Set Endpoint # %d OUT Feature", wIndex & 0x0F );
+        }
+        if (wValue == 0)
+        {
+            AddGenWValueCell(FormatValue, "ENDPOINT_HALT" , "value = 0");
+        }
+        else
+        {
+            FieldColor = ERROR_COLOR;
+            AddGenWValueCell(FormatValue, Format ("Undefined: 0x&04X", wValue) , "Error.  Only legal value is 0." );
+        }
+        AddWLengthCell ("Length of the payload, should set to 0");
+    }
+    ###############################################
+    #            ReqType Illegal                  #
+    ###############################################
+    else
+    {
+        AddIllegalTypeCell( "SET FEATURE" );
+    }
+    out.Decoded = 8;
+}
+
+# end SET_FEATURE
+/*
+SET_FEATURE_text()
+{
+    return "No data to decode for SET FEATURE";
+}
+
+*/
+
+#*******************************************************************************
+# SET_ADDRESS   : This request sets the device address for all future device
+#                 accesses
+# bReqType : 0x00
+# bRequest      : 0x05
+# wValue        : Device Address
+# wIndex        : 0x0000
+# wLength       : 0x00
+# Data          : None
+#*******************************************************************************
+SET_ADDRESS()
+{
+    if (bReqType == 0x00)
+    {
+        FieldColor = wValueColor;
+        AddWValueCell( Format ("New address %d" , wValue), Format ("New address = 0x%04X" , wValue));
+        
+        if (wIndex != 0)
+            AddWIndexCell("", FormatEx(_err_Illegal_Value,"wIndex",wIndex,0 ) ,1 );  
+         else
+            AddWIndexCell("", "Correct Value of 0",0 ); 
+        
+        
+         if (wLength != 0)
+            AddWLengthCell( FormatEx(_err_Illegal_Value,"wLength",wLength,0 ) ,1 );  
+         else
+            AddWLengthCell( "Correct Value of 0",0 );   
+    }
+    else
+    {
+        AddIllegalTypeCell( "SET ADDRESS" );
+    }
+    out.Decoded = 8;
+}
+
+# end SET_ADDRESS
+
+SET_ADDRESS_text()
+{
+   return "No data to decode for SET ADDRESS";
+}
+
+#*******************************************************************************
+# GET_DESCRIPTOR: This request returns the specified descriptor if the descriptor
+#                 exists
+# bReqType : 0x80
+# bRequest      : 0x06
+# wValue        : Desriptor Type and Descriptor Index
+# wIndex        : 0x0000 or Language ID
+# wLength       : Descriptor Length
+# Data          : Descriptor
+#*******************************************************************************
+GET_DESCRIPTOR()
+{
+   # do_descriptor();
+
+    if (bReqType == 0x80) # for device or configuation descriptor only.
+    {
+        do_descriptor();
+    }
+    else if((bReqType == 0x81) && (wValue == 0x2100)||(wValue == 0x2200)||(wValue == 0x2300)) # may be class's descriptor request here  ? (Hid 1.1 spec page 49)
+    {
+        DecodeHidDescriptor();
+    }
+    else
+    {
+        AddIllegalTypeCell( "GET DESCRIPTOR" );
+    }
+
+    out.Decoded = in.DataLength; # start with the setup bytes
+}
+
+
+# end GET_DESCRIPTOR
+/*
+GET_DESCRIPTOR_text()
+{
+    descriptor_index =  wValue & 0xFF;
+    descriptor_type  = (wValue >> 8) & 0xFF;
+  #AddLineOfText("From GET_DESCRIPTOR_text()");
+    return DoStandardDescriptors(descriptor_type, 0);
+}
+*/
+#*******************************************************************************
+# SET_DESCRIPTOR : This request may be used to update existing descriptors or
+#                  new descriptors may be added
+# bReqType : 0x00
+# bRequest      : 0x07
+# wValue        : Descriptor Type and Descriptor Index
+# wIndex        : Language ID
+# wLength       : Descriptor Length
+# Data          : Descriptor
+#*******************************************************************************
+SET_DESCRIPTOR()
+{
+    if (bReqType == 0x00)
+    {
+        do_descriptor();
+    }
+    else if(bReqType == 0x01) # may be class's descriptor request here  ? (Hid 1.1 spec page 49)
+    {
+        DecodeHidDescriptor();
+    }
+    else
+    {
+        AddIllegalTypeCell( "SET DESCRIPTOR" );
+    }
+    out.Decoded = in.DataLength; # start with the setup bytes
+
+}
+# end SET_DESCRIPTOR
+/*
+SET_DESCRIPTOR_text()
+{
+    return DoStandardDescriptors(descriptor_type, 0);
+}
+*/
+#*******************************************************************************
+# GET_CONFIGURATION: This request returns the current device configuration value
+# bReqType : 0x80
+# bRequest      : 0x08
+# wValue        : 0x0000
+# wIndex        : 0x0000
+# wLength       : 0x01
+# Data          : Configuration Value
+#*******************************************************************************
+GET_CONFIGURATION()
+{
+    out.Decoded = 8;
+
+    if (bReqType == 0x80)
+    {
+         if (wValue != 0)
+            AddWValueCell("", FormatEx(_err_Illegal_Value,"wValue",wValue,0 ) ,1 );  
+         else
+            AddWValueCell("", "Correct Value of 0",0 ); 
+
+        if (wIndex != 0)
+            AddWIndexCell("", FormatEx(_err_Illegal_Value,"wIndex",wIndex,0 ) ,1 );  
+         else
+            AddWIndexCell("", "Correct Value of 0",0 ); 
+        
+         if (wLength != 1)
+            AddWLengthCell( FormatEx(_err_Illegal_Value,"wLength",wLength,0 ) ,1 );  
+         else
+            AddWLengthCell( "Correct Value of 1",0 );   
+
+        if (in.DataLength - 8 >= 1)
+        {
+            value  = GetDataByte(8);
+            FieldColor = wDataColor;
+            SetFieldOffsetLen( 64 + 8, 8 );
+            AddPayLoadCell("Config", Format ("Configuration %d" , value), Format ("Configuration # = 0x%04X" , value));
+            out.Decoded ++;
+        }
+        else
+            AddErrorMonoCell("Error", "Not enough data", "Not enough data to decode current request");
+
+    }
+    else
+    {
+        AddIllegalTypeCell( "GET CONFIGURATION" );
+    }
+}
+# end GET_CONFIGURATION
+/*
+GET_CONFIGURATION_text()
+{
+    value  = GetDataByte(8);
+    temp_str = "GET_CONFIGURATION";
+    temp_str += NewLine();
+    temp_str += NewLine();
+    if (bReqType == 0x80)
+    {
+        temp_str += "Configuration Number: ";
+        temp_str += Format ("%d" , value);
+        temp_str += NewLine();
+    }
+    else
+    {
+        temp_str += Format("The bmRequestType value 0x%02X is illegal.", bReqType);
+        temp_str += NewLine();
+    }
+    return temp_str;
+}
+*/
+#*******************************************************************************
+# SET_CONFIGURATION : This request sets the device configuration
+# bReqType : 0x00
+# bRequest      : 0x09
+# wValue        : Configuration Value
+# wIndex        : 0x0000
+# wLength       : 0x00
+# Data          : None
+#*******************************************************************************
+SET_CONFIGURATION()
+{
+    if (bReqType == 0x00)
+    {
+         AddWValueCell(Format ("New Configuration %d" , wValue), Format ("Set New Configuration # = 0x%04X" , wValue));
+
+         if (wIndex != 0)
+            AddWIndexCell("", FormatEx(_err_Illegal_Value,"wIndex",wIndex,0 ) ,1 );  
+         else
+            AddWIndexCell("", "Correct Value of 0",0 ); 
+        
+         if (wLength != 0)
+            AddWLengthCell( FormatEx(_err_Illegal_Value,"wLength",wLength,0 ) ,1 );  
+         else
+            AddWLengthCell( "Correct Value of 0",0 );   
+    }
+    else
+    {
+        AddIllegalTypeCell( "SET CONFIGURATION" );
+    }
+    out.Decoded = 8;
+}
+# end SET_CONFIGURATION
+/*
+SET_CONFIGURATION_text()
+{
+    return "No data to decode for SET CONFIGURATION";
+}
+*/
+#*******************************************************************************
+# GET_INTERFACE : This request returns the selected alternate setting for the
+#                 specified interface
+# bReqType : 0x81
+# bRequest      : 0x0A
+# wValue        : 0x0000
+# wIndex        : Interface
+# wLength       : 0x01
+# Data          : Alternate Setting
+#*******************************************************************************
+GET_INTERFACE()
+{
+    out.Decoded = 8;
+    if (bReqType == 0x81)
+    {
+         if (wValue != 0)
+            AddWValueCell("", FormatEx(_err_Illegal_Value,"wValue",wValue,0 ) ,1 );  
+         else
+            AddWValueCell("", "Correct Value of 0",0 ); 
+
+        #AddWValueCell("", "Should set to 0");
+        AddWIndexCell( Format ("%d" , wIndex), Format ("Interface # 0x%04X" , wIndex) );
+        #AddWLengthCell("Length of the payload, should set to 1");
+
+        if (wLength != 1)
+            AddWLengthCell( FormatEx(_err_Illegal_Value,"wLength",wLength,0 ) ,1 );  
+         else
+            AddWLengthCell( "Correct Value of 1",0 );   
+
+        if (in.DataLength - 8 >= 1)
+        {
+            value  = GetDataByte(8);
+            FieldColor = wDataColor;
+            SetFieldOffsetLen( 64 + 8, 8 );
+            AddPayLoadCell("Altr Setting", Format ("%d" , value), Format ("New Alternate Setting for Interface %d = 0x%02X" , wIndex, value));
+            out.Decoded ++;
+        }
+        else
+            AddErrorMonoCell("Error", "Not enough data", "Not enough data to decode current request");
+    }
+    else
+    {
+        AddIllegalTypeCell( "GET INTERFACE" );
+    }
+}
+# end GET_INTERFACE
+/*
+GET_INTERFACE_text()
+{
+    value  = GetDataByte(8);
+    temp_str = "GET_INTERFACE";
+    temp_str += NewLine();
+    temp_str += NewLine();
+    if (bReqType == 0x81)
+    {
+        temp_str += "Interface Number: ";
+        temp_str += Format("%d", wIndex);
+        temp_str += NewLine();
+        temp_str += "Alternate Setting: ";
+        temp_str += Format ("%d" , value);
+        temp_str += NewLine();
+    }
+    else
+    {
+        temp_str += Format("The bmRequestType value 0x%02X is illegal.", bReqType);
+        temp_str += NewLine();
+    }
+    return temp_str;
+}
+*/
+
+#*******************************************************************************
+# SET_INTERFACE : This request allows the host to select an alternate setting for
+#                 the specified interface
+# bReqType : 0x01
+# bRequest      : 0x0B
+# wValue        : Alternative Setting
+# wIndex        : Interface
+# wLength       : 0x00
+# Data          : None
+#*******************************************************************************
+SET_INTERFACE()
+{
+    if (bReqType == 0x01)
+    {
+        AddWIndexCell(Format ("%d" , wIndex), Format ("Interface # 0x%04X" , wIndex));
+        FieldColor = wDataColor;
+        AddGenWValueCell("Altr Setting", Format ("%d" , wValue), Format ("Set Alternate Setting  = 0x%04X" , wValue));
+        #AddWLengthCell("Length of the payload, should set to 0");
+
+         if (wLength != 0)
+            AddWLengthCell( FormatEx(_err_Illegal_Value,"wLength",wLength,0 ) ,1 );  
+         else
+            AddWLengthCell( "Correct Value of 0",0 );   
+    }
+    else
+    {
+        AddIllegalTypeCell( "SET INTERFACE" );
+    }
+    out.Decoded = 8;
+}
+
+# end SET_INTERFACE
+
+SET_INTERFACE_text()
+{
+    return "No data to decode for SET INTERFACE";
+}
+
+
+
+#*******************************************************************************
+# SYNC_FRAME : This request synchronizes an isochronous endpoint
+#
+# bReqType      : 0x82
+# bRequest      : 0x0C
+# wValue        : 0
+# wIndex        : Endpoint
+# wLength       : 0x02
+# Data          : Frame Number
+#*******************************************************************************
+SYNC_FRAME()
+{
+
+    out.Decoded = 8;
+    if (bReqType == 0x82)
+    {
+        FieldColor = wIndexColor;
+        if (wIndex & 0x80)
+        {
+            FormatValue=Format("Endpoint # %d IN", wIndex & 0x0F);
+        }
+        else
+        {
+            FormatValue=Format("Endpoint # %d OUT", wIndex & 0x0F);
+        }
+        AddWIndexCell(FormatValue, Format ("Endpoint # 0x%04X" , wIndex & 0x0F));
+        #AddWLengthCell("Length of the payload, Should set to 2");
+        if (wLength != 2)
+            AddWLengthCell( FormatEx(_err_Illegal_Value,"wLength",wLength,2 ) ,1 );  
+         else
+            AddWLengthCell( "Correct Value of 2",0 );   
+        
+        if (in.DataLength - 8 >=2)
+        {
+            value  = GetDataWord(8);
+            FieldColor = wDataColor;
+            SetFieldOffsetLen( 64 + 16, 16 );
+            AddPayLoadCell("Sync Frame", Format ("Frame: %d" , value), Format ("Frame = %d" , value));
+            out.Decoded +=2;
+        }
+        else
+            AddErrorMonoCell("Error", "Not enough data", "Not enough data to decode current request");
+    }
+    else
+    {
+        AddIllegalTypeCell( "SYNC FRAME" );
+    }
+}
+
+# end SYNC_FRAME
+/*
+SYNC_FRAME_text()
+{
+    value  = GetDataWord(8);
+    temp_str = "SYNCH_FRAME";
+    temp_str += NewLine();
+    temp_str += NewLine();
+    if (bReqType == 0x02)
+    {
+        if (wIndex & 0x80)
+        {
+            temp_str += Format("Endpoint # %d IN", wIndex & 0x0F);
+        }
+        else
+        {
+            temp_str += Format("Endpoint # %d OUT", wIndex & 0x0F);
+        }
+        temp_str += NewLine();
+        temp_str += "Sync Frame: ";
+        temp_str += Format ("%d" , value);
+        temp_str += NewLine();
+    }
+    else
+    {
+        temp_str += Format("The bmRequestType value 0x%02X is illegal.", bReqType);
+        temp_str += NewLine();
+    }
+    return temp_str;
+}
+
+*/
+############################################################################
+#                    Start of WUSB Special features                        #
+############################################################################
+
+
+#*******************************************************************************
+# SET_INTERFACE_DS : This request is to instruct the device to switch operation
+#                    to a specified alternate setting for an interface at a
+#                    specified time.
+#
+# bReqType      : 0x01
+# bRequest      : 0x17
+# wValue        : Alternate Setting
+# wIndex        : Interface
+# wLength       : 0x02
+# Data          : Switch Time
+#*******************************************************************************
+SET_INTERFACE_DS()
+{
+    out.Decoded = 8;
+    if (bReqType == 0x01)
+    {
+        AddWIndexCell("" , Format ("Interface ID %d" , wIndex));
+        AddWValueCell(Format("%d", wValue), Format ("Set Alternate Setting to %d" , wValue));
+        #AddWLengthCell("Length of the payload, Should set to 2");
+        if (wLength != 2)
+            AddWLengthCell( FormatEx(_err_Illegal_Value,"wLength",wLength,2 ) ,1 );  
+         else
+            AddWLengthCell( "Correct Value of 2",0 );   
+        if (in.DataLength - 8 >=2)
+        {
+            SwitchTime = GetDataWord(8);
+            FieldColor = wDataColor;
+            SetFieldOffsetLen(64 + 16, 16);
+            AddPayLoadCell("Switch Time", Format ("%d ms" , SwitchTime * 8), "Indicates the time that interface should be switched to an alternate setting");
+            out.Decoded += 2;
+        }
+        else
+            AddErrorMonoCell("Error", "Not enough data", "Not enough data to decode current request");
+    }
+    else
+    {
+        AddIllegalTypeCell("SET INTERFACE DS");
+    }
+}
+/*
+SET_INTERFACE_DS_text()
+{
+    value  = GetDataWord(8);
+    temp_str = "SET_INTERFACE_DS";
+    temp_str += NewLine();
+    temp_str += NewLine();
+    if (bReqType == 0x01)
+    {
+        temp_str += "Interface #: ";
+        temp_str += Format ("%d" , wIndex);
+        temp_str += NewLine();
+        temp_str += "Alternate Setting: ";
+        temp_str += Format ("%d" , wValue);
+        temp_str += NewLine();
+        temp_str += "SwitchTime: ";
+        temp_str += Format ("%d ms" , value * 8);
+        temp_str += NewLine();
+    }
+    else
+    {
+        temp_str += Format("The bmRequestType value 0x%02X is illegal.", bReqType);
+        temp_str += NewLine();
+    }
+    return temp_str;
+}
+*/
+
+
+####################################################################################
+#         Security-related Wireless USB Requests                                   #
+####################################################################################
+
+#***********************************************************************************
+#  SET_HANDSHAKE :
+#
+# bRequestType      :0x00
+# bRequest          :0x0F
+# wValue            :1 or 3
+# wIndex            :zero
+# wLength           :46
+# Data              :handshake1 or handshake3
+#***********************************************************************************
+
+SET_HANDSHAKE()
+{
+    out.Decoded = 8;
+    if (bReqType == 0x00)
+    {
+        if ( wValue == 1 ) # handshake 1
+        {
+           DoHandshakeDecoding(wValue);
+        }
+        else if ( wValue == 3) # handshake 3
+        {
+            DoHandshakeDecoding(wValue);
+        }
+        else
+        {
+            FieldColor = ERROR_COLOR;
+            AddWValueCell(Format("%d", wValue), "Only 1 or 3 is allowed for SET HANDSHAKE request");
+        }
+    }
+    else
+    {
+        AddIllegalTypeCell("SET HANDSHAKE");
+    }
+
+}
+
+/*
+
+SET_HANDSHAKE_text()
+{
+    temp_str = "SET_HANDSHAKE";
+    temp_str += NewLine();
+    temp_str += NewLine();
+    if (bReqType == 0x80)
+    {
+        if ( wValue == 2 ) # handshake 2
+        {
+           temp_str += DoHandshakeText(wValue);
+        }
+        else
+        {
+            temp_str += Format("%d", wValue);
+            temp_str += " is not a valid wValue for SET HANDSHAKE request";
+            temp_str += NewLine();
+        }
+    }
+    else
+    {
+        temp_str += Format("The bmRequestType value 0x%02X is illegal.", bReqType);
+        temp_str += NewLine();
+    }
+    return temp_str;
+}
+*/
+#***********************************************************************************
+#  GET_HANDSHAKE :
+#
+# bRequestType      :0x80
+# bRequest          :0x10
+# wValue            :2
+# wIndex            :zero
+# wLength           :46
+# Data              :handshake 2
+#***********************************************************************************
+
+GET_HANDSHAKE()
+{
+    out.Decoded = 8;
+    if (bReqType == 0x80)
+    {
+        if ( wValue == 2 ) # handshake 2
+        {
+           DoHandshakeDecoding(wValue);
+        }
+        else
+        {
+            AddWValueCell(Format("%d", wValue), "Only 2 is allowed for GET HANDSHAKE request");
+        }
+    }
+    else
+    {
+        AddIllegalTypeCell("GET HANDSHAKE request");
+    }
+
+}
+/*
+
+
+GET_HANDSHAKE_text()
+{
+    temp_str = "GET_HANDSHAKE";
+    temp_str += NewLine();
+    temp_str += NewLine();
+    if (bReqType == 0x80)
+    {
+        if ( wValue == 2 ) # handshake 2
+        {
+           temp_str += DoHandshakeText(wValue);
+        }
+        else
+        {
+            temp_str += Format("%d", wValue);
+            temp_str += " is not a valid wValue for GET HANDSHAKE request";
+            temp_str += NewLine();
+        }
+    }
+    else
+    {
+        temp_str += Format("The bmRequestType value 0x%02X is illegal.", bReqType);
+        temp_str += NewLine();
+    }
+    return temp_str;
+}
+
+*/
+
+DoHandshakeDecoding(ID)
+{
+    AddWValueCell();
+    AddWIndexCell();
+    AddWLengthCell();
+
+
+    # End the Setup Data table and start a new one starting at offset 0
+    Global_BitField_offset = 64;
+    CurrentFldInit();
+
+    AddCaptionToDlg("Handshake Message Data");
+
+    if (in.DataLength - 8 >= 1)
+    {
+        bMessageNumber = NextNBits_(8);
+        #AddPayLoadCell ("message", Format("%d", bMessageNumber), "");
+        if (bMessageNumber == ID)
+        {
+            #################################
+            #   bMessageNumber              #
+            #################################
+            FieldColor = wDataColor;
+            AddPayLoadCell("Hndshk Type", Format("Handshake%d",ID), "Handshake Type");
+            #################################
+            #   bStatus                     #
+            #################################
+            if (in.DataLength - 8 >= 1 + 1 )
+            {
+                FieldColor = wDataColor;
+                bStatus = NextNBits_(8);
+                result = Find(HandshakeStatusTable, bStatus);
+                if (result[0] != 0xFF)
+                    AddPayLoadCell("Status", result[1], result[2]);
+                else
+                {
+                    FieldColor = ERROR_COLOR;
+                    AddPayLoadCell("Status", Format("%d", bStatus), "This status ID is invalid");
+                }
+            out.Decoded ++;
+            }
+            ##################################
+            #   tTKID                        #
+            ##################################
+            if (in.DataLength - 8 >= 1 + 1 + 3)
+            {
+                FieldColor = wDataColor;
+                tTKID = NextData3Bytes_();
+                AddPayLoadCell("tTKID", Format("0x%06X", tTKID), "The base name for the PTK to be derived");
+                out.Decoded += 3;
+            }
+            ###################################
+            #    bReserved                    #
+            ###################################
+            if (in.DataLength - 8 >= 1 + 1 + 3 + 1)
+            {
+                PLReservedCheck(8);
+                out.Decoded ++;
+            }
+
+            ###################################
+            #     CDID                        #
+            ###################################
+            if (in.DataLength - 8 >= 1 + 1 + 3 + 1 + 16)
+            {
+                FieldColor = wDataColor;
+                AddPayLoadCell("CDID",Get16BytesData(),"The device's CDID");
+                out.Decoded += 16;
+            }
+
+            ###################################
+            #     Nonce                       #
+            ###################################
+            if (in.DataLength - 8 >= 1 + 1 + 3 + 1 + 16 + 16)
+            {
+                FieldColor = wDataColor;
+                AddPayLoadCell("Nonce",Get16BytesData(),"The Nonce exchanged for the handshake");
+                out.Decoded += 16;
+            }
+            ###################################
+            #     MIC                         #
+            ###################################
+            if (in.DataLength - 8 >= 1 + 1 + 3 + 1 + 16 + 16 + 8)
+            {
+                FieldColor = wDataColor;
+                AddPayLoadCell("MIC",Get8BytesData(),"The MIC calculated over previous fields of this packet payload");
+                out.Decoded += 8;
+            }
+        }
+        else
+        {
+            FieldColor = ERROR_COLOR;
+            AddErrorMonoCell("Hndshk Num", "Conflict", Format("The bRequest & wValue indicate handshake%d,",ID) + Format(" but bMessageNumber indicates handshake%d", bMessageNumber));
+        }
+    out.Decoded++;
+    }
+    if (out.Decoded < 46)
+        AddErrorMonoCell("Error", "Not enough data", "Not enough data to decode current request");
+}
+
+
+/*
+DoHandshakeText(ID)
+{
+    bMessageNumber = GetDataByte(8);
+    if (bMessageNumber == ID)
+    {
+        #################################
+        #   bMessageNumber              #
+        #################################
+        temp_str1 = "Handshake Type";
+        temp_str1 += Format("Handshake%d",ID);
+        temp_str1 += NewLine();
+        #################################
+        #   bStatus                     #
+        #################################
+        bStatus = GetDataByte(9);
+        result = Find(HandshakeStatusTable, bStatus);
+        temp_str1 += "Status: ";
+        if (result[0] != 0xff)
+        {
+            temp_str1 += result[1];
+            temp_str1 += " - ";
+            temp_str1 += result[2];
+        }
+        else
+        {
+            temp_str1 += "Invalid";
+        }
+        temp_str1 += NewLine();
+        ##################################
+        #   tTKID                        #
+        ##################################
+
+        val = NextNBits_(24);
+        if (LittleEndian == 1)
+        {
+            tTKID = ((val & 0xFF0000) >> 16)  |
+               (val & 0x00FF00)          |
+               ((val & 0x0000FF) << 16);
+        }
+        else
+        {
+            tTKID = val;
+        }
+        temp_str1 += "tTKID: ";
+        temp_str1 += Format("0x6X", tTKID);
+        temp_str1 += NewLine();
+        ###################################
+        #    bReserved                    #
+        ###################################
+        bReserved = GetDataByte(13);
+        if (bReserved != 0)
+        {
+            temp_str1 += "Reserved: ";
+            temp_str1 += Format("%d",bReserved);
+            temp_str1 += " -  !ERROR, this value has to be 0";
+        }
+        else
+            temp_str1 += "Reserved: 0";
+
+        temp_str1 += NewLine();
+
+        ###################################
+        #     CDID                        #
+        ###################################
+        temp_str1 += "CDID: ";
+        temp_str1 += Get16BytesData();
+        temp_str1 += NewLine();
+
+        ###################################
+        #     Nonce                       #
+        ###################################
+        temp_str1 += "Nonce: ";
+        temp_str1 += Get16BytesData();
+        temp_str1 += NewLine();
+
+        ###################################
+        #     MIC                         #
+        ###################################
+        temp_str1 += "MIC: ";
+        temp_str1 += Get8BytesData();
+        temp_str1 += NewLine();
+    }
+    else
+    {
+        temp_str1 = "Conflict!";
+        temp_str1 += NewLine();
+        temp_str1 += Format("The bRequest & wValue indicate handshake%d",ID);
+        temp_str1 += NewLine();
+        temp_str1 += Format("The bMessageNumber indicates handshake%d",bMessageNumber);
+        temp_str1 += NewLine();
+    }
+    return temp_str1;
+}
+
+*/
+#***********************************************************************************
+#  SET_ENCRYPTION :
+#
+# bRequestType      :0x00
+# bRequest          :0x0D
+# wValue            :Encryption Value
+# wIndex            :zero
+# wLength           :zero
+# Data              :None
+#***********************************************************************************
+SET_ENCRYPTION()
+{
+    if( bReqType == 0x00 )
+    {
+        result = Find(EncryptionTypeTable, wValue);
+        AddWValueCell(Format("%d",wValue), result[1]);
+        #AddWIndexCell();
+        #AddWLengthCell();
+        if (wIndex != 0)
+            AddWIndexCell("", FormatEx(_err_Illegal_Value,"wIndex",wIndex,0 ) ,1 );  
+         else
+            AddWIndexCell(); 
+        
+        
+         if (wLength != 0)
+            AddWLengthCell( FormatEx(_err_Illegal_Value,"wLength",wLength,0 ) ,1 );  
+         else
+            AddWLengthCell( );   
+    }
+    else
+    {
+        AddIllegalTypeCell("SET ENCRYPTION");
+    }
+
+    out.Decoded = 8;
+}
+/*
+SET_ENCRYPTION_text()
+{
+    return "No data to decode for SET ENCRYPTION";
+}
+*/
+#***********************************************************************************
+#  GET_ENCRYPTION :
+#
+# bRequestType      :0x80
+# bRequest          :0x0E
+# wValue            :zero
+# wIndex            :zero
+# wLength           :one
+# Data              :Encryption Value
+#***********************************************************************************
+
+GET_ENCRYPTION()
+{
+    out.Decoded = 8;
+    if( bReqType == 0x80 )
+    {
+        #AddWValueCell();
+        #AddWIndexCell();
+        #AddWLengthCell();
+         if (wValue != 0)
+            AddWValueCell("", FormatEx(_err_Illegal_Value,"wValue",wValue,0 ) ,1 );  
+         else
+            AddWValueCell(); 
+       
+         if (wIndex != 0)
+            AddWIndexCell("", FormatEx(_err_Illegal_Value,"wIndex",wIndex,0 ) ,1 );  
+         else
+            AddWIndexCell(); 
+        
+         if (wLength != 0)
+            AddWLengthCell( FormatEx(_err_Illegal_Value,"wLength",wLength,0 ) ,1 );  
+         else
+            AddWLengthCell(  );   
+       
+        if (in.DataLength - 8 >= 1)
+        {
+            EncryptionValue = GetDataByte(8);
+            FieldColor = wDataColor;
+            FormatValue = "Encrpt Val";
+            result = Find(EncryptionTypeTable, EncryptionValue);
+            SetFieldOffsetLen(64 + 8, 8);
+            AddPayLoadCell(FormatValue, Format("%d",EncryptionValue), result[1]);
+            out.Decoded++;
+        }
+        else
+            AddErrorMonoCell("Error", "Not enough data", "Not enough data to decode current request");
+    }
+    else
+    {
+        AddIllegalTypeCell("GET ENCRYPTION");
+    }
+
+}
+/*
+GET_ENCRYPTION_text()
+{
+    temp_str = "GET_ENCRYPTION";
+    temp_str += NewLine();
+    temp_str += NewLine();
+    if( bReqType == 0x80 )
+    {
+        EncryptionValue = GetDataByte(8);
+        temp_str += "Encryption Value: ";
+        result = Find(EncryptionTypeTable, EncryptionValue);
+        temp_str += result[1];
+    }
+    else
+    {
+        temp_str += Format("The bmRequestType value 0x%02X is illegal.", bReqType);
+        temp_str += NewLine();
+    }
+    return temp_str;
+}
+*/
+#***********************************************************************************
+#  SET_CONNECTION :
+#
+# bRequestType      :0x00
+# bRequest          :0x11
+# wValue            :Zero
+# wIndex            :Zero
+# wLength           :48
+# Data              :Connection Context
+#***********************************************************************************
+SET_CONNECTION()
+{
+    out.Decoded = 8;
+    if( bReqType == 0x00 )
+    {
+        AddWValueCell();
+        AddWIndexCell();
+        AddWLengthCell();
+
+        ###################################
+        #     CHID                        #
+        ###################################
+        if (in.DataLength - 8 >= 16)
+        {
+            FieldColor = wDataColor;
+            SetFieldOffsetLen(64 , 8);
+            AddPayLoadCell("CHID", Get16BytesData(),"Unique Host ID");
+            out.Decoded += 16;
+        }
+        ###################################
+        #     CDID                        #
+        ###################################
+        if (in.DataLength - 8 >= 16 + 16)
+        {
+            AddPayLoadCell("CDID", Get16BytesData(), "The device's CDID");
+            out.Decoded += 16;
+        }
+        ###################################
+        #     CK                          #
+        ###################################
+        if (in.DataLength - 8 >= 16 + 16 + 16)
+        {
+            AddPayLoadCell("CK",Get16BytesData(),"The Key used to establish reconnections using this context");
+            out.Decoded += 16;
+        }
+        if (out.Decoded < 48)
+            AddErrorMonoCell("Error", "Not enough data", "Not enough data to decode current request");
+    }
+    else
+    {
+        AddIllegalTypeCell("SET CONNECTION");
+    }
+
+}
+/*
+SET_CONNECTION_text()
+{
+    temp_str += "SET_CONNECTION";
+    temp_str += NewLine();
+    temp_str += NewLine();
+    if( bReqType == 0x00 )
+    {
+        ###################################
+        #     CHID                        #
+        ###################################
+        SetFieldOffsetLen(64 , 8);
+        temp_str += "CHID: ";
+        temp_str += Get16BytesData();
+        temp_str += NewLine();
+        ###################################
+        #     CDID                        #
+        ###################################
+        temp_str += "CDID: ";
+        temp_str += Get16BytesData();
+        temp_str += NewLine();
+        ###################################
+        #     CK                          #
+        ###################################
+        temp_str += "CK: ";
+        temp_str += Get16BytesData();
+        temp_str += NewLine();
+    }
+    else
+    {
+        temp_str += Format("The bmRequestType value 0x%02X is illegal.", bReqType);
+        temp_str += NewLine();
+    }
+    return temp_str;
+}
+*/
+
+#***********************************************************************************
+#  SET_SECURITY_DATA :
+#
+# bRequestType      :0x00
+# bRequest          :0x12
+# wValue            :Data number
+# wIndex            :Zero
+# wLength           :Data Length
+# Data              :Security Data
+#***********************************************************************************
+SET_SECURITY_DATA()
+{
+     out.Decoded = 8;
+    if( bReqType == 0x00 )
+    {
+        AddWValueCell(Format("%d",wValue),"Data number that represents a stage or message number");
+        AddWIndexCell();
+        AddWLengthCell();
+
+
+        ###################################
+        #     Security Data               #
+        ###################################
+        if (in.DataLength - 8 > 0)
+        {
+            AddDecSeparator();
+            FieldColor = wPayloadColor;
+            AddPLCellMonoNoDlg("Sec Data","Sec Data");
+            ShowDataBlock(in.DataLength - 8);
+            out.Decoded += in.DataLength - 8;
+        }
+    }
+    else
+    {
+        AddIllegalTypeCell("SET SECURITY DATA");
+    }
+
+}
+/*
+SET_SECURITY_DATA_text()
+{
+    return "No data to decode for SET SECURITY DATA";
+}
+*/
+#***********************************************************************************
+#  GET_SECURITY_DATA :
+#
+# bRequestType      :0x80
+# bRequest          :0x13
+# wValue            :Data number
+# wIndex            :Zero
+# wLength           :Data Length
+# Data              :Security Data
+#***********************************************************************************
+GET_SECURITY_DATA()
+{
+     out.Decoded = 8;
+    if( bReqType == 0x80 )
+    {
+        AddWValueCell(Format("%d",wValue),"Data number that represents a stage or message number");
+        AddWIndexCell();
+        AddWLengthCell();
+
+        ###################################
+        #     Security Data               #
+        ###################################
+        if (in.DataLength - 8 > 0)
+        {
+            FieldColor = wPayloadColor;
+            AddDecSeparator();
+            AddPLCellMonoNoDlg("Sec Data","Sec Data","Security Data payload", _MONOFIELD);
+            ShowDataBlock(in.DataLength - 8);
+            out.Decoded += in.DataLength - 8;
+        }
+    }
+    else
+    {
+        AddIllegalTypeCell("GET SECURITY DATA");
+    }
+
+}
+/*
+GET_SECURITY_DATA_text()
+{
+    return "No data to decode for GET SECURITY DATA";
+}
+*/
+
+#  Text based portion------------------------------------------------
+#  Text based portion------------------------------------------------
+#  Text based portion------------------------------------------------
+#  Text based portion------------------------------------------------
+#  Text based portion------------------------------------------------
+#  Text based portion------------------------------------------------
+
+
+DecodeDataToText()
+{
+    InitText();
+    bLength             = GetDataByte(8);
+    bDescriptorType     = GetDataByte(9);
+    if (bDescriptorType == 0x29)
+    {
+         AddDataHeader("Standard Descriptor", bLength);
+         return DecodeDescriptorsToText();
+    }
+    else
+    {
+        _row = Find(AllStandardRequestsTable, bRequest);
+
+        if ( _row[0] != 0xFF)
+        {
+            return (Call ( _row[2], [ in.DataLength ] ));
+
+        }
+        else
+        {
+            return ("Other than a Descriptor!");
+        }
+    }
+}
+
+DecodeDescriptorsToText()
+{
+    return ("No done with DecodeDescriptorsToText");
+    InitText();
+
+    bNbrPorts           = GetDataByte(10);
+    wHubCharacteristics = GetDataWord(11);
+    bPwrOn2PwrGood      = GetDataByte(13);
+    bHubContrCurrent    = GetDataByte(14);
+    DeviceRemovable     = GetDataByte(15);
+    if (bNbrPorts > 7)
+    {
+        DeviceRemovable_2 = GetDataByte(16);
+        PortPwrCtrlMask   = GetDataByte(17);
+        PortPwrCtrlMask_2 = GetDataByte(18);
+    }
+    else
+    {
+        PortPwrCtrlMask     = GetDataByte(16);
+    }
+
+    str  = "";
+
+    if (bDescriptorType == 0x29)
+    {
+         AddDataHeader("HUB Descriptor", bLength);
+    }
+    else
+    {
+        str = OutputType;
+        str += NewLine();
+        str +=  "--> UNKNOWN DESCRIPTOR TYPE: ";
+        str +=  Format("0x%04X", bDescriptorType);
+        AddDataHeader(str, bLength);
+    }
+    AddEntry( 0, "bLength", bLength, 2, "", 1);
+    AddDescriptorSizeString(bLength);
+    AddFieldBreak();
+
+    AddEntry( 1, "bDescriptorType", bDescriptorType, 2, GetDescriptorTypeString("HUB"), 0);
+    AddFieldBreak();
+
+    str = Format ("The hub has %d", bNbrPorts);
+    AddEntry( 2, "bNbrPorts", bNbrPorts, 2, str, 0 );
+    AddDescriptionOnly( "downstream ports" );
+    AddFieldBreak();
+
+    AddHubChars(wHubCharacteristics);
+
+    AddEntry( 5, "bPwrOn2PwrGood", bPwrOn2PwrGood, 2, "Time from start of", 0);
+    AddDescriptionOnly( "the power-on sequence" );
+    AddDescriptionOnly( "until power is good" );
+    AddDescriptionOnly(Format ("is %d ms", bPwrOn2PwrGood*2));
+    AddFieldBreak();
+
+    AddEntry( 6, "bHubContrCurrent", bHubContrCurrent, 2, "Max current reqired", 0);
+    AddDescriptionOnly( "by Hub Controller");
+    AddDescriptionOnly( Format ("is %d ma", bHubContrCurrent*2));
+    AddFieldBreak();
+
+    if ( bNbrPorts < 7)
+    {
+        AddEntry( 7, "DeviceRemovable", DeviceRemovable, 2, "Device Removable:", 0);
+    }
+    else
+    {
+        AddEntry( 7, "DeviceRemovable", DeviceRemovable + (DeviceRemovable_2 << 8), 4, "Device Removable:", 0);
+    }
+    for (i=1; i<=bNbrPorts; i++)
+    {
+        str = Format("Bit %d: Port ", i);
+        if (i < 8)
+        {
+            value = DeviceRemovable >> i;
+        }
+        else
+        {
+            value = DeviceRemovable_2 >> (i - 8);
+        }
+        if (value & 0x1)
+        {
+            str += Format("%d Removable",i);
+        }
+        else
+        {
+            str += Format("%d Not Removable",i);
+        }
+        AddDescriptionOnly( str );
+    }
+    AddFieldBreak();
+
+    if ( PortPwrCtrlMask == 0xFF)
+    {
+        AddEntry( 8, "PortPwrCtrlMask", PortPwrCtrlMask, 2, "0xFF for 1.0 Compatibility", 0);
+    }
+    else
+    {
+        AddEntry( 8, "PortPwrCtrlMask", PortPwrCtrlMask, 2, "ERROR: Should have been", 0);
+        AddDescriptionOnly( "0xFF for USB Version 1.0");
+        AddDescriptionOnly( "Compatibility");
+    }
+    AddFieldBreak();
+
+    return GetFinalText();
+
+}
+
+
+
+
+DecodeRequestToText()
+{
+    InitText();
+    return DecodeRequestToTextCommon(AllStandardRequestsTable);
+}
+
+
+
+RequestDecode()
+{
+    NewLineMode = 1;
+    Speed        = GetDecoderHeaderByte(2);
+    tempSpeedFlag = Speed; # Gets Speed value from in.context[2]
+	if(tempSpeedFlag == Super_Speed_Plus_Mode || tempSpeedFlag == SSIC_HS_Mode) 
+		tempSpeedFlag = Super_Speed_Mode;
+    #UsbSpecLevel = GetDecoderHeaderByte(?);
+
+    UsbReqStr        = DecodeRequestToText();
+    if (wLength == 0)
+    {
+        UsbDataDecodeStr = "No data associated with this request";
+    }
+    else
+    {
+        UsbDataDecodeStr = DecodeDataToText();
+    }
+
+    return Complete();
+}
+
+Decode_wValue(w_value)
+{
+    if ((bRequest == 1) ||  (bRequest == 3))                   # CLEAR_FEATURE / SET_FEATURE
+    {
+        if (bReqType == 0x00)
+        {
+            if (value == 0x0001)
+            {
+                return ("DEVICE_REMOTE_WAKEUP");
+            }
+            else if (value == 0x0003)
+            {
+                return ("b_hnp_enable");
+            }
+            else if (value == 0x0004)
+            {
+                return ("a_hnp_support");
+            }
+            else if (value == 0x0005)
+            {
+                return ("a_alt_hnp_support");
+            }
+        }
+        else if (bReqType == 0x02)
+        {
+            if (value == 0)
+            {
+                return ("ENDPOINT_HALT");
+            }
+        }
+    }
+    else if (bRequest == 5)                                  # SET_ADDRESS
+    {
+        return Format("New Address %d", wValue);
+    }
+    else if ((bRequest == 6) ||  (bRequest == 7))            # GET_DESCRIPTOR / SET_DESCRIPTOR
+    {
+        descriptor_index =  wValue & 0xFF;
+        descriptor_type  = (wValue >> 8) & 0xFF;
+
+        _row_dt = FindDescriptorEntry( descriptor_type );
+
+        dt_str = Format("Descriptor type 0x%02X", descriptor_type);
+
+        di = Format(", Index %d", descriptor_index);
+
+        if (_row_dt[0] != 0xFF)
+        {
+            dt_str = _row_dt[1];
+        }
+
+        if (descriptor_type)
+        {
+            if (descriptor_type == 0x03)
+            {
+                if (descriptor_index)
+                {
+                    dt_str = dt_str + di;
+                }
+                else
+                {
+                    dt_str = dt_str + ", LANGID codes requested";
+                }
+            }
+            else if (descriptor_type == 0x02)
+            {
+                dt_str = dt_str + di;
+            }
+        }
+        else
+        {
+             dt_str = dt_str + di;
+        }
+        return (dt_str);
+    }
+    else if (bRequest == 9)                                      # SET_CONFIGURATION
+    {
+        return Format("Config# %d", wValue);
+    }
+    else if (bRequest == 0xB)                                    # SET_INTERFACE
+    {
+        return Format("Alt. Setting# %d", wValue);
+    }
+}
+
+
+
+
+Decode_wIndex(w_index)
+{
+    temp_str1 = "";
+    if (bRequest == 0)                                           # GET_STATUS
+    {
+        if (bReqType == 0x82)
+        {
+            temp_str1 = Format("Endpoint %i ", wIndex & 0xF);
+            if (wIndex & 0x80)
+                return (temp_str1 + "IN");
+            else
+                return (temp_str1 + "OUT");
+        }
+    }
+    else if ((bRequest == 1) || (bRequest == 3))                 # CLEAR_FEATURE / SET_FEATURE
+    {
+        if (bReqType == 0x02) # endpoint
+        {
+            temp_str1 = Format("Endpoint %i ", wIndex & 0xF);
+            if (wIndex & 0x80)
+                return (temp_str1 + "IN");
+            else
+                return (temp_str1 + "OUT");
+        }
+    }
+    else if ((bRequest == 0xA) || (bRequest == 0xB))             # GET_INTERFACE / SET_INTERFACE
+    {
+        return Format("Interface# %d", wIndex);
+    }
+    else if (bRequest == 0xC)                                    # SYNC_FRAME
+    {
+        temp_str1 = Format("Endpoint %i ", wIndex & 0xF);
+        if (wIndex & 0x80)
+            return (temp_str1 + "IN");
+        else
+            return (temp_str1 + "OUT");
+    }
+    else if ((bRequest == 6) || (bRequest == 7))                 # GET_DESCRIPTOR / SET_DESCRIPTOR
+    {
+        if ((wValue & 0xFF00) == 0x0300)
+            return Format("Language ID: 0x%04X", wIndex);
+        else
+            return (Format ("0x%04X", wIndex));
+
+    }
+    else
+    {
+        return (Format ("0x%04X", wIndex));
+    }
+}
+
+%include "StandardDescriptors.inc"

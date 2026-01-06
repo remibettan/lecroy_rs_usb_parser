@@ -1,0 +1,235 @@
+#
+#  Copyright (c) 2003, Computer Access Technology Corp. - All Rights Reserved
+#
+#  MS_BulkOnlySCSIOutEndpoint.dec
+#
+#  Mass Storage Class SCSI SubClass Bulk-Only Protocol Out Endpoint Decoder
+#
+#  Prefix =  "SOB" 
+#
+
+%include "CATCScriptAPI.inc"
+%include "UsbCommon.inc"
+
+# SCSI definitions
+%include "..\Shared\SCSI\SCSI_Defs.inc"
+
+%include "MS_Common.inc"
+%include "MS_BulkOnlyOutEndp.inc"
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block 
+#
+#----  Output
+# out.Decoded   - amount of data has been decoded
+#
+
+
+#------------------------  Common Globals -----------------------------------
+
+set OutputType    = "Mass Strg Bulk-Only SCSI Out Endp";
+set UsbDecodeType = "Endpoint";
+set UsbEndpId     = 3; # just a unique value for each endpoint of the same Class/Vendor/Product to distinguish them
+set UsbClassCode  = 0x8; # Mass Storage Class
+set UsbSubClass     = 0x06;
+set UsbProtocol     = 0x50; # Bulk-Only
+set UsbEndpType   = "Bulk";
+set UsbEndpDir    = "Out";
+set UsbMaxXferSize = 0x7FFFFFFF;  #try largest possible positive value  
+set UsbMaxXferDecodeSize   = 36;  # Max bytes that we will be decoding  
+set UsbMaxPktSize          = 512;   
+set UsbScriptDecodeType    = 2; # Combined decoding for Cells and Text decoding
+set UsbDecHdrType = 2; # This type references decoder byte containing the SCSI Opcode  
+set UsbDecHdrLen  = 1; # This 1 byte is passed in to this via the in context
+set UsbDecExtraInfoBytePos = 15; # Position of Additional Info byte
+set UsbXferCompleteClue = 4;     # this Xfer ends if Bulk In seen during decoding  
+
+# User can select the colors for the fields he chooses
+
+
+#-------------------------------------------------------------------------------
+
+
+
+#############################################################################
+#                               View Settings                               #
+#############################################################################
+#
+#    In this section user can set up which fields are to be shown and 
+#    which are to be hidden in expanded and collapsed states.
+#    Zero-value everywhere means that fields will not be shown,
+#    otherwise means opposite.
+#
+
+# -----------------------  Separate Field View Settings ---------------------
+# The FIRST value in list-variables defines if the field is to be shown or
+# hidden in COLLAPSED state. 
+# 0 - means the field is to be shown.
+# 1 - means the field is to be hidden.
+# 
+# The SECOND value in list-variables defines if the field is to be shown or
+# hidden in EXPANDED state. 
+# 0 - means the field is to be shown.
+# 1 - means the field is to be hidden.
+#
+# i.e.  const RPD_Field = [0, 1]; - means that field 'Field' will be hidden
+# in collapsed state and will be shown in expanded state. 
+#
+
+#           [collapsed, expanded]   
+ const SOB_CDB    = [0, 1];
+#-----------------------------------------------------------------------------
+
+set PrevOpcode = 0;
+
+#
+# Parsing entry point
+#
+
+ProcessData()
+{
+    InitType2Decoder();
+    Prefix =  "SOB";   
+    
+    PrevOpcode = GetNBits(in.DecodeParams, 0, 8);
+    #SCSILevel = GetNBits(in.DecodeParams, 8, 8);
+    Read_SCSILevel();
+    GetNBits(in.Data, 0, 0); # reset pointers    
+    
+    #if the file has had its decoding refreshed, the previous opcode will appear to
+    # be a 0, or Test Unit Ready.  Let the user know he should refresh decoding.
+    # if it REALLY is a Test Unit Ready, the length should be less than 32
+    #if ((PrevOpcode == 0) && (in.DataLength > 32))
+    #{
+    #    out.Decoded = 0;  
+    #    AddCaptionCell("Unable to decode",
+	#	"Use tooltip for more info",
+	#	 "To complete decoding, select Refresh Decoding by left-clicking\non the Bulk or Interrupt field to the left\nThis will allow the SCSI Requests and Responses to be associated.\n\nIf this trace missed part of the SCSI command,\nwe will still be unable to decode this transfer");
+    #    return Complete();
+    #}
+            
+    command_block_size = ProcessBulkOnlyCBW();
+    if (command_block_size == 0)
+    {
+        # No command block, so this is just raw data out
+        AddDecSeparator();
+        FieldColor = MassStorageColor;
+        if (SCSILevel == 0) # Xfer level
+        {
+            AddCaptionCell("  Mass  ", "Storage", "This data payload represents a Mass Storage Data Bulk.");
+            
+            AddDecSeparator();
+        }
+        if ((PrevOpcode != 0x3F) && (PrevOpcode != 0x2A) && (PrevOpcode != 0x0A))
+        {
+            DoCommandDataBlock(); # in case this is a Command with Data
+        }
+        
+        return Complete();
+    }
+    
+    GetNBits(in.Data, 14*8, 8);    
+    
+    
+    #------------------------------- SCSI CDB -----------------------------
+        
+    # The line below specifies that the following SCSI CDB decoded unit
+    # is a kind of "field" having its own subfield order - and we need to
+    # make initialization procedure here - in order to show CDB field
+    # offsets in dialog view relatively the start point of CDB but not the one
+    # of the payload..
+    #
+    SaveFieldSettings();
+    CurrentFldInit();
+    ShowCDB( command_block_size );
+    
+    #----------------------------------------------------------------------
+    
+	        
+    #GetNBits(in.Data, 14*8, 8);
+    #ShowDataBlockReOrder(command_block_size);
+    
+    out.Decoded = 31;  
+    SCSILevel = 0;
+    return Complete();
+}
+
+%include "MS_Special_2.inc"
+
+DoCommandDataBlock()
+{
+    save_endian = LittleEndian;
+    LittleEndian = 0;
+    out.Decoded = 0;
+    
+    CDB_Name = "";  
+                
+    cdb_dec = Find( CDB_DecTable, PrevOpcode );
+    if (cdb_dec != null)
+    {
+        CDB_Name    = cdb_dec[1];
+        CDB_Color   = cdb_dec[3];
+        CDB_Tooltip = cdb_dec[4]; # Use the ones from SCSI
+    }
+    if (CDB_Name != "")
+    {
+     
+        FieldColor = CDB_Color;
+        
+#     AddCell("OUT prevopcode", Format("0x%2X",PrevOpcode)); 	 # for debugging
+        select
+        {
+            (PrevOpcode == 0x04)   : DoFormatData(); 
+            (PrevOpcode == 0x07)   : DoReassignBlocksData(); 
+            (PrevOpcode == 0x15)   : DoModeSelectData();               
+            (PrevOpcode == 0x18)   : DoCopyData();       
+            (PrevOpcode == 0x1D)   : Do_1D(); 
+			(PrevOpcode == 0xC1)   : Do_C1();
+        };
+        
+        AddDecSeparator();
+        AddCaptionCell(CDB_Name, "Data", "Data corresponding to previous Command", _MONOCOLOR);
+        
+        
+        if (in.DataLength > 0)
+        {                    
+            GetNBits(in.Data, 0, 0);
+            SetFieldOffsetLen(0, 8);
+            if (in.DataLength < MaxShowDataBlockSize)
+            {         
+                ShowDataBlockReOrder(in.DataLength);
+            }
+        }
+    } 
+    LittleEndian = save_endian;       
+}
+
+
+# Decode these in the future...
+DoFormatData()
+{
+} 
+DoReassignBlocksData()
+{
+} 
+DoModeSelectData()
+{
+}
+DoCopyData()
+{
+}
+DoSendDiagnosticData()
+{
+}
+  
+
+ProcessTransfer()
+{    
+	InitType2Decoder();
+    
+    ProcessBulkOnlyCBW();
+    
+    ProcessCDBs();
+	 
+    return Complete();
+}

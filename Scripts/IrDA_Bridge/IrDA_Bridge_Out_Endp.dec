@@ -1,0 +1,21 @@
+#
+#  IrDA Bridge Class Out Endpoint Decoder
+#
+
+%include "IrDA_Bridge_Endp.inc"
+
+
+#------------------------  Common Globals -----------------------------------
+set OutputType    = "IrDA Bridge Out Endp";
+set UsbClassCode  = 0xFE;    # Class code for IrDA 
+set UsbSubClass   = 0x02; 
+set UsbEndpId     = 3; # just a unique value for each endpoint of the same Class/Vendor/Product to distinguish them
+set UsbEndpDir    = "Out";
+#-------------------------------------------------------------------------------
+
+
+#~~~~ Parsing entry point ~~~~
+ProcessData()
+{
+    return ProcessData_IrDA();
+}

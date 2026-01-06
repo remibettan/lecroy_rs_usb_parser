@@ -1,0 +1,213 @@
+#*******************************************************************************
+#
+#  FILENAME: Audio1.0Interrupt.dec 
+#
+#  Copyright (c) 2008, LeCroy - All Rights Reserved
+#
+#  DESCRIPTION
+#    This is the Interrupt-IN Endpoint Message Decode file for Audio devices
+#    This file is prepared as per the Specification Revision 1.0.
+#
+#  REVISION HISTORY
+#    04/30/2008    Created
+#
+#*******************************************************************************   
+
+
+%include "CATCScriptAPI.inc"  
+%include "UsbCommon.inc" 
+%include "AudioTables.inc"       
+%include "AudioCellColors.inc"
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block 
+#
+#----  Output
+# out.Decoded   - amount of data has been decoded
+#
+
+const Tabular_Def_Table = Map( 
+[   
+    #----------------------------------------------------------------------------------------------------------------------
+    #       id                     ,      colId                          , 		containerCellId
+    #----------------------------------------------------------------------------------------------------------------------
+    [ CELL_AUDIO_ORIGINATOR        , TABULAR_SCRIPT_COLUMN_ID_NONE       , TABULAR_SCRIPT_CONTAINER_CELL_ID_MISC ]
+] );
+
+set OutputType    = "Audio 1.0 Status Interrupt Endpoint";
+set UsbDecodeType = "Endpoint";
+set UsbEndpId = 1; # just a unique value for each endpoint of the same Class/Vendor/Product to distinguish them
+set UsbClassCode = 0x01;    # Class code for Audio
+set UsbEndpType = "Interrupt";
+set UsbEndpDir = "In";
+set UsbMaxXferSize = 0x7FFFFFFF;   
+set UsbProtocol     = 0;         # this is used to seperate the 1.0 from 2.0
+set UsbSpecVersion 	= 0x0001;
+
+set UsbScriptDecodeType = 2; # explicit text decoding processing
+
+#
+# Parsing entry point
+#
+
+
+set bStatusType = 0;
+
+
+ProcessData()
+{
+
+    out.Decoded = 0;    
+
+    AddSeparator();
+    FieldColor = AudioCaptionColor;
+    AddCaptionCell("Audio","Interrupt","In order to view comments in text field, user must expand this caption cell",_MONOCOLOR);  # will allow for the expansion of certain fields
+    AddSeparator();
+ 
+
+    if(in.DataLength > 0)
+    {
+        bStatusType = GetDataByte(0);
+        out.Decoded++;
+    
+    
+        if((bStatusType & 0x0F) == 0)
+        {
+            FieldColor = AudioIntrIntfControlColor;
+        }
+        if((bStatusType & 0x0F) == 1)
+        {
+            FieldColor = AudioIntrIntfStreamColor;
+        }
+        else if((bStatusType & 0x0F) == 2)
+        {
+            FieldColor = AudioIntrEndpStreamColor;
+        }
+	
+        if (in.Expanded)
+        {
+            if((bStatusType & 0x0F) == 0)
+            {
+                AddPayLoadCell("Originator", "AudioControl Intf.", Format ("AudioControl interface is interrupting (D3..0 of bStatusType = 0x%02X)", (bStatusType & 0x0F))
+                            , FieldColor, [_TABULARCELL, CELL_AUDIO_ORIGINATOR, "TEXT_CAPTION"]);
+                
+            }
+            else if((bStatusType & 0x0F) == 1)
+            {
+                AddPayLoadCell("Originator", "AudioStreaming Intf.", Format ("AudioStreaming interface is interrupting (D3..0 of bStatusType = 0x%02X)", (bStatusType & 0x0F))
+                            , FieldColor, [_TABULARCELL, CELL_AUDIO_ORIGINATOR, "TEXT_CAPTION"]);
+            }
+            else if((bStatusType & 0x0F) == 2)
+            {
+                AddPayLoadCell("Originator", "AudioStreaming Endp.", Format ("AudioStreaming endpoint is interrupting (D3..0 of bStatusType = 0x%02X)", (bStatusType & 0x0F))
+                            , FieldColor, [_TABULARCELL, CELL_AUDIO_ORIGINATOR, "TEXT_CAPTION"]);
+            }
+            else
+            {
+                FieldColor = WarningColor;
+                AddPayLoadCell("Originator", "UNKNOWN", 
+                Format ("D3..0 of bStatusType = 0x%02X,   Value is reserved.", (bStatusType & 0x0F))
+                , FieldColor, [_TABULARCELL, CELL_AUDIO_ORIGINATOR, "TEXT_CAPTION"]);
+                FieldColor = AudioCaptionColor;
+            }
+
+     	    if ((bStatusType >> 6) & 0x01)
+            {
+                AddPayLoadCell("Mem Changed", "Yes", 
+                               "There is a change in memory contents on one of the\n addressable Entities inside the audio function (D6 of bStatusType = 0b1)");
+            }
+            else
+            {
+                AddPayLoadCell("Mem Changed", "No", "No change in memory contents (D6 of bStatusType = 0b0)");
+            }
+
+            if ((bStatusType >> 7) & 0x01)
+            {
+                AddPayLoadCell("Intr Pending", "Yes", "There is still an interrupt pending (D7 of bStatusType = 0b1)");
+            }
+            else
+            {
+                AddPayLoadCell("Intr Pending", "No", "No interrupt pending (D7 of bStatusType = 0b0)");
+            }          
+
+		
+            if(in.DataLength > 1)
+            {
+       	        bOriginator = GetDataByte(1);
+
+                if((bStatusType & 0x0F) == 0) # AudioControl Intf.
+                {
+                    out.Decoded++;
+
+                    AddPayLoadCell("bOriginator", Format ("0x%02X", bOriginator), 
+                                   "TerminalID or UnitID of the entity that caused the interrupt to occur");
+                }
+                else if((bStatusType & 0x0F) == 1) # AudioStreaming Intf.
+                {
+                    out.Decoded++;
+
+                    AddPayLoadCell("bOriginator", Format ("0x%02X", bOriginator), 
+                                   "Interface number of the AudioStreaming interface");
+                }
+                else if((bStatusType & 0x0F) == 2) # AudioStreaming Endp.
+                {
+                    out.Decoded++;
+
+                    AddPayLoadCell("bOriginator", Format ("0x%02X", bOriginator), 
+                                   "Endpoint number of the AudioStreaming endpoint");
+                }		
+            } # end if in.DataLength > 1
+
+            if((bStatusType & 0x0F) == 0 || (bStatusType & 0x0F) == 1 || (bStatusType & 0x0F) == 2)
+            {
+                if(out.Decoded < 2)
+      	            AddCell("Error","Not Enough Data",Format("Expected at least 2 bytes.\nFound %d byte(s)...",out.Decoded),RED);
+            }
+
+        }
+        else # collapse
+        {
+            if((bStatusType & 0x0F) == 0)
+            {
+                AddPayLoadCell("Originator", "AudioControl Intf.", Format ("AudioControl interface is interrupting (D3..0 of bStatusType = 0x%02X)", (bStatusType & 0x0F)));
+            }
+            else if((bStatusType & 0x0F) == 1)
+            {
+                AddPayLoadCell("Originator", "AudioStreaming Intf.", Format ("AudioStreaming interface is interrupting (D3..0 of bStatusType = 0x%02X)", (bStatusType & 0x0F)));
+            }
+            else if((bStatusType & 0x0F) == 2)
+            {
+                AddPayLoadCell("Originator", "AudioStreaming Endp.", Format ("AudioStreaming endpoint is interrupting (D3..0 of bStatusType = 0x%02X)", (bStatusType & 0x0F)));
+            }
+            else
+            {
+                FieldColor = WarningColor;
+                AddPayLoadCell("Originator", "UNKNOWN", 
+                Format ("D3..0 of bStatusType = 0x%02X,   Value is reserved.", (bStatusType & 0x0F)));
+                FieldColor = AudioCaptionColor;
+            }
+				
+		
+            if(in.DataLength > 1 &&
+              ((bStatusType & 0x0F) == 0 || (bStatusType & 0x0F) == 1 || (bStatusType & 0x0F) == 2))
+            {
+                out.Decoded = 2; 
+            }
+		
+            if((bStatusType & 0x0F) == 0 || (bStatusType & 0x0F) == 1 || (bStatusType & 0x0F) == 2)
+            {
+                if(out.Decoded < 2)
+                    AddCell("Error","Not Enough Data",Format("Expected at least 2 bytes.\nFound %d byte(s)...",out.Decoded),RED);
+            }
+        } # end collapse
+
+
+        AddSeparator();
+  
+    }
+  
+    return Complete();
+}
+
+

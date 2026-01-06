@@ -1,0 +1,84 @@
+#
+#  Copyright (c) 2001, Computer Access Technology Corp. - All Rights Reserved
+#
+#  hci_event.dec
+#
+#  HCI event Display Decoder
+#
+
+%include "DecoderTools.inc"    #include usefull decoder functions
+%include "hci_common.inc"
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block 
+#
+#----  Output
+# out.Decoded   - amount of data has been decoded
+#
+
+
+set ModuleType  = "DataBlock Decoder";
+set OutputType  = "HCI SCO in";
+
+# These are for USB Analyzer decoding
+set UsbClassCode = 0xE0;
+set UsbSubClass  = 0x01;
+set UsbProtocol  = 0x01;
+
+# This variable defines that the script which includes this file
+# belongs to the USB script decoding family.
+set ScriptFamily = "USB";
+
+set UsbDecodeType = "Endpoint";
+set UsbEndpId = 2;
+set UsbEndpType = "Bulk";
+set UsbEndpDir = "In";
+set UsbMaxPktSize=64;
+set UsbMaxXferSize=3573;   
+set UsbMainSpec   = 0x0; # 0x0 value shows it is not main spec among all HCI spec(ACL, SCO)
+
+#
+# Parsing entry point
+#
+const HCIscoInColor = 0x8854ff;
+
+
+
+
+ProcessData()
+{
+    AddCell("SCO Data", "in", "", HCIscoInColor);
+ 
+    handle = GetNBits(in.Data, 0, 8);
+
+    reserved = NextNBits(4);
+
+    handle |= NextNBits(4) << 8;
+    AddCell("Connection Handle", Format ("0x%03X", handle), "", HCIscoInColor);
+
+#    AddCell("reserved", Format ("0x%X", reserved), "", HCIscoInColor);
+
+    length = NextNBits(8);
+    AddCell("Length", Format ("%d", length), "", HCIscoInColor);
+
+    ShowDataBlock(length);
+    
+    AddSeparator();
+
+###### uncomment the following lines if you need the original data of HCI
+#    GetNBits(in.Data, 0, 0);
+#    ShowDataBlock(in.DataLength);
+#########################################################################
+
+    out.Decoded = in.DataLength;
+    
+    return Complete();
+}
+
+
+
+
+
+
+

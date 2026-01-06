@@ -1,0 +1,193 @@
+#*******************************************************************************
+#
+#  FILENAME: Audio2.0Interrupt.dec 
+#
+#  Copyright (c) 2008, LeCroy - All Rights Reserved
+#
+#  DESCRIPTION
+#    This is the Interrupt-IN Endpoint Message Decode file for Audio devices
+#    This file is prepared as per the Specification Revision 2.0.
+#
+#  REVISION HISTORY
+#    04/30/2008    Created
+#
+#*******************************************************************************   
+
+
+%include "CATCScriptAPI.inc"  
+%include "UsbCommon.inc" 
+%include "AudioTables.inc"       
+%include "AudioCellColors.inc"
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block 
+#
+#----  Output
+# out.Decoded   - amount of data has been decoded
+#
+
+
+set OutputType    = "Audio 2.0 Interrupt Data Message";
+set UsbDecodeType = "Endpoint";
+set UsbEndpId = 2; # just a unique value for each endpoint of the same Class/Vendor/Product to distinguish them
+set UsbClassCode = 0x01;    # Class code for Audio
+set UsbEndpType = "Interrupt";
+set UsbEndpDir = "In";
+set UsbMaxXferSize = 0x7FFFFFFF;   
+set UsbProtocol     = 0x20;         # this is used to seperate the 1.0 from 2.0
+set UsbSpecVersion 	= 0x0002;
+
+set UsbScriptDecodeType = 2; # explicit text decoding processing
+
+#
+# Parsing entry point
+#
+
+
+
+ProcessData()
+{
+
+    out.Decoded = 0;    
+
+    AddSeparator();
+    FieldColor = AudioCaptionColor;
+    AddCaptionCell("Audio","Interrupt","In order to view comments in text field, user must expand this caption cell",_MONOCOLOR);  # will allow for the expansion of certain fields
+    AddSeparator();
+ 
+
+    if(in.DataLength > 0)
+    {
+        bInfo = GetDataByte(0);
+        out.Decoded++;
+    
+        if((bInfo & 0x01) == 1)
+        {
+            AddCell("Vendor-Specific", "", "This is a vendor-specific interrupt (D0 of bInfo = 0b1)", FieldColor, _MONOFIELD);
+        }
+        else
+        {
+            AddCell("Class-Specific", "", "This is a Class-specific interrupt (D0 of bInfo = 0b0)", FieldColor, _MONOFIELD);
+        }
+		
+        if(((bInfo >> 1) & 0x01) == 1)
+        {
+            AddCell("Endpoint", "", "The interrupt originated from an endpoint (D1 of bInfo = 0b1)", FieldColor, _MONOFIELD);
+        }
+        else
+        {
+            AddCell("Interface", "", "The interrupt originated from an interface (D1 of bInfo = 0b0)", FieldColor, _MONOFIELD);
+        }
+		
+		
+        if(((bInfo >> 2) & 0x3F) != 0)
+        {
+            FieldColor = WarningColor;
+            AddPayLoadCell("Reserved", Format ("0x%02X", (bInfo >> 2) & 0x3F), "Bits D7..2 of bInfo must be set to zero");
+            FieldColor = AudioCaptionColor;
+        }
+
+		
+        if((bInfo & 0x01) == 0) # Class-Specific
+        {
+            if(in.DataLength > 1)
+            {
+                bAttribute = GetDataByte(1);
+                out.Decoded += 1;
+               
+                if(bAttribute == 0x01)
+                {
+                    AddPayLoadCell("bAttribute", "CUR", Format("Current setting attribute = 0x%02X", bAttribute));   
+                }
+                else if(bAttribute == 0x02)
+                {
+                    AddPayLoadCell("bAttribute", "RANGE", Format("Range attribute = 0x%02X", bAttribute));   
+                } 
+                else if(bAttribute == 0x03)
+                {
+                    AddPayLoadCell("bAttribute", "MEM", Format("Memory space attribute = 0x%02X", bAttribute));   
+                }
+                else
+                {
+                    FieldColor = WarningColor;
+                    AddPayLoadCell("bAttribute", "UNDEFINED", Format("Undefined attribute = 0x%02X", bAttribute));
+                    FieldColor = AudioCaptionColor;
+                }
+		   
+            }  # end if in.DataLength > 1
+		   
+            if(in.DataLength > 2)
+            {
+		   
+                wIndex = GetDataWord(2);
+                out.Decoded += 2;
+		   
+                if(((bInfo >> 1) & 0x01) == 0) # interface
+                {	   
+                    AddPayLoadCell("wIndex", Format ("0x%04X", wIndex), 
+                                    Format ("Low byte: Interface = 0x%02X",(wIndex & 0x00FF))+Format ("\nHigh byte: Entity ID = 0x%02X",((wIndex >> 8) & 0x00FF)) );
+                }
+                else # endpoint
+                {
+                    AddPayLoadCell("wIndex", Format ("0x%04X", wIndex), 
+                                    Format ("Low byte: The endpoint to be addressed = 0x%02X",(wIndex & 0x00FF))+Format ("\nHigh byte: 0x%02X (Must be zero)",((wIndex >> 8) & 0x00FF)));
+                } 
+            }  # end if in.DataLength > 2
+
+		   
+            if(in.DataLength > 4)
+            {
+                wValue = GetDataWord(4);
+                out.Decoded += 2;
+
+                # exception
+                if(((wValue >> 8) & 0x00FF) == 0x01) # MU_MIXER_CONTROL
+                {
+                    AddPayLoadCell("wValue", Format ("0x%04X", wValue), 
+                    Format ("Low byte: Mixer Control Number (MCN) = 0x%02X",(wValue & 0x00FF))+Format ("\nHigh byte: Control Selector (CS) = 0x%02X (MU_MIXER_CONTROL)",((wValue >> 8) & 0x00FF))
+                    , FieldColor, [_TABULARCELL, CELL_WVALUE, "TEXT_CAPTION"]);
+                }
+                else if(bAttribute == 0x03) # MEM
+                {
+                    if(wValue == 0)
+                    {
+                        AddPayLoadCell("wValue", wValue, "Multiple memory locations might have changed and\n the entire memory space needs to be examined"
+                                    , FieldColor, [_TABULARCELL, CELL_WVALUE, "TEXT_CAPTION"]);       
+                    }
+                    else
+                    {
+                        AddPayLoadCell("wValue", wValue, "A zero-based offset value that indicated the address of\n the location in the Entity's memory space that generated the interrupt"
+                                    , FieldColor, [_TABULARCELL, CELL_WVALUE, "TEXT_CAPTION"]);       
+                    }
+                }
+                else # not exception
+                {
+                    if((wValue & 0x00FF) == 0) # CN=0
+                    {
+                        AddPayLoadCell("wValue", Format ("0x%04X", wValue), 
+                                        Format ("Low byte: The Control is channel-independent and is considered to be\n master Control and the virtual channel zero is returned (CN = 0),\nHigh byte: Control Selector (CS) = 0x%02X", 
+                                        ((wValue >> 8) & 0x00FF)), FieldColor, [_TABULARCELL, CELL_WVALUE, "TEXT_CAPTION"]);
+                    }
+                    else
+                    {
+                        AddPayLoadCell("wValue", Format ("0x%04X", wValue), 
+                                        Format ("Low byte: Channel Number (CN) = 0x%02X",(wValue & 0x00FF))+Format ("\nHigh byte: Control Selector (CS) = 0x%02X",((wValue >> 8) & 0x00FF))
+                                        , FieldColor, [_TABULARCELL, CELL_WVALUE, "TEXT_CAPTION"]);
+                    }
+                }
+
+            } # end if in.DataLength > 4
+
+            if(out.Decoded < 6)
+                AddCell("Error","Not Enough Data",Format("Expected at least 6 bytes.\nFound %d byte(s)...",out.Decoded),RED);
+		
+        } # end Class-Specefic
+    
+     
+        AddSeparator();
+
+    } # end if in.DataLength > 0
+  
+  return Complete();
+}

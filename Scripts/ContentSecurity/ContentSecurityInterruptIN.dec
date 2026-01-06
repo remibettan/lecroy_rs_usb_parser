@@ -1,0 +1,51 @@
+#*******************************************************************************
+#
+#  FILENAME: ContentSecurityInterruptIN.dec
+#
+#  Copyright (c) 2008, LeCroy - All Rights Reserved
+#
+#  DESCRIPTION
+#    This is the Interrupt-IN Endpoint Message Decode file for CSDC
+#      (Content Security Device Class).
+#    This file is prepared as per the Specification Revision 1.0.
+#    This file is prepared as per the Devices Specification for the Content
+#      Security Device Class.
+#
+#  REVISION HISTORY
+#    03/01/2008 Created. - RK and JC
+#
+#*******************************************************************************
+
+%include "UsbCommon.inc"
+%include "CATCScriptAPI.inc"
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block
+#
+#----  Output
+# out.Decoded   - Amount of Data that has been decoded
+# out.State
+# out.Data
+# out.DataLength
+#
+
+set ModuleType  = "DataBlock Decoder";          #?_?
+set LevelName   = "CSM Interrupt Messages";     #?_?
+set LevelColor  = 0x85CC9A;                     #?_?
+
+set OutputType      = "CSDC Interrupt-IN Notification";
+set UsbDecodeType   = "Endpoint";
+set UsbEndpId       = 16;           # Just a unique value for each endpoint of the same Class/Vendor/Product
+                                    # to distinguish them
+set UsbClassCode    = 0x0D;         # Content Secuity Class Code
+set UsbEndpType     = "Interrupt";
+set UsbEndpDir      = "In";
+set UsbScriptDecodeType  = 2;       # Combined decoding for Cells and Text decoding
+set UsbMaxXferSize  = 0x7FFFFFFF;   # Trying largest possible positive value
+set UsbMaxPktSize   = 512;          # Will automatically be reduced to 64 if branch is Full Speed
+set UsbMaxXferDecodeSize = 0xFF;    # Max bytes that we will be decoding. User can up this if desired.
+
+set InterruptDescriptionString = "This data payload represents a Content Security Device Interrupt-IN Notification.";
+
+%include "ContentSecurityInterrupt.inc"

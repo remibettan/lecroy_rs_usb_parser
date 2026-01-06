@@ -1,0 +1,56 @@
+#*******************************************************************************
+#
+#  FILENAME: CommCDCNCM_Bulk.dec
+#
+#  Copyright (c) 2009, LeCroy - All Rights Reserved
+#
+#  DESCRIPTION
+#    This is the request file for USB Class Definition for Communication Devices subclass NCM. 
+#    This file is prepared as per the Specification Revision 1.0.
+#    This file is prepared as per the USB Class Definitions for Communication Devices v1.1 subclass NCM
+#
+#  REVISION HISTORY
+#    December 10  First created 
+#
+#*******************************************************************************
+
+ #.inc files that are included
+%include "NCMMBIMLib.inc"            
+
+ #----  Input
+ # in.Data       - Data_block to decode
+ # in.DataLength - Length of Data_block 
+
+ #----  Output
+ # out.Decoded   - amount of data has been decoded
+
+set OutputType    			= "NCM Bulk In";
+set UsbDecodeType 			= "Endpoint";
+set UsbEndpId 				= 7; # just a unique value for each endpoint of the same Class/Vendor/Product to distinguish them
+set UsbClassCode 			= 0x0A;
+set UsbSubClass 			= 0x00;
+set UsbProtocol 			= 0x01;
+set UsbEndpType 			= "Bulk";
+set UsbEndpDir 				= "In";
+set UsbMaxXferSize 			= 0xFFFFFF;
+set UsbMaxPktSize       	= 512; # will automatically be reduced to 64 if branch is Full Speed     
+set UsbMaxXferDecodeSize   	= 56;  # Max bytes that we will be decoding   User can up this if he likes
+set MaxDatagramSize    		= 1514; # The maximum size of an Ethernet frame datagram.
+set UsbScriptDecodeType 	= 2; # explicit text decoding processing
+
+const STATUS_COLOR = 0xABCDEF;
+
+ProcessData()
+{
+	return ProcessNCMData();
+}
+
+####################################################################################
+#                       USBTracer specific caption cell                            #
+####################################################################################
+
+AddSpecCaptionCell(caption, text, tooltip, FieldColor, addparam, addparam1, addparam2 )
+{   
+    AddCell(caption, text, tooltip, FieldColor, _USBBULK_HEADER, addparam, addparam1, addparam2 );        
+    return 1;        
+}

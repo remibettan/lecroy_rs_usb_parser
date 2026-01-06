@@ -1,0 +1,422 @@
+#*******************************************************************************
+#
+#  FILENAME: hid.dec
+#
+#  Copyright (c) 2008, LeCroy - All Rights Reserved
+#
+#  DESCRIPTION
+#    This is the Interrupt-IN Endpoint Message Decode file for Human Interface Devices
+#
+#  FILE HISTORY:
+#         2003 - Created
+#     06/24/08 - Updated for Dialog View and Cleaned Code - RK
+#
+#*******************************************************************************
+
+%include "CATCScriptAPI.inc"      #.inc files that are included
+%include "UsbCommon.inc"
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block
+#
+#----  Output
+# out.Decoded   - amount of Data has been decoded
+# out.State
+# out.Data
+# out.DataLength
+#
+
+const Tabular_Def_Table = Map( 
+[   
+    #-----------------------------------------------------------------------------------------------------
+    #       id                  ,      colId                          , 		containerCellId
+    #-----------------------------------------------------------------------------------------------------
+    [ CELL_HID_KEYBOARD         , TABULAR_SCRIPT_COLUMN_ID_SUBTYPE    , TABULAR_SCRIPT_CONTAINER_CELL_ID_NONE ],
+    [ CELL_HID_MOUSE            , TABULAR_SCRIPT_COLUMN_ID_SUBTYPE    , TABULAR_SCRIPT_CONTAINER_CELL_ID_NONE ]
+
+] );
+
+set ModuleType  = "DataBlock Decoder";
+set LevelName   = "HIDKeyboard";
+set LevelColor  = 0x898989;
+
+set OutputType      = "HID Interrupt In Endp";
+set UsbDecodeType   = "Endpoint";
+set UsbEndpId       = 1;            # Just a unique value for each endpoint of the same Class/Vendor/Product
+                                    # to distinguish them
+
+set UsbClassCode    = 0x03; # HID
+set UsbEndpType     = "Interrupt";
+set UsbEndpDir      = "In";
+
+set UsbScriptDecodeType  = 1; # Combined decoding for Cells and Text decoding
+
+#set UsbSubClass     = 0x01; # Boot Interface
+#set UsbProtocol     = 0x01; # Hid Keyboard
+
+
+#
+# Parsing entry point
+#
+
+# User can select the colors for the fields he/she chooses
+set HIDKeyboardColor        = 0xF2B6AA;
+set HIDKBKeyBaseColor       = 0xF2BBAA;
+set HIDKBModifierBaseColor  = 0xB2BB8A;
+set HIDKBOEMBaseColor       = 0xA2BBAA;
+
+set HIDMouseColor           = 0x22BBAA;
+set HIDMouseButtonsColor    = 0x335566;
+set HIDMouseButtLeftColor   = 0x737566;
+set HIDMouseButtRightColor  = 0x339566;
+set HIDMouseButtMiddleColor = 0x335596;
+set HIDMouseButtOtherColor  = 0x888888;
+set HIDMouseXMoveColor      = 0x336677;
+set HIDMouseYMoveColor      = 0x337788;
+set HIDMouseWheelMoveColor  = 0x338899;
+
+set wDecodeCellColor        = 0x898989;
+set RequestFieldColor       = 0xA42A2A;
+set RequestDataFieldColor   = 0x302A2A;
+set GreyColor               = 0x888888;
+
+const ErrorColor = 0x0000FF;
+
+ProcessData()
+{
+    CommonDecoderInit();        # Initialization of SRP common global variables [found in CATCScriptAPI.inc]
+
+    AddSeparator();
+
+    if( in.DataLength < 8 )
+    {
+          out.Decoded = DecodeMouseOutput() ;
+    }
+    else if( in.DataLength == 8 )
+    {
+        out.Decoded = DecodeHIDKeyboardOutput() ;        
+    }
+    else
+    {
+        AddShortDataHeader("UNKNOWN HID Interrupt-IN Message");
+        AddViewFieldEntry("Data", in.DataLength, 0, "data", "UNKNOWN HID Interrupt IN Message", 1, FieldColor );
+        out.Decoded = 0;
+    }
+
+    out.Data = in.Data;
+    out.DataLength = in.DataLength;
+    out.State = "Complete";
+
+    return Complete();
+}
+
+# Key scan code to ASCII mapping, code, codes above 0x80 are used for shift key mod
+set Key_Code2Ascii = [
+# 00        01      02     03    04    05       06        07         08        09        0A       0B       0C        0D        0E      0F
+#-------------------------------------------------------------------------------------------------------------------------------------------
+  ""      , ""    , ""   , ""  , "a" , "b"    , "c"     , "d"      , "e"     , "f"     , "g"    , "h"    , "i"     , "j"     , "k"   , "l" ,
+  "m"     , "n"   , "o"  , "p" , "q" , "r"    , "s"     , "t"      , "u"     , "v"     , "w"    , "x"    , "y"     , "z"     , "1"   , "2" ,
+  "3"     , "4"   , "5"  , "6" , "7" , "8"    , "9"     , "0"      ,"<Rtn>"  ,"<Esc>"  ,"<Bck>" ,"<Tab>" ,"<space>", "-"     , "="   , "[" ,
+  "]"     , "\\"  , "#"  , ";" , "`" , ""     , ","     , "."      , "/"     ,"<Caps>" , "F1"  , "F2"   , "F3"  , "F4"       , "F5", "F6"  ,
+  "F7"    , "F8"  , "F9" ,"F10","F11","F12"   ,"PrtScr" ,"ScrlLck" ,"Pause"  ,"Ins"    ,"home"  , "pgup" , "Del"   ,"End"    ,"PgDwn", "<right>",
+  "<left>","<down>","<up>", ""  , "/" , "*"    , "-"     , "+"      ,"<ENTER>", "1"     , "2"    , "3"    , "4"     , "5"     , "6"   , "7" ,
+  "8"     , "9"   , "0"  , "." , ""  , ""     ,"<Power>", "="      , "F13"   , "F14"   , "F15"  , "F16"  , "F17"   ,"F18"    , "F19" ,"F20",
+  "F21"   , "F22" , "F23","F24", ""  ,"<help>", "<menu>","<select>", "<stop>","<again>", ""     , ""     , ""      , ""      , ""    , ""  ,
+  ""      , ""    , ""   , ""  , "A" , "B"    , "C"     , "D"      , "E"     , "F"     , "G"    , "H"    , "I"     , "J"     , "K"   , "L" ,
+  "M"     , "N"   , "O"  , "P" , "Q" , "R"    , "S"     , "T"      , "U"     , "V"     , "W"    , "X"    , "Y"     , "Z"     , "!"   , "\"" ,
+  "£"     , "$"   , "%"  , "^" , "&" , "*"    , "("     , ")"      ,"<s-Rtn>"  ,"<s-Esc>"  ,"<s-Bck>" ,"<s-Tab>" ,"<s-space>", "_"     , "+"   , "{" ,
+  "}"     , "\|"  , "~"  , ":" , "@" , ""     , "<"     , ">"      , "?"     ,"<s-Caps>" , "s-F1"  , "s-F2"   , "s-F3"  , "s-F4"       , "s-F5", "s-F6"  ,
+  "s-F7"    , "s-F8"  , "s-F9" ,"s-F10","s-F11","s-F12"   ,"s-PrtScr" ,"s-ScrlLck" ,"Break"  ,"s-Ins"    ,"s-home"  , "s-pgup" , "s-Del"   ,"s-End"    ,"s-PgDwn", "<s-right>",
+  "<s-left>","<s-down>","<up>", ""  , "/" , "*"    , "-"     , "+"      ,"<ENTER>", "1"     , "2"    , "3"    , "4"     , "5"     , "6"   , "7" ,
+  "8"     , "9"   , "0"  , "." , ""  , ""     ,"<Power>", "="      , "F13"   , "F14"   , "F15"  , "F16"  , "F17"   ,"F18"    , "F19" ,"F20",
+  ""      , ""    , ""   , ""  , ""  , ""     , ""      , ""       , ""      , ""      , ""     , ""     , ""      , ""      , ""    , ""
+#-------------------------------------------------------------------------------------------------------------------------------------------
+];
+
+# Key scan code to ASCII mapping, code, codes above 0x80 are used for shift key mod
+set ShiftKey_Code2Ascii = [
+# 00        01      02     03    04    05       06        07         08        09        0A       0B       0C        0D        0E      0F
+#-------------------------------------------------------------------------------------------------------------------------------------------
+  ""      , ""    , ""   , ""  , "A" , "B"    , "C"     , "D"      , "E"     , "F"     , "G"    , "H"    , "I"     , "J"     , "K"   , "L" ,
+  "M"     , "N"   , "O"  , "P" , "Q" , "R"    , "S"     , "T"      , "U"     , "V"     , "W"    , "X"    , "Y"     , "Z"     , "!"   , "\"" ,
+  "£"     , "$"   , "%"  , "^" , "&" , "*"    , "("     , ")"      ,"<s-Rtn>"  ,"<s-Esc>"  ,"<s-Bck>" ,"<s-Tab>" ,"<s-space>", "_"     , "+"   , "{" ,
+  "}"     , "\|"  , "~"  , ":" , "@" , ""     , "<"     , ">"      , "?"     ,"<s-Caps>" , "s-F1"  , "s-F2"   , "s-F3"  , "s-F4"       , "s-F5", "s-F6"  ,
+  "s-F7"    , "s-F8"  , "s-F9" ,"s-F10","s-F11","s-F12"   ,"s-PrtScr" ,"s-ScrlLck" ,"Break"  ,"s-Ins"    ,"s-home"  , "s-pgup" , "s-Del"   ,"s-End"    ,"s-PgDwn", "<s-right>",
+  "<s-left>","<s-down>","<up>", ""  , "/" , "*"    , "-"     , "+"      ,"<ENTER>", "1"     , "2"    , "3"    , "4"     , "5"     , "6"   , "7" ,
+  "8"     , "9"   , "0"  , "." , ""  , ""     ,"<Power>", "="      , "F13"   , "F14"   , "F15"  , "F16"  , "F17"   ,"F18"    , "F19" ,"F20",
+  "F21"   , "F22" , "F23","F24", ""  ,"<help>", "<menu>","<select>", "<stop>","<again>", ""     , ""     , ""      , ""      , ""    , ""  ,
+  ""      , ""    , ""   , ""  , ""  , ""     , ""      , ""       , ""      , ""      , ""     , ""     , ""      , ""      , ""    , ""  ,
+  ""      , ""    , ""   , ""  , ""  , ""     , ""      , ""       , ""      , ""      , ""     , ""     , ""      , ""      , ""    , ""  ,
+  ""      , ""    , ""   , ""  , ""  , ""     , ""      , ""       , ""      , ""      , ""     , ""     , ""      , ""      , ""    , ""  ,
+  ""      , ""    , ""   , ""  , ""  , ""     , "("     , ")"      , "{"     , "}"     , "<Tab>","<Bck>" , ""      , ""      , ""    , ""  ,
+  ""      , ""    , ""   , "^" , "%" , "<"    , ">"     , "&"      , ""      , ""      , ""     , ":"    , "#"     ,"<space>", "@"   , "!" ,
+  ""      , ""    , ""   , ""  , ""  , ""     , ""      , ""       , ""      , ""      , ""     , ""     , ""      , ""      , ""    , ""  ,
+  ""      , ""    , ""   , ""  , ""  , ""     , ""      , ""       , ""      , ""      , ""     , ""     , ""      , ""      , ""    , ""  ,
+  ""      , ""    , ""   , ""  , ""  , ""     , ""      , ""       , ""      , ""      , ""     , ""     , ""      , ""      , ""    , ""
+#-------------------------------------------------------------------------------------------------------------------------------------------
+];
+
+DecodeHIDKeyboardOutput()
+{
+    # Keyboard output data sent to host
+    SetCellColor( HIDKeyboardColor );
+    AddCaptionCell( "HID", "Keyboard", "This data payload represents a Keyboard Human\nInterface Device (HID) Interrupt-IN message.",
+                    FieldColor, [_TABULARCELL, CELL_HID_KEYBOARD, "TEXT_CAPTION" ] );  # Will allow for the expansion of certain fields
+    RestoreCellColor();
+
+    AddSeparator();
+
+    DecodedBytes = 0;
+    
+    if( in.HasReportID )
+    {
+        report_id = GetDataByte(DecodedBytes);
+        DecodedBytes++;
+
+        AddViewFieldEntry("Report ID", BitCurrentFieldLength, BitCurrentFieldOffset-8, Format("%d", report_id), "Report ID items are used to indicate which data fields are represented in each report structure.", 1, FieldColor );
+        AddCell("Report ID", Format("%d", report_id), "Report ID items are used to indicate which data fields are represented in each report structure.", FieldColor );        
+    }
+    
+    m_key   = GetDataByte(DecodedBytes);
+    DecodedBytes++;
+
+    if (m_key == 0)
+    {
+        ctrlTooltip = "none pressed";
+        mod_key_str = "none";
+    }
+    else
+    {
+        ctrlTooltip="";
+        mod_key_str="";
+        ctrl=0;
+        alt=0;
+        bshift=0;
+        if( m_key & 0x01 ) { ctrlTooltip = ctrlTooltip + "Bit 0: <LeftCtrl>\n";   ctrl=1; };
+        if( m_key & 0x10 ) { ctrlTooltip = ctrlTooltip + "Bit 4: <RightCtrl>\n";  ctrl=1; };
+        if( m_key & 0x02 ) { ctrlTooltip = ctrlTooltip + "Bit 1: <LeftShift>\n";  shift=1; };
+        if( m_key & 0x20 ) { ctrlTooltip = ctrlTooltip + "Bit 5: <RightShift>\n"; shift=1; };
+        if( m_key & 0x04 ) { ctrlTooltip = ctrlTooltip + "Bit 2: <LeftAlt>\n";    alt=1; } ;
+        if( m_key & 0x40 ) { ctrlTooltip = ctrlTooltip + "Bit 6: <RightAlt>\n";   alt=1; } ;
+        if( m_key & 0x08 ) { ctrlTooltip = ctrlTooltip + "Bit 3: <LeftWin>\n";    mod_key_str = mod_key_str + "<LeftWin>";};
+        if( m_key & 0x80 ) { ctrlTooltip = ctrlTooltip + "Bit 7: <RightWin>\n";   mod_key_str = mod_key_str + "<RightWin>"; };
+
+        if( shift == 1 )
+            mod_key_str = mod_key_str + " <Shift>";
+
+        if( ctrl == 1 )
+            mod_key_str = mod_key_str + " <Ctrl>";
+
+        if( alt == 1 )
+            mod_key_str = mod_key_str + " <Alt>";
+    }
+
+    AddViewFieldEntry( "Modifier Keys", BitCurrentFieldLength, BitCurrentFieldOffset-8, mod_key_str, "Modifier keys:" + ToBitString(m_key,8) + "\n" + ctrlTooltip, 1, FieldColor);
+
+    if( SimpleShowItem() )
+    {
+        AddCell("L-Ctrl" , (m_key & 0x01)>0 , Format("Keyboard modifier keys 0x%02X", m_key), HIDKBModifierBaseColor + m_key );
+        AddCell("L-Shift", (m_key & 0x02)>0 , Format("Keyboard modifier keys 0x%02X", m_key), HIDKBModifierBaseColor + m_key );
+        AddCell("L-Alt"  , (m_key & 0x04)>0 , Format("Keyboard modifier keys 0x%02X", m_key), HIDKBModifierBaseColor + m_key );
+        AddCell("L-Win"  , (m_key & 0x08)>0 , Format("Keyboard modifier keys 0x%02X", m_key), HIDKBModifierBaseColor + m_key );
+        AddCell("R-Ctrl" , (m_key & 0x10)>0 , Format("Keyboard modifier keys 0x%02X", m_key), HIDKBModifierBaseColor + m_key );
+        AddCell("R-Shift", (m_key & 0x20)>0 , Format("Keyboard modifier keys 0x%02X", m_key), HIDKBModifierBaseColor + m_key );
+        AddCell("R-Alt"  , (m_key & 0x40)>0 , Format("Keyboard modifier keys 0x%02X", m_key), HIDKBModifierBaseColor + m_key );
+        AddCell("R-Win"  , (m_key & 0x80)>0 , Format("Keyboard modifier keys 0x%02X", m_key), HIDKBModifierBaseColor + m_key );
+    }
+    else
+    {
+        if( mod_key_str == "none" )
+            AddCell("Modifier Keys", mod_key_str , "Modifier keys:" + ToBitString(m_key,8) + "\n" + ctrlTooltip +"\n-->Tip:expand HidDev block for details", GreyColor, _MONOCOLOR );
+        else
+            AddCell("Modifier Keys", mod_key_str , "Modifier keys:" + ToBitString(m_key,8) + "\n" + ctrlTooltip +"\n-->Tip:expand HidDev block for details", HIDKBModifierBaseColor + m_key );
+    }
+
+    oem_val = GetDataByte(1);
+    DecodedBytes++;
+
+    if( SimpleShowItem() )
+    {
+        SetCellColor( HIDKBOEMBaseColor + m_key );
+        AddPayLoadCell("OEM", Format("0x%02X", oem_val), "OEM reserved" );
+        RestoreCellColor();
+    }
+
+    key_buffer = "";
+
+    if( m_key == 0 )
+        ctrlToolTip = "";
+
+    key_last=0;
+
+    while( in.DataLength > DecodedBytes )
+    {
+        key = GetDataByte(DecodedBytes);
+        if( key_last == 0 )
+            key_last = key;
+
+        if( (key>0) && (key<128) && (shift == 1) )
+            key=key+128;
+
+        DecodedBytes = DecodedBytes + 1;
+        key_str = Key_Code2Ascii [ key ];
+
+        #    key_str = Format("%c",key);
+        #    if ((key < 32) & (key>0)) key_str = Format("ASCII(%d)", key);
+        if( (key_str == "") && (key != 0) )
+            key_str = Format("[Kcode=%d]", key);
+
+        if( key != 0 )
+        {
+            if( alt == 1 )
+                key_str = "<Alt>" + key_str;
+
+            if( ctrl == 1 )
+                key_str = "<Ctrl>" + key_str;
+
+            key_buffer = key_buffer + key_str;
+        }
+
+        if( SimpleShowItem() )
+        {
+            if( key != 0 )
+            {
+                SetCellColor( HIDKBKeyBaseColor + m_key );
+                AddPayLoadCell( "Key", key_str, Format("Keyboard Keycode data byte 0x%02X", key) );
+            }
+            else
+            {
+                SetCellColor( GreyColor );
+                AddPayLoadCell( "Key", key_str, Format("Keyboard Keycode data byte 0x%02X", key), _MONOCOLOR );
+            }
+
+            RestoreCellColor();
+        }
+    }
+
+    if( !SimpleShowItem() )
+    {
+        if( key_last == 0 )
+            AddCell("KeyData", key_buffer, Format( "Data in buffer\nLast Keycode=0x%02x\n-->Tip:expand HidDev block for details",key_last), GreyColor, _MONOCOLOR );
+        else
+            AddCell("KeyData", key_buffer, Format( "Data in buffer\nLast Keycode=0x%02x\n-->Tip:expand HidDev block for details",key_last), HIDKBKeyBaseColor + m_key );
+    }
+    
+    return DecodedBytes;
+}
+
+#####################################################
+# MOUSE decoding
+#####################################################
+
+DecodeMouseOutput()
+{
+    SetCellColor( HIDMouseColor );
+    AddCaptionCell( "HID", "Mouse", "This data payload represents a Mouse Human\nInterface Device (HID) Interrupt-IN message.", 
+                FieldColor, [_TABULARCELL, CELL_HID_MOUSE, "TEXT_CAPTION" ]);  # Will allow for the expansion of certain fields
+    RestoreCellColor();
+
+    AddSeparator();
+
+    DecodedBytes = 0;
+    
+    if( in.HasReportID )
+    {
+        report_id = GetDataByte(DecodedBytes);
+        DecodedBytes++;
+        
+        AddViewFieldEntry("Report ID", BitCurrentFieldLength, BitCurrentFieldOffset-8, Format("%d", report_id), "Report ID items are used to indicate which data fields are represented in each report structure.", 1, FieldColor );
+        AddCell("Report ID", Format("%d", report_id), "Report ID items are used to indicate which data fields are represented in each report structure.", FieldColor );
+    }
+    
+    buttons = GetDataByte(DecodedBytes);
+    DecodedBytes++;
+
+    tooltip="Status of buttons:";
+    if( buttons & 0x01) tooltip += "\n  Left Button pressed";
+    if( buttons & 0x02) tooltip += "\n  Right Button pressed";
+    if( buttons & 0x04) tooltip += "\n  Middle Button pressed";
+    if( buttons & 0x08) tooltip += "\n  B4 Button pressed";
+    if( buttons & 0x10) tooltip += "\n  B5 Button pressed";
+    if( buttons & 0x20) tooltip += "\n  B6 Button pressed";
+    if( buttons & 0x40) tooltip += "\n  B7 Button pressed";
+    if( buttons & 0x80) tooltip += "\n  B8 Button pressed";
+    if(buttons == 0x00) tooltip += "\n  None Pressed";
+
+    AddViewFieldEntry( "Buttons", BitCurrentFieldLength, BitCurrentFieldOffset-8, Format("0x%02X", buttons), tooltip, 1, FieldColor );
+
+    if( SimpleShowItem() )
+    {
+        AddCell("Left"  , buttons & 0x01, "Left Mouse Button 1=pressed"   , HIDMouseButtLeftColor );
+        AddCell("Right" , buttons & 0x02, "Right Mouse Button 1=pressed"  , HIDMouseButtRightColor );
+        AddCell("Middle", buttons & 0x04, "Middle Mouse Button 1=pressed" , HIDMouseButtMiddleColor );
+        AddCell("B4"    , buttons & 0x08, "B4 Mouse Button 1=pressed"     , HIDMouseButtOtherColor );
+        AddCell("B5"    , buttons & 0x10, "B5 Mouse Button 1=pressed"     , HIDMouseButtOtherColor );
+        AddCell("B6"    , buttons & 0x20, "B6 Mouse Button 1=pressed"     , HIDMouseButtOtherColor );
+        AddCell("B7"    , buttons & 0x40, "B7 Mouse Button 1=pressed"     , HIDMouseButtOtherColor );
+        AddCell("B8"    , buttons & 0x80, "B8 Mouse Button 1=pressed"     , HIDMouseButtOtherColor );
+    }
+    else
+    {
+        AddCell("Buttons", Format("0x%02X", buttons), tooltip, 0x335566);
+    }
+
+    AddSeparator();
+
+    xVal = GetDataByte(DecodedBytes);
+    DecodedBytes++;
+
+    if( xVal & 0x80 )
+        xVal = xVal | 0xFFFFFF00;
+
+    SetCellColor( HIDMouseXMoveColor );
+    AddPayLoadCell( "XMove", xVal, Format( "Amount of movement in the X direction - 0x%02X", xVal & 0xFF ) );
+    RestoreCellColor();
+
+    yVal = GetDataByte(DecodedBytes);
+    DecodedBytes++;
+
+    if( yVal & 0x80 )
+        yVal = yVal | 0xFFFFFF00;
+
+    SetCellColor( HIDMouseYMoveColor );
+    AddPayLoadCell( "YMove", yVal, Format("Amount of movement in the Y direction - 0x%02X", yVal & 0xFF) );
+    RestoreCellColor();
+
+    if (in.DataLength > DecodedBytes)
+    {
+        # wheel information is optional
+        wheelVal= GetDataByte(DecodedBytes);
+        DecodedBytes++;
+
+        SetCellColor( HIDMouseWheelMoveColor );
+        AddPayLoadCell("Wheel", wheelVal-256*(wheelVal>127), Format("Amount of movement on the Wheel 0x%02X",wheelVal) );
+        RestoreCellColor();
+    }
+
+    while (in.DataLength > DecodedBytes)
+    {
+        dbyte= GetDataByte(DecodedBytes);
+        DecodedBytes++;
+
+        SetCellColor( 0xF2BB80 + dbyte );
+        AddPayLoadCell( Format("Byte-%d",DecodedBytes), dbyte, Format("Keyboard Keycode data byte 0x%02X", dbyte) );
+        RestoreCellColor();
+    }
+
+    AddSeparator();
+    
+    return DecodedBytes;
+}
+
+
+####################################################################################
+#                       USBTracer specific caption cell                            #
+####################################################################################
+
+AddSpecCaptionCell(caption, text, tooltip, FieldColor, addparam, addparam1, addparam2 )
+{
+    AddCell(caption, text, tooltip, FieldColor, _USBBULK_HEADER, addparam, addparam1, addparam2 );
+    return 1;
+}

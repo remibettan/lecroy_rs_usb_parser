@@ -1,0 +1,65 @@
+#
+#  Copyright (c) 2005-7 CATC/Lecroy
+#
+#  RNDIS_data_in.dec
+#
+#  RNDIS-Display Decoder
+#
+#  FILE HISTORY:
+#         2007 - Created - mgd
+#     03/16/07 - Updated for USBTracer & Eliminated Tabs - RK
+#
+
+%include "CATCScriptAPI.inc"      #.inc files that are included
+%include "USBCommon.inc"
+%include "RNDIS_Common.inc"
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block 
+#
+#----  Output
+# out.Decoded   - amount of data has been decoded
+#
+
+
+set ModuleType  = "DataBlock Decoder";
+set OutputType  = "RNDIS Bulk IN";
+
+# The following values are for usb analyzer decoding
+set UsbClassCode = 0x0A;
+set UsbSubClass = 0x00;
+set UsbProtocol = 0x00; 
+set UsbDecodeType = "Endpoint";
+set UsbEndpId = 2;
+set UsbEndpType = "Bulk";
+set UsbEndpDir = "In";
+set UsbMaxPktSize=64;
+set UsbMaxXferSize=3573;   
+
+
+# These are for the 802.3 Decode
+set USBdirection = 1; # IN
+set UsbSLIPDecode = 0;
+
+
+#
+# Parsing entry point
+#
+
+
+ProcessData()
+{
+    out.Decoded = 0;
+    CommonDecoderInit();        # Initialization of SRP common global variables [found in CATCScriptAPI.inc]
+    
+    SetCellColor(0x5499AC);
+    AddCaptionCell("RNDIS","Data","This data payload represents an RNDIS Bulk Message-IN Packet.",_MONOCOLOR);  # Will allow for the expansion of certain fields
+    RestoreCellColor();
+    AddSeparator();
+
+    Decode_RNDIS_Packet_MSG(in.DataLength);  
+       
+    return Complete();
+}
+

@@ -1,0 +1,21 @@
+
+#
+#  Internet Protocol Class In Endpoint Decoder
+#
+
+%include "IP_ET0800_Endp.inc"
+
+#------------------------  Common Globals -----------------------------------
+set OutputType    = "IP_ET0800 (Internet Protocol) In Endp";
+set UsbClassCode  = 0xFF; # Vendor Specific
+set UsbEndpDir    = "In";
+set UsbEndpId     = 2; # just a unique value for each endpoint of the same Class/Vendor/Product to distinguish them
+#-------------------------------------------------------------------------------
+
+
+
+#~~~~ Parsing entry point ~~~~
+ProcessData()
+{
+    return ProcessData_IP();
+}

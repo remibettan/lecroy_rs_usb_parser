@@ -1,0 +1,801 @@
+*******************************************************************************
+*
+*  FILENAME: Audio.req
+*
+*  Copyright (C) 1999 Computer Access Technology Corporation
+*
+*  DESCRIPTION
+*    This is the vendor request file for Audio Devices. This file is prepared 
+*    as per the USB Device Class Definition for Audio Devices Revision 1.0.
+*    This file uses the Unit Defines for Microsoft Digital Sound System-80.
+*    To be able to use it with another USB Audio device you have to modify
+*    the Defines string in accordance with Units and their numbers present
+*    in the device (see the comment for Define group).
+*
+*  REVISION HISTORY
+*    20APR99 First created -ag-
+*    09AUG99 Modified and extended -mp-
+*
+*******************************************************************************
+
+
+*******************************************************************************
+; You can modify the following Unit defines to cover the units and their numbers
+; that your Audio device has. This can include adding SELECTOR_UNIT definition
+; and definition for other unit types not covered in this define block.
+*******************************************************************************
+ 
+DEFINES={
+0x01=TERMINAL_UNIT
+0x05=TERMINAL_UNIT
+0x0C=TERMINAL_UNIT
+
+0x02=PROCESSING_UNIT
+0x03=PROCESSING_UNIT
+
+0x04=FEATURE_UNIT
+0x06=FEATURE_UNIT
+0x08=FEATURE_UNIT
+0x0B=FEATURE_UNIT
+0x09=FEATURE_UNIT
+
+0x07=MIXER_UNIT
+0x0A=MIXER_UNIT
+}
+
+********************************************************************************
+; Specifies the Audio Class decoding group. If you are planning to add a modified
+: Audio request group with Unit defines for your device, you can still keep this
+; one. In order to distinguish between this group and the one you are creating
+; please use the ProductID keyword in your file, specifying some unique ID which
+; doesn't have to be the USB Product ID for your device.
+********************************************************************************
+GroupName=Audio Class
+GroupType=Class
+ClassCode=0x01
+
+AllRequests={
+0x01=SET_CUR
+0x81=GET_CUR
+0x02=SET_MIN
+0x82=GET_MIN
+0x03=SET_MAX
+0x83=GET_MAX
+0x04=SET_RES
+0x84=GET_RES
+0x05=SET_MEM
+0x85=GET_MEM
+0xFF=GET_STAT
+}
+
+;*******************************************************************************
+; SET_CUR       : All for of the SET requests have common format and are
+; SET_MIN       : used to set an attribute of a Control inside an Enitity
+; SET_MAX       : of the Audio function
+; SET_RES       : 
+;                 
+; bmRequestType : 0x21/0x22
+; bRequest      : 0x01, 0x02, 0x03 or 0x04
+; wValue        : CS(Control Selector)
+; wIndex        : Terminal ID and Interface/Endpoint
+; wLength       : Length of Parameter Block
+; Data          : Parameter Block
+;*******************************************************************************
+
+Request(0x01)={
+Request(0x02)={
+Request(0x03)={
+Request(0x04)={
+
+  wIndex={
+    HIBYTE={
+      Depends(HIBYTE(wIndex))={
+        TERMINAL_UNIT={
+          FormatValue=Terminal ID 0x%02X
+        }
+        MIXER_UNIT={
+          FormatValue=Mixer Unit ID 0x%02X
+        } 
+        SELECTOR_UNIT={
+          FormatValue=Selector Unit ID 0x%02X
+        } 
+        FEATURE_UNIT={
+          FormatValue=Feature Unit 0x%02X
+        }
+        PROCESSING_UNIT={
+          FormatValue=Processing Unit ID 0x%02X
+        }
+        EXTENSION_UNIT={
+          FormatValue=Extension Unit ID 0x%02X
+        }
+      }
+    }
+
+    LOBYTE={
+      Depends(bmRequestType)={
+        0x21={
+          FormatValue=, Interface #%i
+        }
+        0x22={
+          FormatValue=Endpoint %d
+        }
+      }
+    }
+
+  }
+
+  wValue={
+
+    Depends(bmRequestType)={
+
+      0x21={
+        Depends(HIBYTE(wIndex))={
+          TERMINAL_UNIT={
+             WordValue={
+                0x01=COPY_PROTECT_CONTROL
+             }
+             Format_Value=Control Selector 0x%04X
+          }
+          MIXER_UNIT={
+            HIBYTE={
+              FormatValue=Input Channel Number 0x%02X
+            }
+            LOBYTE={
+              FormatValue=Output Channel Number 0x%02X
+            }
+          }
+          SELECTOR_UNIT={
+            FormatValue=Selector contains single control 0x%04X
+          } 
+          FEATURE_UNIT={
+            HIBYTE={
+               WordValue={
+                  0x01=MUTE_CONTROL
+                  0x02=VOLUME_CONTROL
+                  0x03=BASS_CONTROL
+                  0x04=MID_CONTROL
+                  0x05=TREBLE_CONTROL
+                  0x06=GRAPHIC_EQUALIZER_CONTROL
+                  0x07=AUTOMATIC_GAIN_CONTROL
+                  0x08=DELAY_CONTROL
+                  0x09=BASS_BOOST_CONTROL
+                  0x0A=LOUDNESS_CONTROL
+               }
+               FormatValue=Undefined Ctrl Selector 0x%02X
+            }
+            LOBYTE={
+              FormatValue=, Channel 0x%02X
+            }
+          }
+          PROCESSING_UNIT={
+            FormatValue=Control Selector 0x%04X
+          }
+          EXTENSION_UNIT={
+            FormatValue=Control Selector 0x%04X
+          }
+        }
+      }
+
+      0x22={
+        WordValue={
+           0x0100=SAMPLE_FREQ_CONTROL
+           0x0200=PITCH_CONTROL
+        }
+        FormatValue=Undefined Control Selector 0x%04X
+      }
+
+    }
+
+    
+  }
+
+  Data={
+
+    Depends(bmRequestType)={
+
+      0x21={
+
+         Depends(HIBYTE(wIndex))={
+           TERMINAL_UNIT={
+             Length=1
+             Bytes(0,0)={
+               Name=Copy Protect Control value
+               WordValue={
+                 0x00=CPL0: Copying is permitted without restriction
+                 0x01=CPL1: One generation of copies may be made
+                 0x02=CPL2: This material is copyright protected
+               }
+             }
+           }
+
+           MIXER_UNIT={
+              Depends(wValue)={
+                 0x0000={
+                    Length=?
+                    Bytes(0,?)={
+                       FormatValue=Settings for all Mixer Controls :
+                    }
+                 }
+                 0xFFFF={
+                    Length=?
+                    Bytes(0,?)={
+                       FormatValue=Settings for all programmable Mixer Controls :
+                    }
+                 }
+              }
+
+              Length=2
+              Bytes(0,1)={
+                 FormatValue=Setting for the attribute of this Mixer Control is 0x%04X
+              }
+           }
+
+           SELECTOR_UNIT={
+             Length=1
+             Bytes(0,0)={
+               FormatValue=The setting for the attribute of the Selector Control 0x%02X
+             }
+           }
+           FEATURE_UNIT={
+             Depends(HIBYTE(wValue))={
+               0x00={
+                 Length=1
+                 Bytes(0,0)={
+                   FormatValue=FU_CONTROL_UNDEFINED 0x%02X
+                 }
+               }
+               0x01={
+                 Length=1
+                 Bytes(0,0)={
+                   FormatValue=MUTE_CONTROL 0x%02X
+                 }                
+               }
+               0x02={
+                 Length=2
+                 Bytes(0,1)={
+                   FormatValue=VOLUME_CONTROL 0x%04X
+                 }
+               }
+               0x03={
+                 Length=1
+                 Bytes(0,0)={
+                   FormatValue=BASS_CONTROL 0x%02X
+                 }
+               }
+               0x04={
+                 Length=1
+                 Bytes(0,0)={
+                   FormatValue=MID_CONTROL 0x%02X
+                 }
+               }
+               0x05={
+                 Length=1
+                 Bytes(0,0)={
+                   FormatValue=TREBLE_CONTROL 0x%02X
+                 }
+               }
+               0x06={
+                 Length=4
+                 Name=GRAPHIC_EQUALIZER_CONTROL parameters
+                 Bytes(0,3)={
+                    Name=Bands present
+                    Bitmap={
+                       0=Band 14 is present (25 Hz)
+                       1=Band 15 is present (31.5 Hz)
+                       2=Band 16 is present (40 Hz)
+                       3=Band 17 is present (50 Hz)
+                       4=Band 18 is present (63 Hz)
+                       5=Band 19 is present (80 Hz)
+                       6=Band 20 is present (100 Hz)
+                       7=Band 21 is present (125 Hz)
+                       8=Band 22 is present (160 Hz)
+                       9=Band 23 is present (200 Hz)
+                      10=Band 24 is present (250 Hz)
+                      11=Band 25 is present (315 Hz)
+                      12=Band 26 is present (400 Hz)
+                      13=Band 27 is present (500 Hz)
+                      14=Band 28 is present (630 Hz)
+                      15=Band 29 is present (800 Hz)
+                      16=Band 30 is present (1000 Hz)
+                      17=Band 31 is present (1250 Hz)
+                      18=Band 32 is present (1600 Hz)
+                      19=Band 33 is present (2000 Hz)
+                      20=Band 34 is present (2500 Hz)
+                      21=Band 35 is present (3150 Hz)
+                      22=Band 36 is present (4000 Hz)
+                      23=Band 37 is present (5000 Hz)
+                      24=Band 38 is present (6300 Hz)
+                      25=Band 39 is present (8000 Hz)
+                      26=Band 40 is present (10000 Hz)
+                      27=Band 41 is present (12500 Hz)
+                      28=Band 42 is present (16000 Hz)
+                      29=Band 43 is present (20000 Hz)
+                      30=Reserved
+                      31=Reserved
+                    }
+                 }
+
+                 Bytes(4,?)={
+                    FormatValue=The rest of the parameters:
+                 }
+
+               }
+               0x07={
+                 Length=1
+                 Bytes(0,0)={
+                   FormatValue=AUTOMATIC_GAIN_CONTROL 0x%02X
+                 }
+               }
+               0x08={
+                 Length=1
+                 Bytes(0,0)={
+                   FormatValue=DELAY_CONTROL 0x%02X
+                 }
+               }
+               0x09={
+                 Length=1
+                 Bytes(0,0)={
+                   FormatValue=BASS_BOOST_CONTROL 0x%02X
+                 }
+               }
+               0x0A={
+                 Length=1
+                 Bytes(0,0)={
+                   FormatValue=LOUDNESS_CONTROL 0x%02X
+                 }
+               }
+             }
+           }
+           PROCESSING_UNIT={
+              Length=?
+              Bytes(0,?)={
+                   FormatValue=Processing Control Parameter Block :
+              }
+           }
+           EXTENSION_UNIT={
+               Length=1
+               Bytes(0,0)={
+                  FormatValue=Extension Unit Control Parameter Block 0x%02X
+               }
+            }  
+         }
+      }
+
+      0x22={
+         Depends(wValue)={
+            0x0100={
+               Length=3
+               Bytes(0,2)={
+                  FormatValue=Sampling frequency %i Hz
+               }
+            }
+            0x0200={
+               Length=1
+               Bytes(0,0)={
+                 WordValue={
+                   0x00=Pitch control OFF
+                   0x01=Pitch control ON
+                 }
+               }
+            }
+         }
+      }
+
+    } 
+
+  } ; End of Data description
+
+}
+}
+}
+}
+; closing brakets for all 4 requests
+
+
+;*******************************************************************************
+; GET_CUR       : All for of the GET requests have common format and are
+; GET_MIN       : used to get an attribute of a Control inside an Enitity
+; GET_MAX       : of the Audio function.
+; GET_RES       : 
+;                 
+; bmRequestType : 0xA1/0xA2
+; bRequest      : 0x81
+; wValue        : CS(Control Selector)
+; wIndex        : Terminal ID and Interface/Endpoint
+; wLength       : Length of Parameter Block
+; Data          : Parameter Block
+;*******************************************************************************
+
+Request(0x81)={
+Request(0x82)={
+Request(0x83)={
+Request(0x84)={
+
+  wIndex={
+    HIBYTE={
+      Depends(HIBYTE(wIndex))={
+        TERMINAL_UNIT={
+          FormatValue=Terminal ID 0x%02X
+        }
+        MIXER_UNIT={
+          FormatValue=Mixer Unit ID 0x%02X
+        } 
+        SELECTOR_UNIT={
+          FormatValue=Selector Unit ID 0x%02X
+        } 
+        FEATURE_UNIT={
+          FormatValue=Feature Unit 0x%02X
+        }
+        PROCESSING_UNIT={
+          FormatValue=Processing Unit ID 0x%02X
+        }
+        EXTENSION_UNIT={
+          FormatValue=Extension Unit ID 0x%02X
+        }
+      }
+    }
+
+    LOBYTE={
+      Depends(bmRequestType)={
+        0xA1={
+          FormatValue=, Interface #%i
+        }
+        0xA2={
+          FormatValue=Endpoint %d
+        }
+      }
+    }
+
+  }
+
+  wValue={
+
+    Depends(bmRequestType)={
+
+      0xA1={
+        Depends(HIBYTE(wIndex))={
+          TERMINAL_UNIT={
+             WordValue={
+                0x01=COPY_PROTECT_CONTROL
+             }
+             Format_Value=Control Selector 0x%04X
+          }
+          MIXER_UNIT={
+            HIBYTE={
+              FormatValue=Input Channel Number 0x%02X
+            }
+            LOBYTE={
+              FormatValue=Output Channel Number 0x%02X
+            }
+          }
+          SELECTOR_UNIT={
+            FormatValue=Selector contains single control 0x%04X
+          } 
+          FEATURE_UNIT={
+            HIBYTE={
+               WordValue={
+                  0x01=MUTE_CONTROL
+                  0x02=VOLUME_CONTROL
+                  0x03=BASS_CONTROL
+                  0x04=MID_CONTROL
+                  0x05=TREBLE_CONTROL
+                  0x06=GRAPHIC_EQUALIZER_CONTROL
+                  0x07=AUTOMATIC_GAIN_CONTROL
+                  0x08=DELAY_CONTROL
+                  0x09=BASS_BOOST_CONTROL
+                  0x0A=LOUDNESS_CONTROL
+               }
+               FormatValue=Undefined Ctrl Selector 0x%02X
+            }
+            LOBYTE={
+              FormatValue=, Channel 0x%02X
+            }
+          }
+          PROCESSING_UNIT={
+            FormatValue=Control Selector 0x%04X
+          }
+          EXTENSION_UNIT={
+            FormatValue=Control Selector 0x%04X
+          }
+        }
+      }
+
+      0xA2={
+        WordValue={
+           0x01=SAMPLE_FREQ_CONTROL
+           0x02=PITCH_CONTROL
+        }
+        FormatValue=Undefined Control Selector 0x%04X
+      }
+
+    }
+
+    
+  }
+
+  Data={
+
+    Depends(bmRequestType)={
+
+      0xA1={
+
+         Depends(HIBYTE(wIndex))={
+           TERMINAL_UNIT={
+             Length=1
+             Bytes(0,0)={
+               Name=Copy Protect Control value
+               WordValue={
+                 0x00=CPL0: Copying is permitted without restriction
+                 0x01=CPL1: One generation of copies may be made
+                 0x02=CPL2: This material is copyright protected
+               }
+             }
+           }
+
+           MIXER_UNIT={
+              Depends(wValue)={
+                 0x0000={
+                    Length=?
+                    Bytes(0,?)={
+                       FormatValue=Settings for all Mixer Controls :
+                    }
+                 }
+                 0xFFFF={
+                    Length=?
+                    Bytes(0,?)={
+                       FormatValue=Settings for all programmable Mixer Controls :
+                    }
+                 }
+              }
+
+              Length=2
+              Bytes(0,1)={
+                 FormatValue=Setting for the attribute of this Mixer Control is 0x%04X
+              }
+           }
+
+           SELECTOR_UNIT={
+             Length=1
+             Bytes(0,0)={
+               FormatValue=The setting for the attribute of the Selector Control 0x%02X
+             }
+           }
+           FEATURE_UNIT={
+             Depends(HIBYTE(wValue))={
+               0x00={
+                 Bytes(0,0)={
+                   FormatValue=FU_CONTROL_UNDEFINED 0x%02X
+                 }
+               }
+               0x01={
+                   Bytes(0,0)={
+                     FormatValue=MUTE_CONTROL 0x%02X
+                   }
+                 }
+               }
+               0x02={
+                 Length=2
+                 Bytes(0,1)={
+                   FormatValue=VOLUME_CONTROL 0x%04X
+                 }
+               }
+               0x03={
+                 Length=1
+                 Bytes(0,0)={
+                   FormatValue=BASS_CONTROL 0x%02X
+                 }
+               }
+               0x04={
+                 Length=1
+                 Bytes(0,0)={
+                   FormatValue=MID_CONTROL 0x%02X
+                 }
+               }
+               0x05={
+                 Length=1
+                 Bytes(0,0)={
+                   FormatValue=TREBLE_CONTROL 0x%02X
+                 }
+               }
+               0x06={
+                 Length=4
+                 Name=GRAPHIC_EQUALIZER_CONTROL parameters
+                 Bytes(0,3)={
+                    Name=Bands present
+                    Bitmap={
+                       0=Band 14 is present (25 Hz)
+                       1=Band 15 is present (31.5 Hz)
+                       2=Band 16 is present (40 Hz)
+                       3=Band 17 is present (50 Hz)
+                       4=Band 18 is present (63 Hz)
+                       5=Band 19 is present (80 Hz)
+                       6=Band 20 is present (100 Hz)
+                       7=Band 21 is present (125 Hz)
+                       8=Band 22 is present (160 Hz)
+                       9=Band 23 is present (200 Hz)
+                      10=Band 24 is present (250 Hz)
+                      11=Band 25 is present (315 Hz)
+                      12=Band 26 is present (400 Hz)
+                      13=Band 27 is present (500 Hz)
+                      14=Band 28 is present (630 Hz)
+                      15=Band 29 is present (800 Hz)
+                      16=Band 30 is present (1000 Hz)
+                      17=Band 31 is present (1250 Hz)
+                      18=Band 32 is present (1600 Hz)
+                      19=Band 33 is present (2000 Hz)
+                      20=Band 34 is present (2500 Hz)
+                      21=Band 35 is present (3150 Hz)
+                      22=Band 36 is present (4000 Hz)
+                      23=Band 37 is present (5000 Hz)
+                      24=Band 38 is present (6300 Hz)
+                      25=Band 39 is present (8000 Hz)
+                      26=Band 40 is present (10000 Hz)
+                      27=Band 41 is present (12500 Hz)
+                      28=Band 42 is present (16000 Hz)
+                      29=Band 43 is present (20000 Hz)
+                      30=Reserved
+                      31=Reserved
+                    }
+                 }
+
+                 Bytes(4,?)={
+                    FormatValue=The rest of the parameters:
+                 }
+
+               }
+               0x07={
+                 Length=1
+                 Bytes(0,0)={
+                   FormatValue=AUTOMATIC_GAIN_CONTROL 0x%02X
+                 }
+               }
+               0x08={
+                 Length=1
+                 Bytes(0,0)={
+                   FormatValue=DELAY_CONTROL 0x%02X
+                 }
+               }
+               0x09={
+                 Length=1
+                 Bytes(0,0)={
+                   FormatValue=BASS_BOOST_CONTROL 0x%02X
+                 }
+               }
+               0x0A={
+                 Length=1
+                 Bytes(0,0)={
+                   FormatValue=LOUDNESS_CONTROL 0x%02X
+                 }
+               }
+             }
+           }
+           PROCESSING_UNIT={
+              Length=?
+              Bytes(0,?)={
+                   FormatValue=Processing Control Parameter Block :
+              }
+           }
+           EXTENSION_UNIT={
+               Length=1
+               Bytes(0,0)={
+                  FormatValue=Extension Unit Control Parameter Block 0x%02X
+               }
+           }
+      }
+
+      0xA2={
+         Depends(wValue)={
+            0x0100={
+               Length=3
+               Bytes(0,2)={
+                  FormatValue=Sampling frequency %i Hz
+               }
+            }
+            0x0200={
+               Length=1
+               Bytes(0,0)={
+                 WordValue={
+                   0x00=Pitch control OFF
+                   0x01=Pitch control ON
+                 }
+               }
+            }
+         }
+      }
+
+    } 
+
+
+  } ; Data ends
+
+}
+}
+}
+}
+; closing brakets for all 4 requests
+
+;SET_MEM
+Request(0x05)={
+
+  wValue={
+     FormatValue=Offset into memory space 0x%04X
+  }
+
+  wIndex={
+     Depends(bmRequestType)={
+       0x21={
+          HIBYTE={
+             FormatValue=Entity ID 0x%02X
+          }
+          LOBYTE={
+             FormatValue=Interface number %d
+          }
+       }
+       0x22={
+          Endpoint number %d
+       }
+     }
+  }
+
+  Data={
+     Length=?
+     Name=Memory space parameter block
+  }
+
+}
+
+;GET_MEM
+Request(0x85)={
+
+  wValue={
+     FormatValue=Offset into memory space 0x%04X
+  }
+
+  wIndex={
+     Depends(bmRequestType)={
+       0xA1={
+          HIBYTE={
+             FormatValue=Entity ID 0x%02X
+          }
+          LOBYTE={
+             FormatValue=Interface number %d
+          }
+       }
+       0xA2={
+          Endpoint number %d
+       }
+     }
+  }
+
+  Data={
+     Length=?
+     Name=Memory space parameter block
+  }
+
+}
+
+;GET_STAT
+Request(0xFF)={
+
+  wIndex={
+     Depends(bmRequestType)={
+       0xA1={
+          HIBYTE={
+             FormatValue=Entity ID 0x%02X
+          }
+          LOBYTE={
+             FormatValue=Interface number %d
+          }
+       }
+       0xA2={
+          Endpoint number %d
+       }
+     }
+  }
+
+  Data={
+     Length=?
+     Name=Status message
+  }
+
+}

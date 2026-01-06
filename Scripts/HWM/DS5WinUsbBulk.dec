@@ -1,0 +1,93 @@
+#
+#  Copyright (c) 2002, Computer Access Technology Corp. - All Rights Reserved
+#
+#  winUsbBulk.dec VERSION2
+#
+#  
+#
+%include "CATCScriptAPI.inc"  
+%include "UsbCommon.inc" 
+# %include "Video_Common.inc"
+%include "VideoTables.inc"       #has all the tables that are accessed in this file
+#%include "VideoCellColors.inc"
+%include "Ds5HWM.inc"
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block 
+#
+#----  Output
+# out.Decoded   - amount of data has been decoded
+#
+
+
+set OutputType    = "DS5 HWM Interface";
+set UsbDecodeType = "Endpoint";
+set UsbEndpId = 11; # just a unique value for each endpoint of the same Class/Vendor/Product to distinguish them
+set UsbClassCode = 0xFF;
+set UsbEndpType = "Bulk";
+set UsbEndpDir = "Out";
+set UsbMaxXferSize = 0x6;   
+
+set UsbScriptDecodeType = 2; # explicit text decoding processing
+
+#
+# Parsing entry point
+#
+
+
+set bStatusType = 0;
+
+ProcessData()
+{
+    ProcessDataInit();
+
+    Speed        = GetDecoderHeaderByte(0);    
+    UsbSpecLevel = GetDecoderHeaderByte(1);
+    out.Decoded = 0;    
+
+    AddDecodedTextHeader();
+    AddSeparator();
+
+  if(in.DataLength > 0)
+  {
+		wCmdSize = GetDataByte(0) | (GetDataByte(1) << 8);
+		out.Decoded +=2;
+		AddPayLoadCell(" Length ", Format("0x%04X", wCmdSize), "HWM command Length (without header)");
+
+		wMagicDword = GetDataByte(2) | (GetDataByte(3) << 8);
+		out.Decoded +=2;
+		if (0xCDAB == wMagicDword)
+		{
+			AddPayLoadCell(" Magic Word ", "0xCDAB", "Magic Word for HWM WinUsb Command");
+		}
+
+		opCode = GetDataByte(4) | (GetDataByte(5) << 8) | (GetDataByte(6) << 16) | (GetDataByte(7) << 24);
+		out.Decoded +=4;
+		_row_x = Find(CommandsOpcodeLUT, opCode);
+		AddPayLoadCell(" OpCode ", _row_x[1], Format("opcode for HWM command 0x%x", opCode));
+	
+		param1 = GetDataByte(8) | (GetDataByte(9) << 8) | (GetDataByte(10) << 16) | (GetDataByte(11) << 24);
+		out.Decoded +=4;
+		AddPayLoadCell(" Param1 ", Format("0x%04X", param1), "first param for HWM command - see cmd description for more info");
+
+		param2 = GetDataByte(12) | (GetDataByte(13) << 8) | (GetDataByte(14) << 16) | (GetDataByte(15) << 24);
+		out.Decoded +=4;
+		AddPayLoadCell(" param2 ", Format("0x%04X", param2), "second param for HWM command - see cmd description for more info");
+
+		param3 = GetDataByte(16) | (GetDataByte(17) << 8) | (GetDataByte(18) << 16) | (GetDataByte(19) << 24);
+		out.Decoded +=4;
+		AddPayLoadCell(" param3 ", Format("0x%04X", param3), "first param for HWM command - see cmd description for more info");
+
+		param4 = GetDataByte(20) | (GetDataByte(21) << 8) | (GetDataByte(22) << 16) | (GetDataByte(23) << 24);
+		out.Decoded +=4;
+		AddPayLoadCell(" param4 ", Format("0x%04X", param4), "first param for HWM command - see cmd description for more info");
+		
+            
+		AddSeparator();
+	}
+	
+    return Complete();
+}
+
+

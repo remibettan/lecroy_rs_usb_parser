@@ -1,0 +1,57 @@
+#*******************************************************************************
+#
+#  FILENAME: VisionEvent.dec
+#
+#  Copyright (c) 2013, Teledyne LeCroy - All Rights Reserved
+#
+#  DESCRIPTION
+#    This is the Event Bulk-IN Endpoint Message Decode file for USB3 Vision Devices.
+#    This file is prepared as per USB3 Vision specification Verion 1.0 January, 2013
+#
+#  REVISION HISTORY
+#    13MAR13 First created -ag-
+#
+#*******************************************************************************
+
+%include "GenCP.inc"
+
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block 
+#
+#----  Output
+# out.Decoded   - amount of data has been decoded
+#
+
+const U3VE_ViewAll  = 0;
+const U3VE_HideAll  = 0;
+# ---------------------------------------------------------------------------
+
+set OutputType      = "USB3 Vision Events";      
+set UsbDecodeType   = "Endpoint";
+set UsbEndpType     = "Bulk";
+set UsbEndpDir      = "In";
+set UsbClassCode    = 0xEF;    # Miscellaneous Class
+set UsbSubClass     = 0x05;    # USB3 Vision
+set UsbProtocol     = 0x01;    # Device Events
+set UsbScriptDecodeType = 1;   # Combined decoding for Cells and Text decoding
+
+
+ProcessData()
+{
+    CommonDecoderInit();
+    UnitDecoderInit("U3VE");
+        
+    is_vision = DecodeVisionControlEvents(0);
+
+    if( is_vision )       
+        # Decode after 4 bytes prefix
+        DecodeGenCPPackets(4);
+  
+    if( out.Decoded > in.DataLength )
+        out.Decoded = in.DataLength; 
+            
+    AddSeparator();
+  
+    return Complete();   
+
+}

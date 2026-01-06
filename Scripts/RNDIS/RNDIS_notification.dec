@@ -1,0 +1,169 @@
+#*******************************************************************************
+#
+#  FILENAME: RNDIS_notification.dec
+#
+#  Copyright (c) 2005-13, LeCroy - All Rights Reserved
+#
+#  DESCRIPTION
+#    This is the request file for USB Class Definition for Communication Devices with RNDIS. 
+#    This file is prepared as per the Microsoft RNDIS Specification Revision 1.1.
+#    This file is prepared as per the USB Class Definitions for Communication Devices v1.1
+#
+#  REVISION HISTORY
+#  Feb-2013 Created
+#*******************************************************************************
+
+#*******************************************************************************
+# Specify the name for this set of requests as GroupName. This name is listed 
+# under Decode Vendor/Class Request menu depending on the GroupType specified 
+# and the Type field of the request you are trying to decode. 
+#*******************************************************************************
+ 
+
+%include "CATCScriptAPI.inc"      #.inc files that are included
+%include "USBCommon.inc"          #include usefull decoder functions
+
+const Tabular_Def_Table = Map( 
+[   
+    #-----------------------------------------------------------------------------------------------------
+    #       id           ,      colId                          , 		containerCellId
+    #-----------------------------------------------------------------------------------------------------
+    [ CELL_REQUEST   , TABULAR_SCRIPT_COLUMN_ID_SUBTYPE  , TABULAR_SCRIPT_CONTAINER_CELL_ID_NONE ],
+    [ CELL_WVALUE    , TABULAR_SCRIPT_COLUMN_ID_NONE     , TABULAR_SCRIPT_CONTAINER_CELL_ID_MISC ]  
+] );
+
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block 
+#
+#----  Output
+# out.Decoded   - amount of data has been decoded
+#
+#############################################################################
+#                               View Settings                               #
+#############################################################################
+#
+#    In this section user can set up which fields are to be shown and 
+#    which are to be hidden in expanded and collapsed states.
+#    Zero-value everywhere means that fields will not be shown,
+#    otherwise means opposite.
+#
+
+
+# ----------------------- All Field View Settings ---------------------------
+#   These settings have priority above separate field View Settings in
+#   expanded state ONLY.
+#   In order separate field View Settings to work properly
+#   BOTH All Field View Settings should be set to 0.
+#
+#   Due to the fact that ViewAll-setting and HideAll-setting are 
+#   exceptive propositions - ViewAll has been set a higher priority.
+# ---------------------------------------------------------------------------
+
+const RNF_ViewAll              = 0;
+const RNF_HideAll              = 0;
+# ---------------------------------------------------------------------------
+
+
+# -----------------------  Separate Field View Settings ---------------------
+# The FIRST value in list-variables defines if the field is to be shown or
+# hidden in COLLAPSED state. 
+# 0 - means the field is to be shown.
+# 1 - means the field is to be hidden.
+# 
+# The SECOND value in list-variables defines if the field is to be shown or
+# hidden in EXPANDED state. 
+# 0 - means the field is to be shown.
+# 1 - means the field is to be hidden.
+#
+# i.e.  const RPD_Field = [0, 1]# - means that field 'Field' will be hidden
+# in collapsed state and will be shown in expanded state. 
+#
+
+set OutputType      = "RNDIS Interrupt Notification";      
+set UsbDecodeType   = "Endpoint";
+set UsbEndpType     = "Interrupt";
+set UsbEndpDir      = "In";
+set UsbClassCode    = 0xE0;    # Communication Interface Class code.
+set UsbSubClass     = 0x01;    # Communication Interface Class SubClass code.
+set UsbProtocol     = 0x03;
+set UsbScriptDecodeType = 1;   # Combined decoding for Cells and Text decoding
+
+
+
+set NDIS_NotificationTypes = [
+    [  0x00000000,  "UNKNOWN" ],
+    [  0x00000001,  "RESPONSE_AVAILABLE" ]
+];
+
+ProcessData()
+{    
+    CommonDecoderInit();
+    UnitDecoderInit("RNF");
+    FieldColor = 0x5411AC;
+    
+    FullyDecoded = 1;
+  
+    out.Decoded = 0;    
+
+    AddPayLoadCell("RNDIS", "Notification", "", _MONOCOLOR);
+    AddSeparator();
+    
+    if(in.DataLength >= 4)
+    {
+        value = NextDataDWord_();
+        NotificationRow = Find(NDIS_NotificationTypes, value);
+        
+        Call( NotificationRow[1], [value] );
+    }
+    else
+    {
+        SetCellColor( RGB(255,0,0) );
+	    AddPayLoadCell("NOT ENOUGH DATA", "", "",  MONOCOLOR, _MONOFIELD );
+        RestoreCellColor();
+    }     
+    
+    return Complete();    
+}
+
+UNKNOWN(value)
+{
+    AddPayLoadCell( "Type", Format("0x%08X", value), "", _ERROR );
+    out.Decoded += 4;
+}
+
+RESPONSE_AVAILABLE(value)
+{
+    AddPayLoadCell( "Type", "RESPONSE_AVAILABLE", "" );
+    out.Decoded += 4;
+    
+    if( in.DataLength - out.Decoded >= 4 )
+    {
+        value = NextDataWord_();
+        
+        if( value != 0 )
+            AddPayLoadCell( "Reserved", value, "", _ERROR ); 
+        else
+            AddPayLoadCell( "Reserved", value, ""); 
+        
+        out.Decoded += 4;    
+    }
+    else
+    {       
+        AddSeparator();    
+        SetCellColor( RGB(255,0,0) );
+	    AddPayLoadCell("NOT ENOUGH DATA", "", "",  MONOCOLOR, _MONOFIELD );
+        RestoreCellColor();
+    }    
+}
+
+####################################################################################
+#                       USBTracer specific caption cell                            #
+####################################################################################
+
+AddSpecCaptionCell(caption, text, tooltip, FieldColor, addparam, addparam1, addparam2 )
+{   
+    AddCell(caption, text, tooltip, FieldColor, _USBBULK_HEADER, addparam, addparam1, addparam2 );        
+    return 1;        
+}

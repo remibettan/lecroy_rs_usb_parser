@@ -1,0 +1,447 @@
+#*******************************************************************************
+#*
+#*  FILENAME: TypeC_BridgeNotifications.dec
+#*
+#*  Copyright (C) 2016 Teledyn LeCroy
+#*
+#*  DESCRIPTION
+#*    This is the request file for TypeC Bridge device notifications endpoint.
+#*******************************************************************************
+
+%include "CATCScriptAPI.inc"
+%include "ErrorHandlingMessages.inc"
+%include "UsbCommon.inc"
+%include "TypeC_Common.inc"
+%include "..\PowerDelivery\PDObjectDecodings.inc"
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block 
+#
+#----  Output
+# out.Decoded   - amount of data has been decoded
+#
+
+set UsbDecodeType   = "Endpoint";
+set UsbReqType      = "Class";
+set OutputType      = "USB Type-C Bridge Notifications";
+set ModuleType      = "DataBlock Decoder";
+set UsbClassCode    = 0x12;
+set UsbSubClass     = 0x00;
+set UsbProtocol     = 0x00;
+set UsbEndpType     = "Interrupt";
+set UsbEndpDir      = "In";
+#set UsbScriptDecodeType = 1; # explicit text decoding processing
+
+const ErrorColor = 0x0000FF;
+
+set TypeC_NotificationTypesTable = [
+    [ 0xff, "Reserved"                 , "Reserved Value" ],
+    [ 0x01, "PPM_NOTIFICATION"         , "PPM Command Responses or PPM Asynchronous Notifications" ],
+    [ 0x02, "PD_NOTIFICATION"          , "Indicates that the USB Type-C Bridge has received an Authentication Request or Response from a Connector" ],
+    [ 0x03, "BILLBOARD_NOTIFICATION"   , "The Billboard Notification shall be sent by the USB Type-C Bridge to indicate that there is a change to the Billboard Capability in the Device Container" ]
+];
+
+ProcessData()
+{
+    bNotificationType = GetDataByte(0);
+    out.Decoded = 1;
+    
+    _row = Find(TypeC_NotificationTypesTable, bNotificationType);
+    
+    AddSeparator();
+    
+    FieldColor = [121, 18, 200];
+    if( _row != null && _row[0] != 0xff )
+    {
+        AddPayLoadCell( "bNotificationType", _row[1], _row[2]);
+        Call( _row[1] );
+    }
+    else
+    {
+        AddPayLoadCell( "bNotificationType", FormatEx("Reserved(%d)", bNotificationType), _row[2]);
+    }
+    
+    AddSeparator();
+}
+
+AddZeroValuedParam(param_num, value)
+{
+    caption = FormatEx("bParam%d", param_num);
+    text    = FormatEx("%d", value);
+    if( value == 0 )
+        AddPayLoadCell( caption, text, "Correct Value of 0");
+    else
+        AddPayLoadCell( caption, text, FormatEx(_err_Illegal_Value, caption, value, 0 ));
+}
+
+set PPM_Notification_Fields = [
+    ["Reserved0",           0,  1, 0x1,   "Reserved",             "0x%X", null, 0, "Reserved and shall be set to 0."],
+    ["ConnChangeIndicator", 1,  7, 0x7F,  "Connector Change",     "%d",   null, 0, "Connectors are indexed from 1. If this field is set to zero, then no change occurred on any of the Connectors."],
+    ["DataLen",             8,  8, 0xFF,  "Data Length",          "%d",   null, 0, "This field indicates the number of additional bytes of data that follow a PPM Command Response."],
+    ["Reserved1",           16, 9, 0x1FF, "Reserved",             "0x%X", null, 0, "Reserved and shall be set to 0."],
+    ["NotSupported",        25, 1, 0x1,   "Not Supported",        "%d",   null, 0, "The PPM sets this field to one to indicate that it wants to indicate that it does not currently support a PPM Command. This field shall only be valid when the Command Completed Indicator field is set to one."],
+    ["CancelCompleted",     26, 1, 0x1,   "Cancel Completed",     "%d",   null, 0, "The PPM sets this field to one to indicate that it has completed a CANCEL Command. This field shall only be valid when the Command Completed Indicator field is set to one."],
+    ["ResetCompleted",      27, 1, 0x1,   "Reset Completed",      "%d",   null, 0, "The PPM sets this field to one to indicate that it has completed a PPM_RESET Command. If this field is set to one, then no other bits in this Data Structure shall be set by the PPM. The PPM shall clear this field on reception of the next PPM Command (not PPM_RESET) from the OSPM."],
+    ["Busy",                28, 1, 0x1,   "Busy",                 "%d",   null, 0, "The value in this field shall be ignored as the field is not supported in the current version of the specification."],
+    ["AckCommand",          29, 1, 0x1,   "Acknowledge Command",  "%d",   null, 0, "The PPM sets this field to one to indicate that it completes the ACK_PCR_PAN (Acknowledge PPM Command Response and/or PPM Asynchronous Notification) Command. The PPM shall automatically reset this bit when it receives the next PPM Command from the OSPM. If this field is set to one, then the only other field that can be set is the Connector Change Indicator field."],
+    ["Error",               30, 1, 0x1,   "Error",                "%d",   null, 0, "The PPM sets this field to one to indicate that it encounters an error when executing the PPM Command sent to it by the OSPM. This field shall only be valid when the Command Completed Indicator field is set to one."],
+    ["CommandCompleted",    31, 1, 0x1,   "Command Completed",    "%d",   null, 0, "The PPM sets this field to one to indicate that it wants to indicate that it completed the PPM Command sent to it by the OSPM."]
+];
+
+set PPMCommandResponseTable =
+[
+    [0xFF, "NoResponseData"                 ],
+    [0x06, "GET_CAPABILITY_data"            ],
+    [0x07, "GET_CONNECTOR_CAPABILITY_data"  ],
+    [0x12, "GET_CONNECTOR_STATUS_data"      ],
+    [0x13, "GET_ERROR_STATUS_data"          ]
+];
+
+PPM_NOTIFICATION()
+{
+    bParam1 = GetDataByte(1);
+    bParam2 = GetDataByte(2);
+    bParam3 = GetDataByte(3);
+    out.Decoded = out.Decoded + 3;
+    FieldColor = PPM_NOTIFICATION_COLOR;
+    
+    AddZeroValuedParam(1, bParam1);
+    AddZeroValuedParam(2, bParam2);
+    AddZeroValuedParam(3, bParam3);
+    
+    AddSeparator();
+    
+    DECODE_ABORTED_FLAG = 0;
+    bit_offset = 32;
+    for( i = 0; PPM_Notification_Fields[i][0] != null; i++ )
+    {
+        AddTypeCField( PPM_Notification_Fields[i][0], bit_offset, PPM_Notification_Fields );
+    }
+    data_len = GetTypeCFieldValue( "DataLen", PPM_Notification_Fields, bit_offset );
+    out.Decoded = out.Decoded + 4 + data_len;
+    if( data_len > 0 )
+    {
+        cmd = Find( PPMCommandResponseTable, Last_TypeC_PPM_Command );
+        if( cmd[0] != 0xFF )
+        {
+            AddSeparator();
+            
+            Call( cmd[1] );
+        }
+    }
+}
+
+set PPM_GET_CAPABILITY_data_bmAttributes =[
+    [ 0, "Support Disabled State"],
+    [ 1, "Support Battery Charging"],
+    [ 2, "Support USB Power Delivery"],
+    [ 3, "Reserved and shall be set to zero"],
+    [ 4, "Reserved and shall be set to zero"],
+    [ 5, "Reserved and shall be set to zero"],
+    [ 6, "Reserved and shall be set to zero"],
+    [ 7, "Reserved and shall be set to zero"],
+    [ 8, "Support AC Power Supply"],
+    [ 9, "Reserved and shall be set to zero"],
+    [10, "Support Other Power Supply"],
+    [11, "Reserved and shall be set to zero"],
+    [12, "Reserved and shall be set to zero"],
+    [13, "Reserved and shall be set to zero"],
+    [14, "Uses VBUS Power Supply"],
+    [15, "Support Charge-through Connector"],
+    [16, "Reserved and shall be set to zero"],
+    [17, "Reserved and shall be set to zero"],
+    [18, "Reserved and shall be set to zero"],
+    [19, "Reserved and shall be set to zero"],
+    [20, "Reserved and shall be set to zero"],
+    [21, "Reserved and shall be set to zero"],
+    [22, "Reserved and shall be set to zero"],
+    [23, "Reserved and shall be set to zero"],
+    [24, "Reserved and shall be set to zero"],
+    [25, "Reserved and shall be set to zero"],
+    [26, "Reserved and shall be set to zero"],
+    [27, "Reserved and shall be set to zero"],
+    [28, "Reserved and shall be set to zero"],
+    [29, "Reserved and shall be set to zero"],
+    [30, "Reserved and shall be set to zero"],
+    [31, "Reserved and shall be set to zero"]
+];
+
+set PPM_GET_CAPABILITY_data_Fields = [
+    ["bmAttributes",         0, 32, 0xFFFFFFFF, "bmAttributes",         "%s",     PPM_GET_CAPABILITY_data_bmAttributes, 1, "Bitmap encoding of supported PPM features."],
+    ["bNumConnectors",      32,  7, 0x7F,       "bNumConnectors",       "%d",     null,                                 0, "This field indicates the number of Connectors that this PPM supports. It shall not be set to zero unless the Device Container is a Billboard Only USB Type-C Bridge. It shall be set to zero if the Device Container is a Billboard Only USB Type-C Bridge."],
+    ["Reserved39",          39,  1, 0x1,        "Reserved",             "0x%X",   null,                                 0, "Reserved and shall be set to 0."],
+    ["bmOptionalFeatures",  40, 24, 0xFFFFFF,   "bmOptionalFeatures",   "%s",     null,                                 1, "No optional features are supported in the current version of the specification. This field shall be set to zero."],
+    ["bNumAltModes",        64,  8, 0xFF,       "bNumAltModes",         "%d",     null,                                 0, "The value in this field shall be ignored as the field is not supported in the current version of the specification. This field shall be set to zero"],
+    ["Reserved72",          72,  8, 0xFF,       "Reserved",             "0x%X",   null,                                 0, "Reserved and shall be set to 0."],
+    ["bcdBCVersion",        80, 16, 0xFFFF,     "bcdBCVersion",         "0x%04X", null,                                 0, "Battery Charging Specification Release Number in BinaryCoded Decimal (e.g., V1.20 is 120H). This field shall only be valid if the device indicates that it supports BC in the bmAttributes field otherwise the field shall be set to zero."],
+    ["bcdPDVersion",        96, 16, 0xFFFF,     "bcdPDVersion",         "0x%04X", null,                                 0, "USB Power Delivery Specification Revision Number in Binary-Coded Decimal (e.g. 0200h for Revision 2.0, 0300h for Revision 3.0). This field shall only be valid if the device indicates that it supports PD in the bmAttributes field otherwise the field shall be set to zero."],
+    ["bcdUSBTypeCVersion", 112, 16, 0xFFFF,     "bcdUSBTypeCVersion",   "0x%04X", null,                                 0, "USB Type-C Specification Revision Number in BinaryCoded Decimal (e.g. 0120h for Revision 1.2)."]
+];
+
+GET_CAPABILITY_data()
+{
+    FieldColor = PPM_GET_CAPABILITY_COLOR;
+    bit_offset = 64;
+    for( i = 0; PPM_GET_CAPABILITY_data_Fields[i][0] != null; i++ )
+    {
+        AddTypeCField( PPM_GET_CAPABILITY_data_Fields[i][0], bit_offset, PPM_GET_CAPABILITY_data_Fields );
+    }
+}
+
+set PPM_GET_CONNECTOR_CAPABILITY_data_OprModeCap = [
+    [0, "Supports DFP Only"                     ],
+    [1, "Supports UFP Only"                     ],
+    [2, "Supports DRP"                          ],
+    [3, "Supports Analog Audio Accessory Mode"  ],
+    [4, "Supports Debug Accessory Mode"         ],
+    [5, "Supports USB 2"                        ],
+    [6, "Supports USB 3"                        ],
+    [7, "Supports Alternate Mode"               ]
+];
+
+set PPM_GET_CONNECTOR_CAPABILITY_data_TypeCCurrent = [
+    [0, "Advertises USB Default Current"    ],
+    [1, "Advertises USB Type-C 1.5A Current"],
+    [2, "Advertises USB Type-C 3A Current"  ],
+    [3, "Reserved"                          ]
+];
+
+set PPM_GET_CONNECTOR_CAPABILITY_data_Fields = [
+    ["OprModeCap",    0, 8, 0xFF, "Operation Mode Capability",  "%s",   PPM_GET_CONNECTOR_CAPABILITY_data_OprModeCap,   1, ""],
+    ["Provider",      8, 1, 0x1,  "Provider",                   "%d",   null,                                           0, "This bit shall be set to one if the Connector is capable of providing power on this Connector (either BC 1.2, USB Type-C Current or PD) otherwise the bit shall be set to zero."],
+    ["Consumer",      9, 1, 0x1,  "Consumer",                   "%d",   null,                                           0, "This bit shall be set to one if the Connector is capable of consuming power on this Connector (either BC 1.2, USB Type-C Current or PD) otherwise the bit shall be set to zero."],
+    ["TypeCCurrent", 10, 2, 0x3,  "USB Type-C Current",         "%s",   PPM_GET_CONNECTOR_CAPABILITY_data_TypeCCurrent, 0, "USB Type-C Current"],
+    ["Reserved",     12, 4, 0xF,  "Reserved",                   "0x%X", null,                                           0, "Reserved and shall be set to 0."]
+];
+
+GET_CONNECTOR_CAPABILITY_data()
+{
+    FieldColor = PPM_GET_CONNECTOR_CAPABILITY_COLOR;
+    bit_offset = 64;
+    for( i = 0; PPM_GET_CONNECTOR_CAPABILITY_data_Fields[i][0] != null; i++ )
+    {
+        AddTypeCField( PPM_GET_CONNECTOR_CAPABILITY_data_Fields[i][0], bit_offset, PPM_GET_CONNECTOR_CAPABILITY_data_Fields );
+    }
+}
+
+set PPM_GetConStatusChangeBitmap = [
+    [ 0, "Reserved and shall be set to zero."],
+    [ 1, "Reserved and shall be set to zero."],
+    [ 2, "Power Operation Mode Change \nWhen set the Power Operation Mode field in GET_CONNECTOR_STATUS Data \nshall indicate the current power operational mode of the Connector."],
+    [ 3, "Reserved and shall be set to zero."],
+    [ 4, "Reserved and shall be set to zero."],
+    [ 5, "Reserved and shall be set to zero."],
+    [ 6, "Negotiated Power Level Change \nWhen set, the Request Data Object field in GET_CONNECTOR_STATUS Data \nshall indicate the newly negotiated power level."],
+    [ 7, "PD Reset Complete\nThis field shall be set when the PPM completes a PD Hard Reset requested by the connector partner."],
+    [ 8, "Reserved and shall be set to zero."],
+    [ 9, "Battery Charging Status Change \nThis bit will be set when the Battery Charging status changes."],
+    [10, "Reserved and shall be set to zero."],
+    [11, "Connector Partner Changed \nThis shall be set when either the Connector Partner Type field or \nthe Connector Partner Flags field changes."],
+    [12, "Power Direction Changed \nThis shall be set when the PPM completes a Power Role Swap requested \nby the connector partner or due to the PPM autonomously performing a Power Role Swap.\nThe Power Direction field in the GET_CONNECTOR_STATUS Data shall indicate the new Power Role."],
+    [13, "Reserved and shall be set to zero."],
+    [14, "Connect Change \nWhen set, the Connection Status field in GET_CONNECTOR_STATUS Data \nshall indicate whether a device is attached to the Connector.\nIn addition, the Operation Mode field in GET_CONNECTOR_STATUS Data \nshall indicate the current operational mode of the Connector."],
+    [15, "Error \nWhen set, this field shall indicate that an unknown error has occurred on the Connector."]
+];
+
+set PPM_GetConStatusOperationModeValuemap = [
+    [0, "No Consumer"],
+    [1, "USB Default Operation/Type-C Current – default"],
+    [2, "BC"],
+    [3, "PD"],
+    [4, "Type-C Current – 1.5A"],
+    [5, "Type-C Current – 3A"],
+    [6, "Reserved"],
+    [7, "Reserved"]
+];
+
+set PPM_GetConStatusPowDirValuemap = [
+    [0, "Consumer"],
+    [1, "Provider"]
+];
+
+set PPM_GetConStatusPartnerFlagsBitmap = [
+    [0, "USB"],
+    [1, "Alternate Mode"],
+    [2, "Reserved"],
+    [3, "Reserved"],
+    [4, "Reserved"],
+    [5, "Reserved"],
+    [6, "Reserved"],
+    [7, "Reserved"]
+];
+
+set PPM_GetConStatusPartnerTypeValuemap = [
+    [0, "Reserved"],
+    [1, "DFP attached"],
+    [2, "UFP attached"],
+    [3, "Powered cable/No UFP attached"],
+    [4, "Powered cable/UFP attached"],
+    [5, "Debug Accessory attached"],
+    [6, "Audio Adapter Accessory attached"],
+    [7, "Reserved"]
+];
+
+set PPM_GetConStatusChargingStatusValuemap = [
+    [0, "Not charging"],
+    [1, "Nominal charging"],
+    [2, "Slow charging"],
+    [3, "Trickle charging"]
+];
+
+set PPM_GetConStatusReasonsBitmap = [
+    [0, "Power Budget Lowered \nWhen set, indicates that the Power Budget for the PPM \nhas been lowered due to it being unplugged from an External Supply."],
+    [1, "Reaching Power Budget Limit \nWhen set, indicates that the PPM is reaching the Power Budget Limit \ndue to too many attached PD Sinks."],
+    [2, "Reserved and shall bet set to zero."],
+    [3, "Reserved and shall bet set to zero."]
+];
+
+set PPM_GET_CONNECTOR_STATUS_data_Fields = [
+    ["ConnStatusChange",        0, 16, 0xFFFF,      "Connector Status Change",      "%s",   PPM_GetConStatusChangeBitmap,           1, ""],
+    ["PowOprMode",             16,  3, 0x7,         "Power Operation Mode",         "%s",   PPM_GetConStatusOperationModeValuemap,  0, "This field indicates the current power operation mode of the Connector."],
+    ["ConnStatus",             19,  1, 0x1,         "Connection Status",            "%d",   null,                                   0, "This field indicates the current connection status of the Connector. This field shall be set to one when a device is attached to this Connector."],
+    ["PowerDir",               20,  1, 0x1,         "Power Direction",              "%s",   PPM_GetConStatusPowDirValuemap,         0, "The field indicates whether the Connector is operating as a consumer or provider."],
+    ["ConnPartnerFlags",       21,  8, 0xFF,        "Connector Partner Flags",      "%s",   PPM_GetConStatusPartnerFlagsBitmap,     1, "This field indicates the current mode or modes \nthe Connector is operating in."],
+    ["ConnPartnerType",        29,  3, 0x7,         "Connector Partner Type",       "%s",   PPM_GetConStatusPartnerTypeValuemap,    0, "This field indicates the type of connector partner detected on this Connector."],
+#NotUsed#    ["ReqDataObject", 32, 32, 0xFFFFFFFF,  "Request Data Object",          "%s",   *COMPLICATED, see: AddRequestDataObjectFields()*, 0, ""],
+    ["BatteryChargingStatus",  64,  2, 0x3,         "Battery Charging Status",      "%s",   PPM_GetConStatusChargingStatusValuemap, 0, "This field indicates battery charging status"],
+    ["ProvCapLimitedReason",   66,  4, 0xF,         "Provider Cap Limited Reason",  "%s",   PPM_GetConStatusReasonsBitmap,          1, "A bitmap indicating the reasons why the Provider capabilities of the Connector have been limited."],
+    ["Reserved",               70,  2, 0x3,         "Reserved",                     "0x%X", null,                                   0, "Reserved and shall be set to 0."],
+    ["NoConnectionReserved0",  16,  3, 0x7,         "Reserved",                     "0x%X", null,                                   0, "Reserved and shall be set to 0."],
+    ["NoConnectionReserved",   20, 52, 0xFFFFFFFFFFFFF,"Reserved",                  "0x%X", null,                                   0, "Reserved and shall be set to 0."],
+    ["NonProviderReserved",    64,  8, 0xFF,        "Reserved",                     "0x%X", null,                                   0, "Reserved and shall be set to 0."]
+];
+
+GET_CONNECTOR_STATUS_data()
+{
+    FieldColor = PPM_GET_CONNECTOR_STATUS_COLOR;
+    byte_offset = 8;
+    bit_offset = byte_offset * 8;
+    
+    AddTypeCField( "ConnStatusChange", bit_offset, PPM_GET_CONNECTOR_STATUS_data_Fields );
+    
+    connection_status = GetTypeCFieldValue("ConnStatus", PPM_GET_CONNECTOR_STATUS_data_Fields, bit_offset);
+    if( connection_status )
+    {
+        AddTypeCField( "PowOprMode", bit_offset, PPM_GET_CONNECTOR_STATUS_data_Fields );
+    }
+    else
+    {
+        AddTypeCField( "NoConnectionReserved0", bit_offset, PPM_GET_CONNECTOR_STATUS_data_Fields );         
+    }
+    
+    AddTypeCField( "ConnStatus", bit_offset, PPM_GET_CONNECTOR_STATUS_data_Fields );
+    
+    if( connection_status )
+    {
+        AddTypeCField( "PowerDir", bit_offset, PPM_GET_CONNECTOR_STATUS_data_Fields );
+        AddTypeCField( "ConnPartnerFlags", bit_offset, PPM_GET_CONNECTOR_STATUS_data_Fields );
+        AddTypeCField( "ConnPartnerType", bit_offset, PPM_GET_CONNECTOR_STATUS_data_Fields );
+        
+        is_provider = GetTypeCFieldValue("PowerDir", PPM_GET_CONNECTOR_STATUS_data_Fields, bit_offset);
+        if( is_provider )
+        {
+            AddTypeCField( "BatteryChargingStatus", bit_offset, PPM_GET_CONNECTOR_STATUS_data_Fields );
+            AddTypeCField( "ProvCapLimitedReason", bit_offset, PPM_GET_CONNECTOR_STATUS_data_Fields );
+            AddTypeCField( "Reserved", bit_offset, PPM_GET_CONNECTOR_STATUS_data_Fields );
+        }
+        else
+        {
+            AddTypeCField( "NonProviderReserved", bit_offset, PPM_GET_CONNECTOR_STATUS_data_Fields );
+        }
+        
+        power_opr_mode = GetTypeCFieldValue("PowOprMode", PPM_GET_CONNECTOR_STATUS_data_Fields, bit_offset);
+        if( power_opr_mode == 3 ) # If Power Operation Mode field is set to PD
+        {
+            AddRequestDataObjectFields( byte_offset );
+        }
+
+    }
+    else
+    {
+        AddTypeCField( "NoConnectionReserved", bit_offset, PPM_GET_CONNECTOR_STATUS_data_Fields );        
+    }
+}
+
+AddRequestDataObjectFields( byte_offset )
+{
+    DecodeRequestDataObject( byte_offset, 0 );
+}
+
+set PPM_GetErrorStatusInfoBitmap = [
+    [ 0, "Unrecognized PPM Command"],
+    [ 1, "Non-existent Connector Number"],
+    [ 2, "Invalid PPM Command specific parameters"],
+    [ 3, "Incompatible connector partner"],
+    [ 4, "CC communication error"],
+    [ 5, "PPM Command unsuccessful due to dead battery condition"],
+    [ 6, "Contract negotiation failure"],
+    [ 7, "Reserved and shall be set to zero."],
+    [ 8, "Reserved and shall be set to zero."],
+    [ 9, "Reserved and shall be set to zero."],
+    [10, "Reserved and shall be set to zero."],
+    [11, "Reserved and shall be set to zero."],
+    [12, "Reserved and shall be set to zero."],
+    [13, "Reserved and shall be set to zero."],
+    [14, "Reserved and shall be set to zero."],
+    [15, "Reserved and shall be set to zero."]    
+];
+set PPM_GET_ERROR_STATUS_data_Fields = [
+    ["ErrorInfo",        0, 16, 0xFFFF,      "Error Information",      "%s",   PPM_GetErrorStatusInfoBitmap,           1, ""]
+];
+
+GET_ERROR_STATUS_data()
+{
+    FieldColor = PPM_GET_ERROR_STATUS_COLOR;
+    bit_offset = 64;
+    AddTypeCField( "ErrorInfo", bit_offset, PPM_GET_ERROR_STATUS_data_Fields );
+}
+
+PD_NOTIFICATION()
+{
+    bParam1 = GetDataByte(1);
+    bParam2 = GetDataByte(2);
+    bParam3 = GetDataByte(3);
+    out.Decoded = out.Decoded + 3;
+    FieldColor = PD_NOTIFICATION_COLOR;
+
+    AddPayLoadCell( "bParam1 (Connector Number)", FormatEx("%d", bParam1), "");
+    
+    if( bParam2 == 1 )
+    {
+        AddPayLoadCell( "bParam2", "AUTH");
+        
+        bParam3Text = FormatEx("Invalid Value (%d)", bParam3);
+        if( bParam3 == 0 )
+            bParam3Text = "Success";
+        else if( bParam3 == 0x80 )
+            bParam3Text = "Error";
+        AddPayLoadCell( "bParam3", bParam3Text, "");
+    }
+    else if( bParam2 == 2 )
+    {
+        AddPayLoadCell( "bParam2", "FWU", "");
+        
+        bParam3Text = FormatEx("Invalid Value (%d)", bParam3);
+        if( bParam3 == 0 )
+            bParam3Text = "0";
+        AddPayLoadCell( "bParam3", bParam3Text, "");
+    }
+    else
+    {
+        AddPayLoadCell( "bParam2", FormatEx("Invalid Value (%d)", bParam2), "" );
+        AddPayLoadCell( "bParam3", FormatEx("Invalid Value (%d)", bParam3), "" );
+    }    
+}
+
+BILLBOARD_NOTIFICATION()
+{
+    bParam1 = GetDataByte(1);
+    bParam2 = GetDataByte(2);
+    bParam3 = GetDataByte(3);
+    out.Decoded = out.Decoded + 3;
+    FieldColor = BB_NOTIFICATION_COLOR;
+    AddZeroValuedParam(1, bParam1);
+    AddZeroValuedParam(2, bParam2);
+    AddZeroValuedParam(3, bParam3);
+}

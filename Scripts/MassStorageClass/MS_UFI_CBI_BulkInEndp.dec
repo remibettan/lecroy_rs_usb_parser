@@ -1,0 +1,201 @@
+#
+#  Copyright (c) 2003, Computer Access Technology Corp. - All Rights Reserved
+#
+#  MS_UFI_CBI_BulkInEndp.dec
+#
+#  Mass Storage UFI Control-Bulk-Interrupt Interrupt Endpoint Decoder
+#
+
+%include "CATCScriptAPI.inc"    #include usefull decoder functions
+
+# SCSI definitions
+%include "..\Shared\SCSI\SCSI_Defs.inc"
+
+%include "UsbCommon.inc"
+
+%include "MS_Common.inc"
+#%include "MS_CBI_InterruptEndp.inc"
+%include "MS_UFI_Common.inc"
+
+
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block 
+#
+#----  Output
+# out.Decoded   - amount of data has been decoded
+#
+
+
+set OutputType     = "Mass Strg UFI CBI Bulk In Endp";
+set UsbDecodeType  = "Endpoint";
+set UsbEndpId      = 11; # just a unique value for each endpoint of the same Class/Vendor/Product to distinguish them
+set UsbClassCode   = 0x8; # Mass Storage Class
+set UsbSubClass    = 0x4; #This one is UFI
+set UsbEndpType    = "Bulk";
+set UsbEndpDir     = "In";
+set UsbMaxXferSize = 0x7FFFFFFF;  #try largest possible positive value  
+set UsbMaxXferDecodeSize   = 36;  # Max bytes that we will be decoding  
+set UsbScriptDecodeType  = 2; # Combined decoding for Cells and Text decoding  
+set UsbDecHdrType = 2; # This type references decoder byte containing the SCSI Opcode  
+set UsbDecHdrLen  = 1; # This 1 byte is passed in to this vial the in context
+
+#
+# Parsing entry point
+#
+
+set PrevOpcode = 0;
+
+ProcessData()
+{
+    InitType2Decoder();
+    PrevOpcode = GetNBits(in.DecodeParams, 0, 8);
+    if (PrevOpcode != 0)
+    {
+        ProcessCBIBulkInData();
+    }
+    return Complete();
+}
+
+
+ProcessCBIBulkInData()
+{
+    AddDecSeparator();
+    FieldColor = MassStorageColor;
+
+    #SCSILevel = GetNBits(in.DecodeParams, 8, 8);
+    Read_SCSILevel();
+    if (SCSILevel == 0) # Xfer level    
+        AddCaptionCell("  Mass  ", "Storage", "This Mass Storage Bulk data payload represents a response to a UFI Request.");
+        
+    GetNBits(in.Data, 0, 0);
+    SetFieldOffsetLen(0,8); 
+
+    if ((PrevOpcode == 0x28) ||
+        (PrevOpcode == 0xA8))     # Previous was a Read Command
+    {
+        out.Decoded = 0;
+    }
+    else
+    {
+        AddDecSeparator();
+        DoInitialCell(PrevOpcode);
+        FieldColor = CDB_Color; 
+                  
+        save_endian = LittleEndian;
+        LittleEndian = 0;
+        
+        select
+        {
+            (PrevOpcode == 0x12)    : DoInquiry();       
+            (PrevOpcode == 0x25)    : DoReadCapacity();
+            (PrevOpcode == 0x5A)    : DoModeSense();         
+            (PrevOpcode == 0x03)    : DoRequestSense();
+            (PrevOpcode == 0x23)    : DoReadFormatCapacities();
+            default                 : DoTheDefault();     
+        };
+        
+        LittleEndian = save_endian; 
+        
+        if (in.Expanded && (in.DataLength < 1024 ))
+        {
+            ShowDataBlockReOrder(in.DataLength-out.Decoded);
+            out.Decoded = in.DataLength;
+        }       
+    }
+    SCSILevel = 0;
+}
+  
+
+DoInquiry()
+{
+    DoInquiryResponse();
+    
+    if (in.DataLength > 36)
+    {             
+        ShowDataBlockReOrder(in.DataLength - 36);
+    }
+    out.Decoded = in.DataLength;
+}
+
+ 
+DoModeSense()
+{
+    AddDecSeparator();
+    if (in.DataLength == 0)
+    {
+        AddPLCellMonoStr(CDB_Name, "No Response", 
+            "Device server returned 0 Block descriptors in response to MODE_SENSE Command", _MONOCOLOR);
+    }
+    else
+    {
+	    DoModeSense10Response();
+    }
+    out.Decoded = in.DataLength;
+}
+
+
+
+DoRequestSense()
+{
+    AddDecSeparator();
+    if (in.DataLength == 0)
+    {
+        AddPLCellMonoStr(CDB_Name, "No Response", 
+            "Device server returned nothing in response to MODE_SENSE Command", _MONOCOLOR);
+    }
+    else
+    {
+        AddPLCellMonoStr(CDB_Name, "Response", "Response to MODE_SENSE Command", _MONOCOLOR);
+        ShowDataBlockReOrder(in.DataLength);
+    }
+    out.Decoded = in.DataLength;
+}
+
+
+
+DoReadCapacity()
+{
+    AddDecSeparator();
+    AddPLCellMonoStr(CDB_Name, "Response", "Response to READ_CAPACITY Command", _MONOCOLOR);
+    
+    lba = GetDataLong(0);
+    if (lba & 0x80000000)
+    {
+        #AddSimplePLCell("LBA", Format ("0x%08X", lba), "Logical Block Address");
+        AddPayLoadCell("LBA", Format ("0x%08X", lba), "Logical Block Address");
+    }
+    else
+    {
+        #AddSimplePLCell("LBA", Format ("0x%08X", lba), Format ("Logical Block Address: %d", lba));
+        AddPayLoadCell("LBA", Format ("0x%08X", lba), Format ("Logical Block Address: %d", lba));
+    }
+    
+    block_len = GetDataLong(4);
+    if (block_len & 0x80000000)
+    {
+        #AddSimplePLCell("Block Len", Format ("0x%08X", block_len), "Block Length");
+        AddPayLoadCell("Block Len", Format ("0x%08X", block_len), "Block Length");
+    }
+    else
+    {
+        #AddSimplePLCell("Block Len", Format ("0x%08X", block_len), Format ("Block Length: %d", block_len));
+        AddPayLoadCell("Block Len", Format ("0x%08X", block_len), Format ("Block Length: %d", block_len));
+    }
+    out.Decoded = in.DataLength;         
+}    
+ 
+DoReadFormatCapacities()
+{
+    AddDecSeparator();
+    AddPLCellMonoStr(CDB_Name, "Response", "Response to READ FORMAT CAPACITIES Command", _MONOCOLOR); 
+    out.Decoded = 0;         
+}
+ 
+        
+DoTheDefault()
+{
+    AddPLCellMonoStr(CDB_Name, "Response", "Response to previous request", _MONOCOLOR);
+    out.Decoded = 0;
+}

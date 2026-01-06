@@ -1,0 +1,20 @@
+
+#
+#  HTTP Class Out Endpoint Decoder
+#
+
+%include "HTTP_Endp.inc"
+
+#------------------------  Common Globals -----------------------------------
+set OutputType    = "HTTP Out Endp";
+set UsbClassCode  = 0xFF; # Vendor Specific
+set UsbEndpDir    = "Out";
+set UsbEndpId     = 7; # just a unique value for each endpoint of the same Class/Vendor/Product to distinguish them
+#-------------------------------------------------------------------------------
+
+
+#~~~~ Parsing entry point ~~~~
+ProcessData()
+{
+    return ProcessData_HTTP();
+}

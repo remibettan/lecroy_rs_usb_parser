@@ -1,0 +1,1061 @@
+#*******************************************************************************
+#
+#  FILENAME: WUSB_CableBasedAssociation.dec
+#
+#  Copyright (c) 2006, LeCroy - All Rights Reserved
+#
+#  DESCRIPTION
+#    This is the request file for the WUSB Cable Based Association Framework. 
+#    This file is prepared as per the Specification Revision 1.0.
+#    This file is prepared as per the WUSB Associtation Models Specification 
+#      for the Cable Based Association Framework.
+#
+#  REVISION HISTORY
+#    11/20/2006
+#    03/12/2007  Fixed Bugs -- RK
+#
+#*******************************************************************************   
+
+%include "CATCScriptAPI.inc"             #.inc files that are included
+%include "UsbCommon.inc" 
+
+
+const Tabular_Def_Table = Map( 
+[   
+    #-----------------------------------------------------------------------------------------------------
+    #       id           ,      colId                          , 		containerCellId
+    #-----------------------------------------------------------------------------------------------------
+    [ CELL_CBAF_REQUEST  , TABULAR_SCRIPT_COLUMN_ID_SUBTYPE    , TABULAR_SCRIPT_CONTAINER_CELL_ID_NONE ],
+    [ CELL_CBAF_WVALUE   , TABULAR_SCRIPT_COLUMN_ID_NONE       , TABULAR_SCRIPT_CONTAINER_CELL_ID_MISC ]
+] );
+
+
+
+ #----  Input
+ # in.Data       - Data_block to decode
+ # in.DataLength - Length of Data_block 
+ 
+ #----  Output
+ # out.Decoded   - amount of data has been decoded
+
+#############################################################################
+#                               View Settings                               #
+#############################################################################
+#
+#    In this section user can set up which fields are to be shown and 
+#    which are to be hidden in expanded and collapsed states.
+#    Zero-value everywhere means that fields will not be shown,
+#    otherwise means opposite.
+#
+#
+# ----------------------- All Field View Settings ---------------------------
+#   These settings have priority above separate field View Settings in
+#   expanded state ONLY.
+#   In order separate field View Settings to work properly
+#   BOTH All Field View Settings should be set to 0.
+#
+#   Due to the fact that ViewAll-setting and HideAll-setting are 
+#   exceptive propositions - ViewAll has been set a higher priority.
+# ---------------------------------------------------------------------------
+
+  const CBAF_ViewAll              = 0;
+  const CBAF_HideAll              = 0;
+
+# ---------------------------------------------------------------------------
+
+
+# -----------------------  Separate Field View Settings ---------------------
+# The FIRST value in list-variables defines if the field is to be shown or
+# hidden in COLLAPSED state. 
+# 0 - means the field is to be shown.
+# 1 - means the field is to be hidden.
+# 
+# The SECOND value in list-variables defines if the field is to be shown or
+# hidden in EXPANDED state. 
+# 0 - means the field is to be shown.
+# 1 - means the field is to be hidden.
+#
+# i.e.  const RPD_Field = [0, 1]# - means that field 'Field' will be hidden
+# in collapsed state and will be shown in expanded state. 
+#
+ 
+#                                 [collapsed, expanded]   
+const CBAF_bmRequestType                = [1, 1];
+const CBAF_wValue                       = [1, 1];
+const CBAF_wIndex                       = [1, 1];
+const CBAF_wLength                      = [1, 1];
+const CBAF_bErrorCode                   = [1, 1];        #No purpose currently, just declared
+const CBAF_bAssDataIndex                = [1, 1];
+const CBAF_bBlockNumber                 = [1, 1];
+const CBAF_bTransferFlags               = [1, 1];
+
+                  
+
+#-----------------------------------------------------------------------------
+
+set OutputType      = "WUSB CBAF Requests";      
+set UsbDecodeType   = "Request";
+set UsbReqType      = "Class";
+set UsbClassCode    = 0xEF;     # Class code for Miscellaneous
+set UsbSubClass     = 0x03;
+set UsbScriptDecodeType = 1;    # Combined decoding for Cells and Text decoding 
+set UsbProtocol     = 1;        # this is used for seperation from other Miscellaneous Class requests
+
+set bReqType  = 0;              #Declaring global variables
+set bRequest  = 0;
+set wValue    = 0;
+set wIndex    = 0;
+set wLength   = 0;
+
+set wAttributeTypeId     = 0;   #Used for ASSOCIATION RESPONSE Fields  ( functions ASSOCIATION_RESPONSE() and GET_ASSOCIATION_REQUEST() )
+set wAttributeLength     = 0;
+
+set AttributeString = "";       #Holds Text Data
+
+
+#Colors for Requests (Currently all same color, can be changed if desired)
+
+set WUSBCBAF_GetAssInfoReqColor = 0xCCA525;    #Request 0x01
+set WUSBCBAF_GetAssReqReqColor  = 0xCCA525;    #Request 0x02    
+set WUSBCBAF_SetAssRespReqColor = 0xCCA525;    #Request 0x03    
+set WUSBCBAF_CaptionColor       = 0xDD55BB;    #Caption Cell (Expansion Indicator)
+
+set FullyDecoded = 1;  # Variable that will determine if request has been fully decoded
+
+set RestoreBitCurrentFieldOffset = 0;          #Temp Variables to store a restore value
+set RestoreBitCurrentFieldLength = 0;
+
+ProcessData()
+{   
+   
+    CommonDecoderInit();        # Initialization of SRP common global variables [found in CATCScriptAPI.inc]
+    
+    UnitDecoderInit("CBAF");    # This function must be called before starting unit decoding. [found in CATCScriptAPI.inc]
+                                # It performes necessary initialization routine for "unit" decoder.
+                                # Unit has its own prefix, view settings and may have its own color.
+       
+    SetCellColor(WUSBCBAF_CaptionColor);
+    AddCaptionCell("WUSB","CBAF","In order to view comments in text field, user must expand this caption cell",_MONOCOLOR);  # Will allow for the expansion of certain fields
+    #AddCell( "SimpleShowItem( )", Format("%d", SimpleShowItem( )) );
+    
+    #AddStringToDlg( "SimpleShowItem( )", Format("%d", SimpleShowItem( )), Format("%d", SimpleShowItem( )) );
+    
+    
+    RestoreCellColor();
+    AddSeparator();
+    
+    FullyDecoded = 1;            
+    out.Decoded = 0;            # Nothing has been decoded yet
+    
+    if (in.DataLength < 8)      # Checking for Illegal Payload
+    { 
+        if (!AddSpecPLCellMonoNoDlg("Error", "Illegal Payload", "Nothing is being decoded", __ERROR))  
+            AddErrorMonoCell("Error", "Illegal Payload", "Nothing is being decoded");      #[found in CATCScriptAPI.inc]
+        return Complete();
+    }
+    
+    GetNBits(in.Data, 0, 0);        #Initialize pointer/counter for NextNBits_()
+                                     
+    bReqType = NextNBits_(8);       #0-7
+    bRequest = NextNBits_(8);       #8-15
+    wValue   = NextDataWord_();     #16-31
+    wIndex   = NextDataWord_();     #32-47
+    wLength  = NextDataWord_();     #48-63
+    
+    out.Decoded = 8;                # "Decoded" 8 bytes
+    
+    _row = Find(CBAFRequestTable, bRequest);  # will determine which request is being used
+    
+    if (_row[0] == 0)
+    {
+        AddSeparator();
+        AddDecodedTextHeader();  # header for the text decoding
+        SetFieldOffsetLen(8,8);  
+        FieldColor = bRequestColor;
+        AddPayLoadCell("bmRequestType",Format("0x%02X",bReqType),Format("Bitmap with decimal value of %d",bReqType) + "\n\nCharacteristics of Request:\n   D7      Data xfer direction\n\t   0 = Host to Device\n\t   1=Device to host\n\n   D6..5   Type\n\t   0 = Standard\n\t   1 = Class\n\t   2 = Vendor\n\t   3 = Reserved\n\n   D4..0   Recipient\n\t   0 = Device\n\t   1 = Interface\n\t   2 = Endpoint\n\t   3 = Other\n\t   4..31 = Reserved\n");
+        SetFieldOffsetLen(16,8);
+        FieldColor = bRequestColor;
+        AddPayLoadCell("bRequest", _row[1], Format("bRequest HexVal: 0x%04X", bRequest));
+        SetFieldOffsetLen(32,16);
+        FieldColor = wValueColor;
+        AddPayLoadCell("wValue", wValue, "");
+        SetFieldOffsetLen(48,16);
+        FieldColor = wIndexColor;
+        AddPayLoadCell("wIndex",wIndex,"");
+        SetFieldOffsetLen(64,16);
+        FieldColor = wLengthColor;
+        AddPayLoadCell("wLength",wLength,"");
+        
+        if((in.DataLength - out.Decoded)!=0)
+          ShowDataBlockReOrder(in.DataLength-out.Decoded);
+    }
+    if ( _row[0] != 0)
+    {
+        AttributeString = _row[1];
+        
+        AddSeparator();                       # Adding Separator between what will be decoded and what is already visible
+        Call ( _row[1], [ in.DataLength ] );  # will call function for the specified request
+        if(FullyDecoded == 1)                 # if the request is fully decoded
+        {
+            out.Decoded = in.DataLength;
+        }
+        else if(FullyDecoded == 0)
+        {
+           #Currently not doing anything, The last commented line for this statement was original, but 
+           #wasn't working, however, don't need it since out.Decoded is kept track of throughout this script.
+           #The next commented line can be uncommented to show all undecoded data as a 'Data' block.
+           #ShowDataBlock(in.DataLength-out.Decoded);
+           # out.Decoded = BitCurrentFieldOffset/8;        
+           ShowDataBlockReOrder(in.DataLength-out.Decoded);
+        }
+        #AddPayLoadCell("FullyDecoded",FormatEx("%d -- BCFO %d -- Dec %d -- Len %d -- R1 %d -- R2 %d -- inFLG %d",FullyDecoded,BitCurrentFieldOffset,out.Decoded,in.DataLength,RestoreBitCurrentFieldOffset,RestoreBitCurrentFieldLength,in.PrepareFldsForDlg),"");
+    }
+    
+    AddSeparator();
+
+    ############ for Debug purposes#########
+    # GetNBits(in.Data, 0, 0);             #
+    # ShowDataBlock(in.DataLength);        #
+    ########################################       
+
+    return Complete();
+}
+
+# Add Request Decoding by Application [request table in Dialog View]
+DecodeRequestToText()
+{
+    return DecodeRequestToTextCommon( CBAFRequestTable );    
+}
+
+#doGeneralDecoding()
+#{
+#  if(!celladded_bReqType)
+#  {
+#    SetCellColor(bRequestColor);
+#    AddPayLoadCell("bmRequestType",Format("0x%04X",bReqType),Format("Bitmap with decimal value of %d",bReqType) + "\n\nCharacteristics of Request:\n   D7      Data xfer direction\n\t   0 = Host to Device\n\t   1=Device to host\n\n   D6..5   Type\n\t   0 = Standard\n\t   1 = Class\n\t   2 = Vendor\n\t   3 = Reserved\n\n   D4..0   Recipient\n\t   0 = Device\n\t   1 = Interface\n\t   2 = Endpoint\n\t   3 = Other\n\t   4..31 = Reserved\n");
+#    RestoreCellColor();
+#  }
+#  
+#  
+#
+#}
+
+
+# Request List/Table for WUSB CBAF
+set CBAFRequestTable =
+[
+  [ 0x00, "UNDEFINED" ],
+  [ 0x01, "GET_ASSOCIATION_INFORMATION"  ],
+  [ 0x02, "GET_ASSOCIATION_REQUEST"  ],
+  [ 0x03, "SET_ASSOCIATION_RESPONSE"  ]
+];
+
+GET_ASSOCIATION_INFORMATION()
+{
+  FieldColor = WUSBCBAF_GetAssInfoReqColor; #Set the Cell Color for Cells
+  
+  AddShortDataHeader("GET ASSOCIATION INFORMATION");
+  
+  if(bReqType != 0xA1)                      # != 10100001B  ---- Verifying correct bmRequestType for Request and adding Cell
+  {    
+    SetCellColor(RED);
+    SetFieldOffsetLen_CBAF( 8, 8 );
+    AddPayLoadCell("RequestType",Format("*WARNING* 0x%02X",bReqType),FormatEx("WARNING: For GET ASSOCIATION INFORMATION\nRequest, bmRequestType should only be \n0xA1 (10100001B), but it is 0x%02X. \n\nBitmap with decimal value of %d",bReqType,bReqType) + "\n\nCharacteristics of Request:\n   D7      Data xfer direction\n\t   0 = Host to Device\n\t   1=Device to host\n\n   D6..5   Type\n\t   0 = Standard\n\t   1 = Class\n\t   2 = Vendor\n\t   3 = Reserved\n\n   D4..0   Recipient\n\t   0 = Device\n\t   1 = Interface\n\t   2 = Endpoint\n\t   3 = Other\n\t   4..31 = Reserved\n");
+    RestoreFieldOffsetLen_CBAF();
+    RestoreCellColor();
+  }
+  else
+    if(SimpleShowItem( ))
+      AddReqTypeCell_CBAF();                    
+  
+  AddRequestCell_CBAF( AttributeString );   #Adding Request Cell  
+  
+  if(wValue != 0x0000)                      #Verifying wValue for Request and adding Cell 
+  {
+    SetCellColor(RED);
+    SetFieldOffsetLen_CBAF( 32, 16 );
+    AddPayLoadCell("Value",Format("*WARNING* 0x%04X",wValue),Format("WARNING: For GET ASSOCIATION INFORMATION Request,\nwValue should be 0, but it is 0x%04X",wValue));
+    RestoreFieldOffsetLen_CBAF();
+    RestoreCellColor();
+  }
+  else
+    AddWValueCell_CBAF("","");                
+  
+  AddWIndexCell_CBAF( "", "wIndex" );       #Adding wIndex Cell 
+  
+  if(SimpleShowItem( ))                     #If expanded, adding wLength Cell
+    AddWLengthCell_CBAF( "Data Length" );        
+    
+  out.Decoded = 8;
+  
+  datLength = in.DataLength - out.Decoded;  #This value should be the same as wLength (but in case wLength or rawdata is corrupted, we're using this value);
+  
+  if(datLength != wLength)
+  {
+    SetCellColor(RED);
+    AddPayLoadCell("WARNING","Data Discrepancy",FormatEx("Data discrepancy found between wLength (%d) and actual data length (%d)",wLength,datLength));
+    RestoreCellColor();
+    FullyDecoded = 0;
+  }
+  
+  AssReqSize = 10;                          #Size of Association Request (10 bytes)
+  
+  if(datLength > 4)                         #Checking to see there is data for the ASSOCIATION INFORMATION
+  {
+    AddShortDataHeader("ASSOCIATION INFORMATION");
+      
+    wAssInfoLength = NextDataWord_();
+    AddPayLoadCell("Length",Format("%u",wAssInfoLength),"The length of this entire data structure.");
+    
+    bNumAssRequests = NextNBits_(8);
+    AddPayLoadCell("NumAssocReqs",Format("%d",bNumAssRequests),"Number of Association Requests \nin this response.");
+    
+    wFlags = NextNBits_(16);                #wFlags is a Bitmap, need to use NextNBits_() not NextDataWord_()
+    AddPayLoadCell("Flags",Format("0x%04X",wFlags),"");
+    
+    out.Decoded += 5;                       #Updating out.Decoded and datLength
+    datLength -= 5;
+  
+    data_difference_check = bNumAssRequests - (datLength/10);          
+                                            
+    ###AssociationRequestsArray
+    while(datLength > (AssReqSize -1))      #While there are still undecoded requests, print them out 
+    {
+      ASSOCIATION_REQUEST();                #Prints out the next request in the AssociationRequestsArray
+      out.Decoded += AssReqSize;
+      datLength -= AssReqSize;
+    }  
+    
+    if(datLength != 0)
+    {
+      SetCellColor(RED);
+      AddCell("Error", "Extra Bytes Found", Format("%u Extra Data Bytes detected outside of AssociationRequestsArray (Size = NumAssociationRequests * 10) \nNot being decoded.",datLength),RED);
+      RestoreCellColor();
+      FullyDecoded = 0;
+    }
+    else if(data_difference_check != 0)
+    {
+      SetCellColor(WarningColor);
+      AddCell("WARNING", Format("DATA DISCREPANCY FOUND"), Format("There is a discrepancy of %d requests between NumAssociationRequests and actual Association Requests found in array.",data_difference_check),WarningColor);
+      RestoreCellColor();
+    }
+  }
+  else
+  {
+    SetCellColor(RED);
+    AddCell("Error", "Not Enough Data", Format("Not enough data for ASSOCIATION INFORMATION.\nData length is only %d bytes long.",datLength),RED);  
+    RestoreCellColor();
+    FullyDecoded = 0;
+  }
+}
+
+# Association Request Field List/Table based on Attribute Type Id (wAttributeTypeId). Used for DEVICE_INFO data structure
+set AssociationRequestFieldTable =          
+[
+  [ 0x0000, "UNDEFINED",           "" ],
+  [ 0x0002, "Length",              "Length of this data \nstructure in bytes"  ],
+  [ 0x0008, "LangID",              "UNICODE language ID code for \nthe DeviceFriendlyName field" ],
+  [ 0x000B, "DeviceFriendlyName",  "Null-terminated UNICODE string (shortest-form \nUTF-8) used to hold the device-assigned \ndevice friendly name. Attribute length must be \nbetween 000H and 0040H." ],
+  [ 0x1001, "CDID",                "CDID_RESPONSE: CDID value \nfrom the device"  ],
+  [ 0x1004, "BandGroups",          "This bitmap reports the UWB band groups that \nare supported by the host."  ]  
+];
+
+GET_ASSOCIATION_REQUEST()
+{
+  FieldColor = WUSBCBAF_GetAssReqReqColor;
+ 
+  AddShortDataHeader("GET ASSOCIATION REQUEST");
+ 
+  if(bReqType != 0xA1)                      # != 10100001B  ---- Verifying correct bmRequestType for Request and adding Cell
+  {    
+    SetCellColor(RED);
+    SetFieldOffsetLen_CBAF( 8, 8 );
+    AddPayLoadCell("RequestType",Format("*WARNING* 0x%02X",bReqType),FormatEx("WARNING: For GET ASSOCIATION REQUEST Request,\nbmRequestType should only be 0xA1 (10100001B), but it is 0x%02X. \n\nBitmap with decimal value of %d",bReqType,bReqType) + "\n\nCharacteristics of Request:\n   D7      Data xfer direction\n\t   0 = Host to Device\n\t   1=Device to host\n\n   D6..5   Type\n\t   0 = Standard\n\t   1 = Class\n\t   2 = Vendor\n\t   3 = Reserved\n\n   D4..0   Recipient\n\t   0 = Device\n\t   1 = Interface\n\t   2 = Endpoint\n\t   3 = Other\n\t   4..31 = Reserved\n");
+    RestoreFieldOffsetLen_CBAF();
+    RestoreCellColor();
+  }    
+  else
+    if(SimpleShowItem( ))
+      AddReqTypeCell_CBAF();  
+  
+  AddRequestCell_CBAF( AttributeString );   #Adding Request Cell
+  
+  bAssDataIndex = ((wValue>>8) & 0xFF);     #Getting High Byte of wValue
+  bBlockNumber   = (wValue & 0xFF);         #Getting Low Byte of wValue
+  
+  SetFieldOffsetLen_CBAF( 32, 16 );
+  
+  AddPayLoadCell("AssDataInd",Format("%d",bAssDataIndex),FormatEx("Association Data Index (High Byte of wValue): 0x%02X    wValue=0x%04X", bAssDataIndex, wValue));
+  
+  if(bBlockNumber != 0x0000)                #Verifying BlockNumber for Request and adding Cell
+  {
+    SetCellColor(RED);
+    AddPayLoadCell("BlockNum",Format("*WARNING* %d",bBlockNumber),FormatEx("WARNING: BlockNumber should only be 0, but it is %d. \n\nBlockNumber (Low Byte of wValue): 0x%02X    wValue=0x%04X \nWUSB CBAF specifications state only one block should ever be transferred, hence BlockNumber should be 0", bBlockNumber, bBlockNumber, wValue));
+    RestoreCellColor();
+  }
+  else
+    AddPayLoadCell("BlockNum",Format("%d",bBlockNumber),FormatEx("BlockNumber (Low Byte of wValue): 0x%02X    wValue=0x%04X", bBlockNumber, wValue));
+  
+  RestoreFieldOffsetLen_CBAF();
+
+  AddWIndexCell_CBAF( "", "wIndex" );       #Adding wIndex Cell
+  
+  if(SimpleShowItem( ))                     #If expanded, adding wLength Cell
+    AddWLengthCell_CBAF( "Data Length" );  
+  
+  out.Decoded = 8;
+  
+  AddSeparator();
+  #AddCell("Data Structure", "DEVICE_INFO","The fields are shown in the order they are \nreceived in the payload. Compare with data structure \nformat to find any discrepancies.",FieldColor);
+  if(in.Expanded)
+    AddCell("DEVICE_INFO","","The fields are shown in the order they are \nreceived in the payload. Compare with data structure \nformat to find any discrepancies.",FieldColor-7900,_MONOFIELD);
+  else
+    AddCell("DEVICE_INFO","","The fields are shown in the order they are \nreceived in the payload. Compare with data structure \nformat to find any discrepancies.",FieldColor,_MONOFIELD);
+  
+  AddShortDataHeader("DEVICE INFO");
+  
+  datLength = in.DataLength - out.Decoded;  #This value should be the same as wLength (but in case wLength or rawdata is corrupted, we're using this value);
+  
+  if(datLength != wLength)
+  {
+    SetCellColor(RED);
+    AddCell("Error","Data Length Discrepancy", Format("Difference between wLength and actual \ndata found is %u bytes. \nData is not being decoded.",(wLength-datLength)),RED); 
+    RestoreCellColor();
+    FullyDecoded = 0;
+  }
+  else                                      #Process DEVICE_INFO Data Structure, Field by Field
+  {
+    if(datLength < 4)
+    {
+      SetCellColor(RED);
+      AddCell("ERROR", "Not Enough Data", Format("There are only %u bytes for \nDEVICE_INFO Structure. \nCan't decode\n  - See 'Data' for un-decoded bytes",datLength),RED);
+      RestoreCellColor();
+      FullyDecoded = 0;
+      return 1;
+    }
+  
+    while(datLength >3)                     #Verifying there is an Attribute Type Id and Length
+    {  
+      bytesData = 0;
+      bytesDecoded = 0;
+      strName ="";
+      strDesc ="";
+      strData ="";                            
+      
+      wAttributeTypeId = NextDataWord_();   #Fetching Field Id and Length in an Association Response Data Structure
+      wAttributeLength = NextDataWord_();
+      out.Decoded += 4;
+      datLength  -= 4;
+      
+      row_field = Find(AssociationRequestFieldTable,wAttributeTypeId);    #Find Field
+      strName = row_field[1];
+      strDesc = row_field[2];    
+      
+      if(datLength > (wAttributeLength-1))                                #Proceed to read data if there, otherwise issue error and quit....
+      {
+        if(wAttributeLength == 0)
+        {
+          strData = "**EMPTY**";
+          if(strDesc != "")
+            strDesc = "\n\n" + strDesc;        
+          strDesc = "*** No Data! AttributeLength = 0!!! ***" + strDesc;
+        }
+        else if((wAttributeTypeId == 0x000B))                             #DeviceFriendlyName (000B) is UNICODE fields
+        {
+          strData = GetUnicodeString_CBAF(wAttributeLength);
+          bytesDecoded +=wAttributeLength;
+        }
+        else if((wAttributeTypeId == 0x1004))                             #Bandgroups (1004) is a bitmap
+        {
+          bytesData = NextNBits_(16);
+          strData = Format("0x%04X",bytesData);
+          bytesDecoded +=2;
+        }    
+        #INSERT CONDITIONAL "ELSE IF" FOR NON-NUMERIC/DATA FIELDS HERE --> Place "else if(!((wAttributeTypeId == 0x????)|(etc.)))" and place appropriate code after; Essentially, if there are fields with incorrect data display, the bits are correct but out of order, place them as exceptions and handle them appropriately, like the strings and bitmap handled above this line.
+        else if(wAttributeLength == 1)                                    #If a byte in length, handle as a byte
+        {
+          bytesData = NextNBits_(8);
+          strData = Format("0x%02X",bytesData);
+          bytesDecoded +=1;
+        }
+        else if(wAttributeLength == 2)                                    #If a word in length, read as a word of numeric data (i.e. byte matching), not good if data is a string or bitmap 
+        {
+          bytesData = NextDataWord_();    
+          strData = Format("0x%04X",bytesData);
+          bytesDecoded +=2;
+        }
+        else if(wAttributeLength == 4)                                    #If a double word in length, read as a dword of numeric data (not goof if data is a bitmap or string.
+        {
+          bytesData = NextDataDWord_();
+          if(wAttributeTypeId == 0x0002)                                  #If Length, output value is decimal
+            strData = Format("%d",bytesData);
+          else
+            strData = Format("0x%08X",bytesData);
+          
+          bytesDecoded +=4;
+        }
+        else                                                              #If data is not a byte, word, or dword, it is being read as a byte string (where byte reordering does not take place)
+        {     
+          strData = GetByteStrFld_CBAF( wAttributeLength );
+          bytesDecoded +=wAttributeLength;
+        }
+    
+        out.Decoded += bytesDecoded;
+        datLength   -= bytesDecoded;
+        
+                                                                          #Adding Appropriate Cell(s) to Display
+        if(strName == "UNDEFINED")                                        #Default for Find(val,table) is to return table[0] if not found
+        {
+          SetCellColor(WarningColor);
+          
+          SetFieldOffsetLen_CBAF(BitCurrentFieldOffset - (wAttributeLength + 2) * 8, 16);
+          AddPayLoadCellMono("AttribTypeId", Format("UNKNOWN -- 0x%04X",wAttributeTypeId), "");
+          RestoreFieldOffsetLen_CBAF();
+          
+          SetFieldOffsetLen_CBAF(BitCurrentFieldOffset - wAttributeLength * 8, 16);
+          AddPayLoadCell("AttribLen",Format("%u",wAttributeLength),Format("Hex: 0x%04X",wAttributeLength));
+          RestoreFieldOffsetLen_CBAF();
+          
+          SetFieldOffsetLen_CBAF(BitCurrentFieldOffset, wAttributeLength*8);
+          AddPayLoadCell("Data",strData,"");
+          RestoreFieldOffsetLen_CBAF();
+                  
+          RestoreCellColor();
+        }
+        else
+        {
+          if(SimpleShowItem( ))
+          {
+            SetFieldOffsetLen_CBAF(BitCurrentFieldOffset - (wAttributeLength + 2) * 8, 16);
+            AddPayLoadCellMono("AttribTypeId",strName,Format("Attribute Type Id: 0x%04X",wAttributeTypeId));
+            RestoreFieldOffsetLen_CBAF();
+            
+            SetFieldOffsetLen_CBAF(BitCurrentFieldOffset - wAttributeLength * 8, 16);
+            AddPayLoadCell("AttribLen",Format("%u",wAttributeLength),Format("Attribute Length in Hex: 0x%04X",wAttributeLength));
+            RestoreFieldOffsetLen_CBAF();
+            
+            SetFieldOffsetLen_CBAF(BitCurrentFieldOffset, wAttributeLength*8);
+            AddPayLoadCell("Data",strData,strDesc);
+            RestoreFieldOffsetLen_CBAF();
+          }
+          else
+            AddPayLoadCell(strName,strData,strDesc);
+        }
+      }
+      else
+      {
+        if(strName == "UNDEFINED")
+          strName = "UNKNOWN";
+        SetCellColor(RED);
+        if(SimpleShowItem( ))
+        {
+          SetFieldOffsetLen_CBAF(BitCurrentFieldOffset - 2*8, 16);
+          AddPayLoadCellMono("AttribTypeId",strName,Format("Attribute Type Id: 0x%04X",wAttributeTypeId));
+          RestoreFieldOffsetLen_CBAF();
+
+          AddPayLoadCell("AttribLen",Format("%u",wAttributeLength),Format("Attribute Length in Hex: 0x%04X",wAttributeLength));
+          
+          AddCell("ERROR", "Decode Aborted",FormatEx("Not enough data to decode:\n Expected %u bytes (AttributeLength = %u)\n Found only %u bytes in payload.\n\nSee 'Data' for un-decoded bytes", wAttributeLength,wAttributeLength,datLength),RED);
+
+          
+        }
+        else
+          AddCell("ERROR", Format("%s ABORTED",strName),FormatEx("Not enough data to decode:\n Expected %u bytes (AttributeLength = %u)\n Found only %u bytes in payload.\n\nSee 'Data' for un-decoded bytes", wAttributeLength,wAttributeLength,datLength),RED);
+        RestoreCellColor();
+        
+        FullyDecoded = 0;
+        return 1;
+      } 
+    }
+    
+    if(datLength > 0)
+    {
+      SetCellColor(WarningColor);
+      AddCell("WARNING", "Leftover Data in PAYLOAD", Format("There are %u bytes unaccounted for, not decoded. \nSee 'Data' for un-decoded/extra bytes",datLength),WarningColor);
+      RestoreCellColor();
+      FullyDecoded = 0;
+    }
+  }  
+}
+
+# Association Response Field List/Table based on Attribute Type Id (wAttributeTypeId). Used for HOST_INFO and CC_DATA data structures
+set AssociationResponseFieldTable =          
+[
+  [ 0x0000, "AssocTypeId",        "" ],
+  [ 0x0001, "AssocSubTypeId",     ""  ],
+  [ 0x0002, "Length",             "Length of this data structure in bytes"  ],
+  [ 0x0004, "AssocStatus",        "Indicates the status of the association request: \n\n0001H = Association unsuccessful \n0002H = Malformed Association Request \n0003H = Association type not supported \n\nAll other values are reserved."  ],
+  [ 0x0008, "LangID",             "UNICODE language ID code  for the HostFriendlyName field" ],
+  [ 0x000C, "HostFriendlyName",   "Null-terminated UNICODE string (shortest-form \nUTF-8) used to hold the host-assigned host \nfriendly name.  Attribute length must be between \n000H and 0040H." ],
+  [ 0x1000, "CHID",               "CHID_DATA: CHID value from the host"  ],
+  [ 0x1002, "Connection Context", "Concatenation of CHID, CDID, CK"  ],
+  [ 0x1004, "BandGroups",         "This bitmap reports the UWB band groups that \nare supported by the host."  ]  
+];
+
+SET_ASSOCIATION_RESPONSE()
+{
+  FieldColor = WUSBCBAF_SetAssRespReqColor;
+
+  AddShortDataHeader("SET ASSOCIATION RESPONSE");
+  
+  if(bReqType != 0x21)                      # != 00100001B  ---- Verifying correct bmRequestType for Request and adding Cell
+  {    
+    SetCellColor(RED);
+    SetFieldOffsetLen_CBAF( 8, 8 );
+    AddPayLoadCell("RequestType",Format("*WARNING* 0x%02X",bReqType),FormatEx("WARNING: For SET ASSOCIATION RESPONSE Request,\nbmRequestType should only be 0x21 (00100001B), but it is 0x%02X. \n\nBitmap with decimal value of %d",bReqType,bReqType) + "\n\nCharacteristics of Request:\n   D7      Data xfer direction\n\t   0 = Host to Device\n\t   1=Device to host\n\n   D6..5   Type\n\t   0 = Standard\n\t   1 = Class\n\t   2 = Vendor\n\t   3 = Reserved\n\n   D4..0   Recipient\n\t   0 = Device\n\t   1 = Interface\n\t   2 = Endpoint\n\t   3 = Other\n\t   4..31 = Reserved\n");
+    RestoreFieldOffsetLen_CBAF();
+    RestoreCellColor();
+  }  
+  else
+    if(SimpleShowItem( ))
+      AddReqTypeCell_CBAF();  
+  
+  AddRequestCell_CBAF( AttributeString );   #Adding Request Cell
+  
+  SetFieldOffsetLen_CBAF( 32, 16 );
+  
+  bAssDataIndex  = ((wValue>>8) & 0xFF);    #Getting High Byte of wValue
+  bTransferFlags = (wValue & 0xFF);         #Getting Low Byte of wValue
+  
+  AddPayLoadCell("AssDataInd",Format("%d",bAssDataIndex),FormatEx("Association Data Index (High Byte of wValue): 0x%02X    wValue=0x%04X", bAssDataIndex, wValue));
+  
+  if(bTransferFlags != 0x0001)              #Verifying TransferFlags for Request and adding Cell
+  {
+    SetCellColor(RED);
+    AddPayLoadCell("TransferFlags",Format("*WARNING* 0x%02X",bTransferFlags),FormatEx("WARNING: Expected 0x01, found 0x%02X. \n\nTransferFlags (Low Byte of wValue) = 0x%02X\nwValue=0x%04X \n\nWUSB CBAF specifications do not make use \nof any TransferFlags aside from 0x01", bTransferFlags, bTransferFlags, wValue));
+    RestoreCellColor();
+  }
+  else
+    AddPayLoadCell("TransferFlags",Format("0x%02X",bTransferFlags),FormatEx("TransferFlags (Low Byte of wValue) = 0x%02X    wValue=0x%04X", bTransferFlags, wValue));
+  
+  RestoreFieldOffsetLen_CBAF();
+  
+  AddWIndexCell_CBAF( "", "wIndex" );       #Adding Index Cell
+  
+  if(SimpleShowItem( ))                     #If expanded, adding wLength Cell
+    AddWLengthCell_CBAF( "Data Length" );        
+
+  out.Decoded = 8;
+  
+  AddSeparator();
+  
+  if(wValue == 0x0101)                      #Data Structure based on information given in WUSB CBAF Documentation
+  {
+    AddShortDataHeader("HOST INFO");
+    if(!in.Expanded)
+      AddCell("HOST_INFO","","The fields are shown in the order they are \nreceived in the payload. Compare with data structure \nformat to find any discrepancies.",FieldColor,_MONOFIELD);
+    else
+      AddCell("HOST_INFO","","The fields are shown in the order they are \nreceived in the payload. Compare with data structure \nformat to find any discrepancies.",FieldColor-7900,_MONOFIELD);
+  }
+  else if(wValue == 0x0201)
+  {
+    AddShortDataHeader("CC DATA");
+    if(!in.Expanded)
+      AddCell("CC_DATA","","The fields are shown in the order they are \nreceived in the payload. Compare with data structure \nformat to find any discrepancies.",FieldColor,_MONOFIELD);
+    else
+      AddCell("CC_DATA","","The fields are shown in the order they are \nreceived in the payload. Compare with data structure \nformat to find any discrepancies.",FieldColor-7900,_MONOFIELD);
+  }
+  else
+  {
+    AddShortDataHeader("UNKNOWN");
+    AddCell("UNKNOWN","","Data Structure Identity unknown (wValue != 0x0101 or 0x0201).\nThe fields found are shown in the order they are received in \nthe payload.",WarningColor,_MONOFIELD);
+  }
+  
+  ASSOCIATION_RESPONSE();
+}
+
+
+ASSOCIATION_RESPONSE()
+{
+  datLength = in.DataLength - out.Decoded;  #This value should be the same as wLength (but in case wLength or rawdata is corrupted, we're using this value);
+  
+  StateStatus = 0;  
+  
+  if(datLength != wLength)
+  {
+    SetCellColor(RED);
+    AddPayLoadCell("Error", "Data Length Discrepancy", Format("Difference between wLength and actual data found is %u bytes. \nData is not being decoded.",(wLength-datLength))); 
+    RestoreCellColor();
+    FullyDecoded = 0;
+  }
+  else                                          #Process Response Data Structure, Field by Field
+  {
+    if(datLength < 4)
+    {
+      SetCellColor(RED);
+      AddPayLoadCell("WARNING", "Not Enough Data", Format("There are only %u bytes for Response Structure. \nCan't decode - See 'Data' for un-decoded bytes",datLength));
+      RestoreCellColor();
+      FullyDecoded = 0;
+      return 1;
+    }
+    
+    while(datLength >3)                         #Verifying there is an Attribute Type Id and Length
+    {  
+      bytesData = 0;
+      bytesDecoded = 0;
+      strName ="";
+      strDesc ="";
+      strData ="";                            
+      
+      wAttributeTypeId = NextDataWord_();       #Fetching Field Id and Length in an Association Response Data Structure
+      wAttributeLength = NextDataWord_();
+      out.Decoded += 4;
+      datLength  -= 4;
+      
+      row_field = Find(AssociationResponseFieldTable,wAttributeTypeId);   #Find Field
+      strName = row_field[1];
+      strDesc = row_field[2];    
+
+      if(datLength > (wAttributeLength-1))                                #Proceed to read data if there, otherwise issue error and quit....
+      {
+        if(wAttributeLength == 0)
+        {
+          strData = "**EMPTY**";
+          if(strDesc != "")
+            strDesc = "\n\n" + strDesc;    
+          strDesc = "*** No Data! AttributeLength = 0!!! ***" + strDesc;
+        }
+        else if((wAttributeTypeId == 0x000C))                             #HostFriendlyName (000C) is a UNICODE field
+        {
+          strData = GetUnicodeString_CBAF(wAttributeLength);
+          bytesDecoded +=wAttributeLength;
+        }
+        else if((wAttributeTypeId == 0x1004))                             #Bandgroups (1004) is a bitmap
+        {
+          bytesData = NextNBits_(16);
+          strData = Format("0x%04X",bytesData);
+          bytesDecoded +=2;
+        }
+        else if((wAttributeTypeId == 0x1002))
+        {
+          if(wAttributeLength != 48)
+          {
+            strDesc = Format("*** ERROR *** Expecting Length of 48 bytes, Found only %d\n\n",wAttributeLength) + strDesc;
+            for(i=0; i<(wAttributeLength/16); i++)
+              strData += GetByteStrFld_CBAF(16) + " ";
+            if(wAttributeLength%16 != 0)
+              strData += GetByteStrFld_CBAF(wAttributeLength%16);
+          }
+          else
+          {
+            strData = "CHID:";
+            strData += GetByteStrFld_CBAF(16);
+            strData += " CDID:";
+            strData += GetByteStrFld_CBAF(16);
+            strData += " CK:";
+            strData += GetByteStrFld_CBAF(16);
+          }
+          bytesDecoded += wAttributeLength;     
+        }    
+        #INSERT CONDITIONAL "ELSE IF" FOR NON-NUMERIC/DATA FIELDS HERE --> Place "else if(!((wAttributeTypeId == 0x????)|(etc.)))" and place appropriate code after; Essentially, if there are fields with incorrect data display, the bits are correct but out of order, place them as exceptions and handle them appropriately, like the strings and bitmap handled above this line.
+        else if(wAttributeLength == 1)                                    #If a byte in length, handle as a byte
+        {
+          bytesData = NextNBits_(8);
+          strData = Format("0x%02X",bytesData);
+          bytesDecoded +=1;
+        }
+        else if(wAttributeLength == 2)                                    #If a word in length, read as a word of numeric data (i.e. byte matching), not good if data is a string or bitmap 
+        {
+          bytesData = NextDataWord_();    
+          strData = Format("0x%04X",bytesData);
+          bytesDecoded +=2;
+        }
+        else if(wAttributeLength == 4)                                    #If a double word in length, read as a dword of numeric data (not goof if data is a bitmap or string.
+        {
+          bytesData = NextDataDWord_();
+          if(wAttributeTypeId == 0x0002)                                  #If Length, output value is decimal
+            strData = Format("%d",bytesData);
+          else          
+            strData = Format("0x%08X",bytesData);
+          bytesDecoded +=4;
+        }
+        else                                                              #If data is not a byte, word, or dword, it is being read as a byte string (where byte reordering does not take place)
+        {     
+          strData = GetByteStrFld_CBAF( wAttributeLength );
+          bytesDecoded +=wAttributeLength;
+        }
+    
+        out.Decoded += bytesDecoded;
+        datLength   -= bytesDecoded;
+        
+        if((StateStatus == 0)&&(wAttributeTypeId!= 0x0000))               #Error Checking of Data structure for Attribute Type and SubType
+        {
+          SetCellColor(RED);
+          AddPayLoadCellMono("WARNING","","Association Type Id not first field of Data! \nAssociation Type Id expected as first field of data\n structure, will attempt to decode, but possibly not reliable");
+          RestoreCellColor();
+          StateStatus = 1;                                                #Set this for AttributeSubTypeID decoding (so WARNING is not reprinted)
+        }
+        else if(((StateStatus == 1)|(StateStatus == 2))&&(wAttributeTypeId!= 0x0001))
+        {
+          if(StateStatus == 1)
+          {
+            SetCellColor(RED);
+            AddPayLoadCellMono("WARNING","","Association SubType Id not second field of Data! \nAssociation SubType Id expected as second field of data\n structure, will attempt to decode, but possibly not reliable");
+            RestoreCellColor();
+          }
+  
+          StateStatus += 1;                                                #Setting StateStatus beyond 2 (it's incremented below as well)
+        }
+  
+                                                                           #Adding Appropriate Cell(s) to Display
+        if((strName == "AssocTypeId")&&(wAttributeTypeId != 0x0000)) #Default for Find(val,table) is to return table[0] if not found, if val is not 0x0000, strName should not be AssociationTypeId
+        {
+          SetCellColor(WarningColor);
+          SetFieldOffsetLen_CBAF(BitCurrentFieldOffset - (wAttributeLength + 2) * 8, 16);
+          AddPayLoadCellMono("AttribTypeId", Format("UNKNOWN -- 0x%04X",wAttributeTypeId), "");
+          RestoreFieldOffsetLen_CBAF();
+          
+          SetFieldOffsetLen_CBAF(BitCurrentFieldOffset - wAttributeLength * 8, 16);
+          AddPayLoadCell("AttribLen",Format("%u",wAttributeLength),Format("Hex: 0x%04X",wAttributeLength));
+          RestoreFieldOffsetLen_CBAF();
+          
+          SetFieldOffsetLen_CBAF(BitCurrentFieldOffset, wAttributeLength*8);
+          AddPayLoadCell("Data",strData,"");
+          RestoreFieldOffsetLen_CBAF();
+          
+          RestoreCellColor();
+        }
+        else
+        {
+          if(SimpleShowItem( ))
+          {
+            SetFieldOffsetLen_CBAF(BitCurrentFieldOffset - (wAttributeLength + 2) * 8, 16);
+            AddPayLoadCellMono("AttribTypeId",strName,Format("Attribute Type Id: 0x%04X",wAttributeTypeId));
+            RestoreFieldOffsetLen_CBAF();
+            
+            SetFieldOffsetLen_CBAF(BitCurrentFieldOffset - wAttributeLength * 8, 16);
+            AddPayLoadCell("AttribLen",Format("%u",wAttributeLength),Format("Attribute Length in Hex: 0x%04X",wAttributeLength));
+            RestoreFieldOffsetLen_CBAF();
+            
+            SetFieldOffsetLen_CBAF(BitCurrentFieldOffset, wAttributeLength*8);
+            AddPayLoadCell("Data",strData,strDesc);
+            RestoreFieldOffsetLen_CBAF();
+          }
+          else
+            AddPayLoadCell(strName,strData,strDesc);
+        }
+        
+        StateStatus += 1;
+      }
+      else
+      {
+        if((strName == "AssocTypeId")&&(wAttributeTypeId != 0x0000))
+          strName = "UNKNOWN";
+        SetCellColor(RED);
+
+        if(SimpleShowItem( ))
+        {
+          SetFieldOffsetLen_CBAF(BitCurrentFieldOffset - 2*8, 16);
+          AddPayLoadCellMono("AttribTypeId",strName,Format("Attribute Type Id: 0x%04X",wAttributeTypeId));
+          RestoreFieldOffsetLen_CBAF();
+
+          AddPayLoadCell("AttribLen",Format("%u",wAttributeLength),Format("Hex: 0x%04X",wAttributeLength));
+          
+          AddCell("ERROR", "Decode Aborted",FormatEx("Not enough data to decode:\n Expected %u bytes (AttributeLength = %u)\n Found only %u bytes in payload.\n\nSee 'Data' for un-decoded bytes", wAttributeLength,wAttributeLength,datLength),RED);
+        }
+        else
+          AddCell("ERROR", Format("%s ABORTED",strName),FormatEx("Not enough data to decode:\n Expected %u bytes (AttributeLength = %u) \n Found only %u bytes in payload.\n\nSee 'Data' for un-decoded bytes", wAttributeLength,wAttributeLength,datLength),RED);
+
+        RestoreCellColor();        
+        FullyDecoded = 0;
+        return 1;
+      }
+    }
+    if(datLength > 0)
+    {
+      SetCellColor(WarningColor);
+      AddPayLoadCell("WARNING","Leftover Data in PAYLOAD",Format("There are %u bytes unaccounted for, not decoded. \nSee 'Data' for un-decoded/extra bytes",datLength));
+      RestoreCellColor();
+      FullyDecoded = 0;
+    }
+  }
+}
+
+
+ASSOCIATION_REQUEST()                     #This Function pertains to GET_ASSOCIATION_INFORMATION to decode the AssociationRequestsArray (full of Association Requests)
+{
+  AddSeparator();
+  
+  bAssDataIndex = NextNBits_(8);          #Ordinal value used by \nGET_ASSOCIATION_REQUEST to retrieve the \nspecific association information.
+  bReserved     = NextNBits_(8);          #This value is reserved and must be set to 00H.
+  wAssTypeId    = NextDataWord_();        #This value globally and uniquely identifies the \nAssociation Type. For Certified Wireless USB, this \nvalue is 0001H.
+  wAssSubTypeId = NextDataWord_();        #This value uniquely identifies this request within the \nCertified Wireless USB Association Type attribute ID \nspace.
+  dwAssTypeInfoSize = NextDataDWord_();   #This is the size in bytes of the specific information \nrelated to this request that the host will retrieve from \nthe device when the host issues a \nGET_ASSOCIATION_REQEST request. A value \nof zero indicates that there is no information to be \ntransferred to the host for the specified \nAssociationSubTypeid.
+  
+  
+  AddShortDataHeader(Format("ASSOCIATION REQUEST #%d",bAssDataIndex));
+
+  if(SimpleShowItem( ))
+  {
+    SetFieldOffsetLen_CBAF(BitCurrentFieldOffset-9*8, 8);
+    AddPayLoadCellMono("AssDatInd",Format("%d",bAssDataIndex),"AssociationDataIndex: Ordinal value used \nby GET_ASSOCIATION_REQUEST to retrieve \nthe specific association information.");
+    RestoreFieldOffsetLen_CBAF();
+    
+    SetFieldOffsetLen_CBAF(BitCurrentFieldOffset-8*8, 8);
+    if(bReserved != 0x00)
+    {
+      SetCellColor(RED);
+      AddPayLoadCell("Reserved",Format("*WARNING* 0x%02X",bReserved),Format("WARNING - Expected 0x00; \nFound 0x%02X. \nThis value is reserved and \nmust be set to 00H.",bReserved));
+      RestoreCellColor();
+    }
+    else
+      AddPayLoadCell("Reserved",Format("0x%02X",bReserved),"This value is reserved and must be set to 00H.");
+    RestoreFieldOffsetLen_CBAF();
+    
+    SetFieldOffsetLen_CBAF(BitCurrentFieldOffset-6*8, 16);
+    if(wAssTypeId != 0x0001)
+    {
+      SetCellColor(RED);
+      AddPayLoadCell("AssTypeId",Format("*WARNING* 0x%04X",wAssTypeId),Format("WARNING - For WUSB, Association Type Id:\n Expected 0x0001, found 0x%04X. \nThis value globally and uniquely identifies \nthe Association Type. For Certified Wireless \nUSB, this value is 0001H.",wAssTypeId));
+      RestoreCellColor();
+    }
+    else
+      AddPayLoadCell("AssTypeId",Format("0x%04X",wAssTypeId),"This value globally and uniquely identifies \nthe Association Type. For Certified Wireless \nUSB, this value is 0001H.");
+    RestoreFieldOffsetLen_CBAF();
+    
+    SetFieldOffsetLen_CBAF(BitCurrentFieldOffset-4*8, 16);
+    AddPayLoadCell("AssSubTypeId",Format("0x%04X",wAssSubTypeId),"This value uniquely identifies this request within the \nCertified Wireless USB Association Type attribute ID \nspace.");
+    RestoreFieldOffsetLen_CBAF();
+    
+    AddPayLoadCell("AssTypeInfoSize",Format("%u",dwAssTypeInfoSize),"This is the size in bytes of the specific information \nrelated to this request that the host will retrieve from \nthe device when the host issues a \nGET_ASSOCIATION_REQEST request. A value \nof zero indicates that there is no information to be \ntransferred to the host for the specified \nAssociationSubTypeid.");
+  }  
+  else{
+    TipString = "Association Request (Click to Expand)";
+    RestoreColor = FieldColor;
+    if(bReserved != 0x00)
+    {
+      FieldColor = RED;
+      TipString += Format("\nWARNING - Value of Reserved is 0x%02X\n  Must be set to zero!",bReserved);
+    }
+    if(wAssTypeId != 0x0001)
+    {
+      FieldColor = RED;
+      TipString += Format("\nWARNING - For WUSB, Association Type Id:\n  Expected 0x0001, found 0x%04X",wAssTypeId);
+    }
+    
+    AddPayLoadCellMono("AssReq",Format("%d",bAssDataIndex),TipString);
+    
+    FieldColor = RestoreColor;
+  }  
+}    
+  
+
+
+### These are general functions to decrease code length 
+### (copied from UsbCommon.inc and removed FieldColor setting plus minor tweaking where necessary/desired)
+
+AddReqTypeCell_CBAF()
+{
+    SetFieldOffsetLen_CBAF( 8, 8 );  
+    AddPayLoadCell("RequestType",Format("0x%02X",bReqType),Format("Bitmap with decimal value of %d",bReqType) + "\n\nCharacteristics of Request:\n   D7      Data xfer direction\n\t   0 = Host to Device\n\t   1=Device to host\n\n   D6..5   Type\n\t   0 = Standard\n\t   1 = Class\n\t   2 = Vendor\n\t   3 = Reserved\n\n   D4..0   Recipient\n\t   0 = Device\n\t   1 = Interface\n\t   2 = Endpoint\n\t   3 = Other\n\t   4..31 = Reserved\n");
+    RestoreFieldOffsetLen_CBAF();
+}
+
+AddRequestCell_CBAF( req_text )
+{
+    SetFieldOffsetLen_CBAF( 16, 8 );
+    AddPayLoadCell("Request", req_text, Format("bRequest HexVal: 0x%04X", bRequest), FieldColor,[_TABULARCELL, CELL_CBAF_REQUEST]);
+    RestoreFieldOffsetLen_CBAF();
+}
+
+AddWValueCell_CBAF( val_text, tooltip )
+{
+    SetFieldOffsetLen_CBAF( 32, 16 );
+ 
+    if( val_text == null || val_text == "" )
+        val_text = Format( "0x%04X", wValue );
+        
+    if(tooltip == null || tooltip == "")
+        tooltip = "wValue";
+    
+    AddPayLoadCell( "Value", val_text, tooltip, FieldColor,[_TABULARCELL, CELL_CBAF_REQUEST, "TEXT_CAPTION"] );
+    RestoreFieldOffsetLen_CBAF();
+}
+
+AddWIndexCell_CBAF( idx_text, tooltip )
+{
+    SetFieldOffsetLen_CBAF( 48, 16 );
+    
+    if( idx_text == null || idx_text == "" )
+        idx_text = Format( "0x%04X", wIndex );
+    
+    AddPayLoadCell("Interface", idx_text, tooltip ); 
+    RestoreFieldOffsetLen_CBAF();
+}
+
+AddWLengthCell_CBAF( tooltip )
+{
+    SetFieldOffsetLen_CBAF( 64, 16 );
+    AddPayLoadCell("wLength", Format( "%u", wLength ), tooltip ); 
+    RestoreFieldOffsetLen_CBAF();        
+}
+
+SetFieldOffsetLen_CBAF( offset, len )
+{
+    RestoreBitCurrentFieldOffset = BitCurrentFieldOffset;
+    RestoreBitCurrentFieldLength = BitCurrentFieldLength;
+    BitCurrentFieldOffset = offset;
+    BitCurrentFieldLength = len;
+}
+
+RestoreFieldOffsetLen_CBAF()
+{
+    BitCurrentFieldOffset = RestoreBitCurrentFieldOffset;
+    BitCurrentFieldLength = RestoreBitCurrentFieldLength;
+}    
+
+GetByteStrFld_CBAF( len_in_bytes )
+{
+    if(len_in_bytes != 0)
+    {
+      tmp = "0x";        
+      for(i = 0; i < len_in_bytes; i++) 
+        tmp += Format("%02X", NextNBits_(8));    
+    }
+    else
+      tmp = "**EMPTY**";
+    return tmp;
+}
+
+GetUnicodeString_CBAF(length)
+{
+    done = 0;
+    str = "";
+    offset = 8;
+    index = 0;
+    val = 0;
+    while ((done == 0) && (index < length))
+    {
+        val = NextNBits_(8);
+
+        ###val = GetDataByte(start_offset + index);
+
+        if (val != null)
+        {
+            str += Format("%c", val);
+            index++;
+        } 
+        else
+        {
+            done = 1;
+        }
+    }
+    
+    if(index != length)
+    {
+      trash = 0;
+      trash = NextNBits_((length - index)*8);
+    }
+    return str;   
+}    
+
+
+####################################################################################
+#                       USBTracer specific caption cell                            #
+####################################################################################
+
+AddSpecCaptionCell(caption, text, tooltip, FieldColor, addparam, addparam1, addparam2 )
+{   
+    AddCell(caption, text, tooltip, FieldColor, _USBBULK_HEADER, addparam, addparam1, addparam2 );        
+    return 1;        
+}

@@ -1,0 +1,55 @@
+*******************************************************************************
+*
+*  FILENAME: vendor.req
+*
+*  Copyright (C) 1999 Computer Access Technology Corporation
+*
+*  DESCRIPTION
+*    This is the sample request file for a vendor-specific request set. Please
+*    feel free to modify it or create new ones to define you vendor request
+*    decoding.
+*
+*******************************************************************************
+
+*******************************************************************************
+* Please put Vendor ID and Product ID entries in your definition file. The
+* Priduct ID value doesn't have to match the real USB product ID for your
+* device. Both this values are used to uniqely identify your Vendor Decoding
+* Group when you associate it with Request Recipients in a trace file.
+*******************************************************************************
+GroupName=Sample Vendor
+GroupType=Vendor
+VendorID=0x0423
+ProductID=0x0001
+
+AllRequests={
+0x01=GET_REGISTER
+0x02=SET_REGISTER
+}
+
+Request(0x01)={
+
+  wIndex={
+     FormatValue=Register address 0x%04X
+  }
+
+  Data={
+     Length=2
+     Bytes(0,1)={
+         FormatValue=Register value 0x%04X
+     } 
+  }
+ 
+}
+
+Request(0x02)={
+
+  wIndex={
+     FormatValue=Register address 0x%04X
+  }
+
+  wValue={
+    FormatValue=Register value 0x%04X
+  }
+
+}

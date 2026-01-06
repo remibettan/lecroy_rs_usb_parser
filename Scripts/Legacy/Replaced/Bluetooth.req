@@ -1,0 +1,3881 @@
+*******************************************************************************
+*
+*  FILENAME: Bluetooth.req
+*
+*  Copyright (C) 1999 Computer Access Technology Corporation
+*
+*  DESCRIPTION
+*    This file contains class decoding definitions for Bluetooth USB HCI.
+*    This file is prepared as per the Bluetooth specification 1.1 
+*
+*  REVISION HISTORY
+*    20DEC99 First created                          -es-
+*      JAN00 Modified                               -mp-
+*      FEB00 Added Events                           -mp-
+*    21NOV01 Updated according to the 1.1 Bluetooth specification -es-
+*******************************************************************************
+
+
+GroupName=Wireless Controller (Bluetooth)
+GroupType=Class
+ClassCode=0xE0
+
+AllRequests={
+ 0x00=HCI_COMMAND
+}
+
+;*****************************************************************************
+; The one and only Bluetooth HCI request
+;*****************************************************************************
+Request(0x00)={
+
+  Data={
+
+   Length=?
+
+   Bytes(0,1)={
+
+     ; ***** Different Opcode Groups ************************
+     Depends(Databytes(0,1)&0xFC00)={
+
+        0xFC00={
+          FormatValue=OGF Vendor Specific Command,Opcode 0x%04X
+        }
+
+        0xF800={
+          FormatValue=OGF Bluetooth Logo Testing,Opcode 0x%04X
+        }
+
+        0x0400={
+          Color(0,0,200)
+          Name=Link Control Command
+          WordValue={
+            0x0401=  HCI_Inquiry
+            0x0402=  HCI_Inquiry_Cancel
+            0x0403=  HCI_Periodic_Inquiry_Mode
+            0x0404=  HCI_Exit_Periodic_Inquiry_Mode
+            0x0405=  HCI_Create_Connection
+            0x0406=  HCI_Disconnect
+            0x0407=  HCI_Add_SCO_Connection
+            0x0409=  HCI_Accept_Connection_Request
+            0x040A=  HCI_Reject_Connection_Request
+            0x040B=  HCI_Link_Key_Request_Reply
+            0x040C=  HCI_Link_Key_Request_Negative_Reply
+            0x040D=  HCI_PIN_Code_Request_Reply
+            0x040E=  HCI_PIN_Code_Request_Negative_Reply
+            0x040F=  HCI_Change_Connection_Packet_Type
+            0x0411=  HCI_Authentication_Request
+            0x0413=  HCI_Set_Connection_Encryption
+            0x0415=  HCI_Change_Connection_Link_Key
+            0x0417=  HCI_Master_Link_Key
+            0x0419=  HCI_Remote_Name_Request
+            0x041B=  HCI_Read_Remote_Supported_Features
+            0x041D=  HCI_Read_Remote_Version_Information
+            0x041F=  HCI_Read_Clock_Offset
+          }
+          FormatValue=  Undefined Opcode 0x%04X
+        }
+
+        0x0800={
+          Color(100,50,50)
+          Name=Link Policy Command
+          WordValue={
+            0x0801=  HCI_Hold_Mode
+            0x0803=  HCI_Sniff_Mode
+            0x0804=  HCI_Exit_Sniff_Mode
+            0x0805=  HCI_Park_Mode
+            0x0806=  HCI_Exit_Park_Mode
+            0x0807=  HCI_QoS_Setup
+            0x0809=  HCI_Role_Discovery
+            0x080B=  HCI_Switch_Role
+            0x080C=  HCI_Read_Link_Policy_Settings
+            0x080D=  HCI_Write_Link_Policy_Settings
+          }
+          FormatValue=  Undefined Opcode 0x%04X
+        }
+       
+        0x0C00={
+          Color(0,50,50)
+          Name=HC & Baseband Command
+          WordValue={
+            0x0C01=  HCI_Set_Event_Mask
+            0x0C03=  HCI_Reset
+            0x0C05=  HCI_Set_Event_Filter
+            0x0C08=  HCI_Flush
+            0x0C09=  HCI_Read_PIN_Type
+            0x0C0A=  HCI_Write_PIN_Type
+            0x0C0B=  HCI_Create_New_Unit_Key
+            0x0C0D=  HCI_Read_Stored_Link_Key
+            0x0C11=  HCI_Write_Stored_Link_Key
+            0x0C12=  HCI_Delete_Stored_Link_Key
+            0x0C13=  HCI_Change_Local_Name
+            0x0C14=  HCI_Read_Local_Name
+            0x0C15=  HCI_Read_Connection_Accept_Timeout
+            0x0C16=  HCI_Write_Connection_Accept_Timeout
+            0x0C17=  HCI_Read_Page_Timeout
+            0x0C18=  HCI_Write_Page_Timeout
+            0x0C19=  HCI_Read_Scan_Enable
+            0x0C1A=  HCI_Write_Scan_Enable
+            0x0C1B=  HCI_Read_Page_Scan_Activity
+            0x0C1C=  HCI_Write_Page_Scan_Activity
+            0x0C1D=  HCI_Read_Inquiry_Scan_Activity
+            0x0C1E=  HCI_Write_Inquiry_Scan_Activity
+            0x0C1F=  HCI_Read_Authentication_Enable
+            0x0C20=  HCI_Write_Authentication_Enable
+            0x0C21=  HCI_Read_Encryption_Mode
+            0x0C22=  HCI_Write_Encryption_Mode
+            0x0C23=  HCI_Read_Class_of_Device
+            0x0C24=  HCI_Write_Class_of_Device
+            0x0C25=  HCI_Read_Voice_Setting
+            0x0C26=  HCI_Write_Voice_Setting
+            0x0C27=  HCI_Read_Automatic_Flush_Timeout
+            0x0C28=  HCI_Write_Automatic_Flush_Timeout
+            0x0C29=  HCI_Read_Num_Broadcast_Retransmissions
+            0x0C2A=  HCI_Write_Num_Broadcast_Retransmissions
+            0x0C2B=  HCI_Read_Hold_Mode_Activity
+            0x0C2C=  HCI_Write_Hold_Mode_Activity
+            0x0C2D=  HCI_Read_Transmit_Power_Level
+            0x0C2E=  HCI_Read_SCO_Flow_Control_Enable
+            0x0C2F=  HCI_Write_SCO_Flow_Control_Enable
+            0x0C31=  HCI_Set_Host_Controller_To_Host_Flow_Control
+            0x0C33=  HCI_Host_Buffer_Size
+            0x0C35=  HCI_Host_Number_Of_Completed_Packets
+            0x0C36=  HCI_Read_Link_Supervision_Timeout
+            0x0C37=  HCI_Write_Link_Supervision_Timeout
+            0x0C38=  HCI_Read_Number_Of_Supported_IAC
+            0x0C39=  HCI_Read_Current_IAC_LAP
+            0x0C3A=  HCI_Write_Current_IAC_LAP
+            0x0C3B=  HCI_Read_Page_Scan_Period_Mode
+            0x0C3C=  HCI_Write_Page_Scan_Period_Mode
+            0x0C3D=  HCI_Read_Page_Scan_Mode
+            0x0C3E=  HCI_Write_Page_Scan_Mode
+          }
+          FormatValue=  Undefined Opcode 0x%04X
+        }
+
+        0x1000={
+          Color(155,140,215)
+          Name=Info Parameters Command
+          WordValue={
+            0x1001=  HCI_Read_Local_Version_Information 
+            0x1003=  HCI_Read_Local_Supported_Features 
+            0x1005=  HCI_Read_Buffer_Size
+            0x1007=  HCI_Read_Country_Code
+            0x1009=  HCI_Read_BD_ADDR 
+          }  
+          FormatValue=  Undefined Opcode 0x%04X
+        }     
+        
+        0x1400={
+          Color(0,100,100)
+          Name=Status Parameters Command
+          WordValue={       
+            0x1401=  HCI_Read_Failed_Contact_Counter
+            0x1402=  HCI_Reset_Failed_Contact_Counter
+            0x1403=  HCI_Get_Link_Quality
+            0x1405=  HCI_Read_RSSI
+          }
+          FormatValue=  Undefined Opcode 0x%04X
+        }
+
+        0x1800={
+          Color(200,100,200)
+          Name=Testing Command
+          WordValue={
+            0x1801=  HCI_Read_Loopback_Mode
+            0x1802=  HCI_Write_Loopback_Mode
+            0x1803=  HCI_Enable_Device_Under_Test_Mode
+          }
+          FormatValue=  Undefined Opcode 0x%04X
+        }  
+
+     } ; End of OGF dependency
+
+   } ; ******** End of Opcode field *******************
+   
+   Bytes(2,2)={
+     Name=Parameter Total Length
+     WordValue={
+       0x00=  No parameters for this command
+     }
+     FormatValue=  %d bytes of parameters
+   }
+
+;*************************************************************************
+; Decoding the parameter fields
+;*************************************************************************
+
+   Depends(Databytes(0,1))={
+   
+  ;*************************************************************************
+  ; Link Control commands
+  ;*************************************************************************
+
+     ;*************** HCI_Inquiry command parameters *********************
+     0x0401={
+       Bytes(3,5)={
+         Name=Lower Address Part
+         FormatValue=  LAP: 0x%06X
+       }
+       Bytes(6,6)={
+         Name=Inquiry Length
+         FormatValue=  %d * 1.28 sec. before Inquiry is halted
+       }
+       Bytes(7,7)={
+         Name=Num_Responses
+         WordValue={
+           0x00=  Unlimited (Default)
+         }
+         FormatValue=  %d max responses before Inquiry is halted
+       }
+     }
+
+     ;************ HCI_Periodic_Inquiry_Mode command parameters **********
+     0x0403={
+       Bytes(3,4)={
+         Name=Max_Period_Length
+         FormatValue=  %d * 1.28 sec. between consecutive inquiries
+       }
+       Bytes(5,6)={
+         Name=Min_Period_Length
+         FormatValue=  %d * 1.28 sec. between consecutive inquiries 
+       }
+       Bytes(7,9)={
+         Name=Lower Address Part
+         FormatValue=  LAP: 0x%06X
+       }
+       Bytes(10,10)={
+         Name=Inquiry Length
+         FormatValue=  %d * 1.28 sec. before Inquiry is halted
+       }
+       Bytes(11,11)={
+         Name=Num_Responses
+         WordValue={
+           0x00=  Unlimited (Default)
+         }
+         FormatValue=  %d max responses before Inquiry is halted
+       }
+     }
+
+     ;*************** HCI_Create_Connection command parameters ***********
+     0x0405={
+       Bytes(3,8)={
+         Name=BD_ADDR
+         FormatValue=  Device to be connected: 0x
+       }
+       Bytes(9,10)={
+         Name=Packet_Type
+         WordValue={
+           0x0001=  Reserved 
+           0x0002=  Reserved 
+           0x0004=  Reserved 
+           0x0008=  DM1
+           0x0010=  DH1
+           0x0020=  Reserved 
+           0x0040=  Reserved 
+           0x0080=  Reserved 
+           0x0100=  Reserved 
+           0x0200=  Reserved 
+           0x0400=  DM3
+           0x0800=  DH3
+           0x1000=  Reserved 
+           0x2000=  Reserved 
+           0x4000=  DM5
+           0x8000=  DH5
+         }
+         FormatValue=  0x%04X 
+       }
+       Bytes(11,11)={
+         Name=Page_Scan_Repetition_Mode
+         WordValue={
+           0x00=  R0
+           0x01=  R1
+           0x02=  R2
+         }
+         FormatValue=  0x%02X (Reserved)
+       }
+       Bytes(12,12)={
+         Name=Page_Scan_Mode
+         WordValue={
+           0x00=  Mandatory Page Scan Mode
+           0x01=  Optional Page Scan Mode I
+           0x02=  Optional Page Scan Mode II
+           0x03=  Optional Page Scan Mode III
+         }
+         FormatValue=  0x%02X (Reserved)
+       }
+       Bytes(13,14)={
+         Name=Clock_Offset
+         Bitmap={
+           0=Bit  2 of CLKslave-CLKmaster
+           1=Bit  3 of CLKslave-CLKmaster
+           2=Bit  4 of CLKslave-CLKmaster
+           3=Bit  5 of CLKslave-CLKmaster
+           4=Bit  6 of CLKslave-CLKmaster
+           5=Bit  7 of CLKslave-CLKmaster
+           6=Bit  8 of CLKslave-CLKmaster
+           7=Bit  9 of CLKslave-CLKmaster
+           8=Bit 10 of CLKslave-CLKmaster
+           9=Bit 11 of CLKslave-CLKmaster
+           10=Bit 12 of CLKslave-CLKmaster
+           11=Bit 13 of CLKslave-CLKmaster
+           12=Bit 14 of CLKslave-CLKmaster
+           13=Bit 15 of CLKslave-CLKmaster
+           14=Bit 16 of CLKslave-CLKmaster
+           15=Clock_Offset_Valid_Flag
+         }
+       }
+       Bytes(15,15)={
+         Name=Allow_Role_Switch
+         WordValue={
+           0x00=  The local device will be a master.
+           0x01=  The local device may be a master, or may become a slave
+         }
+         FormatValue=  0x%02X (Reserved)
+       }
+     } ;*************** End HCI_Create_Connection command parameters *******
+
+     ;*************** HCI_Disconnect command parameters ***********
+     0x0406={
+       Bytes(3,4)={
+         Name=Connection_Handle
+         FormatValue=  0x%04X
+       }
+       Bytes(5,5)={
+         Name=Reason
+         WordValue={
+           0x05=  Error code: Authentication Failure 
+           0x13=  Error code: User Ended Connection
+           0x14=  Error code: Low Resources
+           0x15=  Error code: About to power off
+           0x1A=  Error code: Unsupported Remote Feature
+           0x29=  Error Code: Pairing with Unit Key Not Supported
+         }
+         FormatValue=  0x%02X (This error is not defined for this command)
+       }
+     }
+
+     ;*************** HCI_Add_SCO_Connection command parameters ***********
+     0x0407={
+       Bytes(3,4)={
+         Name=Connection_Handle
+         FormatValue=  0x%04X
+       }       
+       Bytes(5,6)={
+         Name=Packet_Type
+         WordValue={
+           0x0001=  Reserved (0x0001)
+           0x0002=  Reserved (0x0002)
+           0x0004=  Reserved (0x0004)
+           0x0008=  Reserved (0x0008)
+           0x0010=  Reserved (0x0010)
+           0x0020=  HV1
+           0x0040=  HV2
+           0x0080=  HV3
+           0x0100=  Reserved (0x0100) 
+           0x0200=  Reserved (0x0200) 
+           0x0400=  Reserved (0x0400)
+           0x0800=  Reserved (0x0800)
+           0x1000=  Reserved (0x1000) 
+           0x2000=  Reserved (0x2000)
+           0x4000=  Reserved (0x4000)
+           0x8000=  Reserved (0x8000)
+         }
+         FormatValue  0x%04X (Value not defined in the spec)         
+       }
+     }
+
+     ;*************** HCI_Accept_Connection_Request command parameters ***********
+     0x0409={
+       Bytes(3,8)={
+         Name=BD_ADDR
+         FormatValue=  Device to be connected: 0x
+       }
+       Bytes(9,9)={
+         Name=Role
+         WordValue={
+           0x00=  Become the Master for this connection
+           0x01=  Remain the Slave for this connection
+         }
+         FormatValue=  0x%02X (role not defined)
+       }
+     }
+
+     ;*************** HCI_Reject_Connection_Request command parameters ***********
+     0x040A={
+       Bytes(3,8)={
+         Name=BD_ADDR
+         FormatValue=  Device being rejected: 0x
+       }
+       Bytes(9,9)={
+         Name=Reason
+         WordValue={
+           0x0D=  Host rejected due to limited resources
+           0x0E=  Host rejected due to security reasons
+           0x0F=  Host rejected due to remote device is only a personal device
+         }
+         FormatValue=  0x%02X (Error not defined for this command)
+       }
+     }
+
+     ;*************** HCI_Link_Key_Request_Reply command parameters ***********
+     0x040B={
+       Bytes(3,8)={
+         Name=BD_ADDR
+         FormatValue=  Device Link Key is for: 0x
+       }
+       Bytes(9,24)={
+         Name=Link_Key 
+         FormatValue=  0x
+       }
+     }
+
+     ;*************** HCI_Link_Key_Request_Negative_Reply command parameters ***********
+     0x040C={
+       Bytes(3,8)={
+         Name=BD_ADDR
+         FormatValue=  Device Link Key is for: 0x
+       }
+     }
+
+     ;*************** HCI_PIN_Code_Request_Reply command parameters ***********
+     0x040D={
+       Bytes(3,8)={
+         Name=BD_ADDR
+         FormatValue=  Device PIN Code is for: 0x
+       }
+       Bytes(9,9)={
+         Name=PIN_Code_Length
+         FormatValue=  %d bytes
+       }
+       Bytes(10,?)={
+         FormatValue=PIN_Code
+       }
+     }
+
+     ;*************** HCI_PIN_Code_Request_Negative_Reply command parameters ***********
+     0x040E={
+       Bytes(3,8)={
+         Name=BD_ADDR
+         FormatValue=  Device PIN Code is for: 0x
+       }
+     }
+
+     ;*************** HCI_Change_Connection_Packet_Type command parameters ***********
+     0x040F={
+       Bytes(3,4)={
+         Name=Connection_Handle
+         FormatValue=  0x%04X
+       }
+       Bytes(5,6)={
+         Name=Packet_Type
+         WordValue={
+           0x0001=  Reserved (0x0001)
+           0x0002=  Reserved (0x0002)
+           0x0004=  Reserved (0x0004)
+           0x0008=  DM1
+           0x0010=  DH1
+           0x0020=  HV1 
+           0x0040=  HV2 
+           0x0080=  HV3 
+           0x0100=  Reserved (0x0100) 
+           0x0200=  Reserved (0x0200) 
+           0x0400=  DM3
+           0x0800=  DH3
+           0x1000=  Reserved (0x1000) 
+           0x2000=  Reserved (0x2000)
+           0x4000=  DM5
+           0x8000=  DH5
+         }
+         FormatValue=  0x%04X 
+       }
+     }
+
+     ;*************** HCI_Authentication_Requested command parameters ***********
+     0x0411={
+       Bytes(3,4)={
+         Name=Connection_Handle
+         FormatValue=  0x%04X
+       }
+     }
+
+     ;*************** HCI_Set_Connection_Encryption command parameters ***********
+     0x0413={
+       Bytes(3,4)={
+         Name=Connection_Handle
+         FormatValue=  0x%04X
+       }
+       Bytes(5,5)={
+         Name=Encryption_Enable
+         WordValue={
+           0x00=  Turn Link Level Encryption OFF
+           0x01=  Turn Link Level Encryption ON
+         }
+         FormatValue=  0x%02X (Value is not defined in the spec)
+       }
+     }
+
+     ;*************** HCI_Change_Connection_Link_Key command parameters ***********
+     0x0415={
+       Bytes(3,4)={
+         Name=Connection_Handle
+         FormatValue=  0x%04X
+       }
+     }
+
+     ;*************** HCI_Master_Link_Key command parameters **************
+     0x0417={
+       Bytes(3,3)={
+         Name=Key_Flag
+         WordValue={
+          0x00=  Use semi-permanent Link Keys
+          0x01=  Use Temporary Link Key
+         }
+         FormatValue=  0x%02X (Value is not defined in the spec)
+       }
+     }
+
+     ;*************** HCI_Remote_Name_Request command parameters ***********
+     0x0419={
+       Bytes(3,8)={
+         Name=BD_ADDR
+         FormatValue=  Name requested for device 0x
+       }
+       Bytes(9,9)={
+         Name=Page_Scan_Repetition_Mode
+         WordValue={
+           0x00=  R0
+           0x01=  R1
+           0x02=  R2
+         }
+         FormatValue=  0x%02X (Reserved)
+       }
+       Bytes(10,10)={
+         Name=Page_Scan_Mode
+         WordValue={
+           0x00=  Mandatory Page Scan Mode
+           0x01=  Optional Page Scan Mode I
+           0x02=  Optional Page Scan Mode II
+           0x03=  Optional Page Scan Mode III
+         }
+         FormatValue=  0x%02X (Reserved)
+       }
+       Bytes(11,12)={
+         Name=Clock_Offset
+         Bitmap={
+           0=Bit  2 of CLKslave-CLKmaster
+           1=Bit  3 of CLKslave-CLKmaster
+           2=Bit  4 of CLKslave-CLKmaster
+           3=Bit  5 of CLKslave-CLKmaster
+           4=Bit  6 of CLKslave-CLKmaster
+           5=Bit  7 of CLKslave-CLKmaster
+           6=Bit  8 of CLKslave-CLKmaster
+           7=Bit  9 of CLKslave-CLKmaster
+           8=Bit 10 of CLKslave-CLKmaster
+           9=Bit 11 of CLKslave-CLKmaster
+           10=Bit 12 of CLKslave-CLKmaster
+           11=Bit 13 of CLKslave-CLKmaster
+           12=Bit 14 of CLKslave-CLKmaster
+           13=Bit 15 of CLKslave-CLKmaster
+           14=Bit 16 of CLKslave-CLKmaster
+           15=Clock_Offset_Valid_Flag
+         }         
+       }
+     }
+
+     ;*************** HCI_Read_Remote_Supported_Features command parameters *********** 
+     0x041B={
+       Bytes(3,4)={
+         Name=Connection_Handle
+         FormatValue=  0x%04X
+       }
+     }
+
+     ;*************** HCI_Read_Remote_Version_Information command parameters *********** 
+     0x041D={
+       Bytes(3,4)={
+         Name=Connection_Handle
+         FormatValue=  0x%04X
+       }
+     }
+ 
+     ;*************** HCI_Read_Clock_Offset command parameters *********** 
+     0x041F={
+       Bytes(3,4)={
+         Name=Connection_Handle
+         FormatValue=  0x%04X
+       }
+     }
+
+
+;*******************************************************************
+;********* End of Link Control Commands  ***************************
+;*******************************************************************
+
+
+;*******************************************************************
+;********* Link Policy Commands     ********************************
+;*******************************************************************
+
+     ;***************  Hold_Mode command ******************
+     0x0801={
+       Bytes(3,4)={
+         Name=Connection_Handle 
+         FormatValue=  0x%04X
+       }
+       Bytes(5,6)={
+         Name=Hold_Mode_Max_Interval
+         FormatValue=  %d Baseband slots (*0.625 msec)
+       }
+       Bytes(7,8)={
+         Name=Hold_Mode_Min_Interval
+         FormatValue=  %d Baseband slots (*0.625 msec)
+       }
+     }   ;*************** end of Hold_Mode  command ******************
+   
+    
+     ;*************** Sniff_Mode  command ******************
+     0x0803={
+       Bytes(3,4)={
+         Name=Connection_Handle
+         FormatValue=  0x%04X
+       }
+       Bytes(5,6)={
+         Name=Sniff_Max_Interval
+         FormatValue=  %d Baseband slots (*0.625 msec)
+       }
+       Bytes(7,8)={
+         Name=Sniff_Min_Interval
+         FormatValue=  %d Baseband slots (*0.625 msec)
+       }
+       Bytes(9,10)={
+         Name=Sniff_Attempt
+         FormatValue=  %d Baseband slots (*0.625 msec)
+       }
+       Bytes(11,12)={
+         Name=Sniff_Timeout
+         FormatValue=  %d Baseband slots (*0.625 msec)
+       }
+     }   ;*************** end of Sniff_Mode  command ******************
+   
+   
+     ;*************** Exit_Sniff_Mode  command ******************
+     0x0804={
+       Bytes(3,4)={
+         Name=Connection_Handle
+         FormatValue=  0x%04X
+       }
+     }  ;*************** end of Exit_Sniff_Mode  command ******************
+   
+     ;*************** Park_Mode  command ******************
+     0x0805={
+       Bytes(3,4)={
+         Name=Connection_Handle
+         FormatValue=  0x%04X
+       }
+       Bytes(5,6)={
+         Name=Beacon_Max_Interval
+         FormatValue=  %d Baseband slots (*0.625 msec)
+       }
+       Bytes(7,8)={
+	  Name=Beacon_Min_Interval
+         FormatValue=  %d Baseband slots (*0.625 msec)
+       }
+     }  ;*************** end of  Park_Mode command ******************
+   
+     ;***************  Exit_Park_Mode command ******************
+     0x0806={
+       Bytes(3,4)={
+         Name=Connection_Handle
+         FormatValue=  0x%04X
+       }
+     }  ;*************** end of Exit_Park_Mode  command ******************
+   
+     ;*************** QoS_Setup  command ******************
+     0x0807={
+       Bytes(3,4)={
+         Name=Connection_Handle
+         FormatValue=  0x%04X
+       }
+       Bytes(5,5)={
+         Name=Flags
+         FormatValue=  0x%02X (all values reserved)
+       }
+       Bytes(6,6)={
+         Name=Service_Type
+         WordValue={
+           0x00=  No Traffic
+           0x01=  Best Effort
+           0x02=  Guaranteed
+         }
+         FormatValue=  0x%02X (reserved)
+       }
+       Bytes(7,10)={
+         Name=Token_Rate
+         FormatValue= %i bytes per second
+       }
+       Bytes(11,14)={
+         Name=Peak_Bandwidth
+         FormatValue=  %i bytes per second
+       }
+       Bytes(15,18)={
+         Name=Latency
+         FormatValue=  %i microseconds
+       }
+       Bytes(19,22)={
+         Name=Delay_Variation
+         FormatValue=  %i microseconds
+       }
+     }  ;*************** end of QoS_Setup  command ******************
+   
+   
+     ;*************** Role_Discovery  command ******************
+     0x0809={
+       Bytes(3,4)={
+         Name=Connection_Handle
+         FormatValue=  0x%04X
+       }
+     }  ;*************** end of Role_Discovery  command ******************
+   
+   
+     ;*************** Switch_Role  command ******************
+     0x080B={
+       Bytes(3,8)={
+         Name=BD_ADDR
+         FormatValue=  Device 0x
+       }
+       Bytes(9,9)={
+         Name=Role
+         WordValue={
+           0x00=  Change own Role to Master for this BD_ADDR
+           0x01=  Change own Role to Slave for this BD_ADDR
+         }
+         FormatValue=  0x%02X (Value not defined in the spec)
+       }
+     }   ;*************** end of Switch_Role  command ******************
+   
+   
+     ;*************** Read_Link_Policy_Settings  command ******************
+     0x080C={
+       Bytes(3,4)={
+         Name=Connection_Handle
+         FormatValue=  0x%04X
+       }
+     }   ;*************** end of Read_Link_Policy_Settings  command ******************
+   
+   
+     ;*************** Write_Link_Policy_Settings  command ******************
+     0x080D={
+       Bytes(3,4)={
+         Name=Connection_Handle
+         FormatValue=  0x%04X
+       }
+       Bytes(5,6)={
+         Name=Link_Policy_Settings
+         WordValue={
+             0x0000=  Disable All LM Modes (Default)
+             0x0001=  Enable Master Slave Switch
+             0x0002=  Enable Hold Mode
+             0x0004=  Enable Sniff Mode
+             0x0008=  Enable Park Mode
+             0x0010=  Reserved (0x0010)
+             0x0020=  Reserved (0x0020)
+             0x0040=  Reserved (0x0040)
+             0x0080=  Reserved (0x0080)
+             0x0100=  Reserved (0x0100)
+             0x0200=  Reserved (0x0200) 
+             0x0400=  Reserved (0x0400)
+             0x0800=  Reserved (0x0800)
+             0x1000=  Reserved (0x1000)
+             0x2000=  Reserved (0x2000)
+             0x4000=  Reserved (0x4000)
+             0x8000=  Reserved (0x8000)
+         }
+         FormatValue=  0x%04X 
+       }
+     }   ;*************** end of Write_Link_Policy_Settings  command ******************
+
+
+;*******************************************************************
+;********* End of Link Policy Commands      ************************
+;*******************************************************************
+
+
+  ;*************************************************************************
+  ; Host Controller & Baseband commands
+  ;*************************************************************************
+
+     ;********* Set_Event_Mask command parameters ***********************
+     0x0C01={  
+       Bytes(3,6)={
+         Name=Event Mask
+         WordValue={
+           0x00000000=  No events specified
+           0x00000001=  Inquiry Complete event
+           0x00000002=  Inquiry Result event
+           0x00000004=  Connection Complete event
+           0x00000008=  Connection Request event
+           0x00000010=  Disconnection Complete event
+           0x00000020=  Authentication Complete event
+           0x00000040=  Remote Name Request Complete event
+           0x00000080=  Encryption Change event
+           0x00000100=  Change Connection Link Key Complete event
+           0x00000200=  Master Link Key Complete event
+           0x00000400=  Read Remote Supported Features Complete event
+           0x00000800=  Read Remote Version Information Complete event
+           0x00001000=  QoS Setup Complete event
+           0x00002000=  Command Complete event
+           0x00004000=  Command Status event
+           0x00008000=  Hardware Error event
+           0x00010000=  Flush Occurred event
+           0x00020000=  Role Change event
+           0x00040000=  Number Of Completed Packets event
+           0x00080000=  Mode Change event
+           0x00100000=  Return Link Keys event
+           0x00200000=  PIN Code Request event
+           0x00400000=  Link Key Request event
+           0x00800000=  Link Key Notification event
+           0x01000000=  Loopback Command event
+           0x02000000=  Data Buffer Overflow event
+           0x04000000=  Max Slots Change event
+           0x08000000=  Read Clock Offset Complete event
+           0x10000000=  Connection Packet Type Changed event
+           0x20000000=  QoS Violation event
+           0x40000000=  Page Scan Mode Change event
+           0x80000000=  Page Scan Repetition Mode Change event
+           0xFFFFFFFF=  Default (All events enabled)
+         }
+         FormatValue=  0x%08X 
+       }
+       Bytes(7,10)={
+         Name=Event Mask, Upper Part
+         FormatValue=  0x%08X
+       }
+     } ;*********** End of Set_Event_Mask command ************************
+
+      
+     ;********* Set_Event_Filter command parameters ***********************
+     0x0C05={  
+
+       Bytes(3,3)={
+         Name=Filter Type
+         WordValue={
+           0x00=  Clear All Filters
+           0x01=  Inquiry Result
+           0x02=  Connection Setup
+         }
+         FormatValue=  0x%02X (Reserved for Future Use)
+       }
+
+       Depends(Databytes(3,3))={
+
+         ;******** For Inquiry Result Filter Type ************************
+         0x01={
+           Bytes(4,4)={                                                                                                          
+             Name=Filter Condition Type
+             WordValue={                                                                                                          
+               0x00=  A new device responded to the Inquiry process
+               0x01=  A device w/specific Class of Device responded to the Inquiry process
+               0x02=  A device w/specific BD_ADDR responded to the Inquiry process
+             }
+             FormatValue=  0x%02X (Reserved for Future Use)
+           }
+
+           Depends(Databytes(4,4))={
+
+             ;******** For Condition Type 0x01 ************************
+             0x01={
+               Bytes(5,7)={
+                 Name=Class of Device
+                 WordValue={
+                   0x00=  Return All Devices (Default)
+                 }
+                 FormatValue= 0x%06X Device Class
+               }
+               Bytes(8,10)={
+                 Name=Class of Device Mask
+                 FormatValue= 0x%06X Don't care bits (zeroes)
+               }
+             }
+
+             ;******** For Condition Type 0x02 ************************
+             0x02={
+               Bytes(5,10)={
+                 Name=BD_ADDR
+                 FormatValue=  Device of interest 0x
+               }
+             }
+
+           }
+         } ;****** End Inquiry Result Filter Type ************************
+     
+         ;******** For Connection Setup Filter Type ************************
+         0x02={
+                                                                                                                                    
+           Bytes(4,4)={                                                                                                          
+             Name=Filter Condition Type
+             WordValue={                                                                                                          
+               0x00=  Allow Connections from all devices
+               0x01=  Allow Connections from a device w/specific Class of Device
+               0x02=  Allow Connections from a device w/specific BD_ADDR
+             }                                                                                                                    
+             FormatValue=  0x%02X (Reserved for Future Use)
+           }
+           
+           Depends(Databytes(4,4))={
+
+             ;******** For Condition Type 0x00 ************************
+             0x00={
+               Bytes(5,5)={
+                 Name=Auto-Accept Flag
+                 WordValue={
+                   0x01=  Do NOT Auto-accept the connection
+                   0x02=  Do Auto-accept the connection
+                 }
+                 FormatValue=  0x%02X (Reserved for Future Use)
+               }
+             } ;****** End Condition Type 0x00 ************************
+
+             ;******** For Condition Type 0x01 ************************
+             0x01={
+               Bytes(5,7)={
+                 Name=Class of Device
+                 WordValue={
+                   0x00=  Return All Devices (Default)
+                 }
+                 FormatValue= 0x%06X Device Class
+               }
+               Bytes(8,10)={
+                 Name=Class of Device Mask
+                 FormatValue= 0x%06X Don't care bits (zeroes)
+               }
+               Bytes(11,11)={
+                 Name=Auto-Accept Flag
+                 WordValue={
+                   0x01=  Do NOT Auto-accept the connection
+                   0x02=  Do Auto-accept the connection
+                 }
+                 FormatValue=  0x%02X (Reserved for Future Use)
+               }               
+             } ;****** End Condition Type 0x01 ************************
+
+             ;******** For Condition Type 0x02 ************************
+             0x02={
+               Bytes(5,10)={
+                 Name=BD_ADDR
+                 FormatValue=  Device of interest 0x
+               }
+               Bytes(11,11)={
+                 Name=Auto-Accept Flag
+                 WordValue={
+                   0x01=  Do NOT Auto-accept the connection
+                   0x02=  Do Auto-accept the connection
+                 }
+                 FormatValue=  0x%02X (Reserved for Future Use)
+               }               
+             }
+
+           }
+
+         } ;******* End Connection Setup Filter Type ***********************
+
+       } ;********* End Filter Type dependency *****************************
+
+     } ;*********** End of Set_Event_Filter command ************************
+     
+     ;********* Flush command parameters ***********************
+     0x0C08={
+       Bytes(3,4)={
+         Name=Connection_Handle 
+         FormatValue=  0x%04X
+       }
+     } ;*********** End of Flush command ************************
+
+     ;********* Write_PIN_Type command **************************
+     0x0C0A={
+       Bytes(3,3)={
+         Name=PIN_Type
+         WordValue={
+           0x00=  Variable PIN
+           0x01=  Fixed PIN
+         }
+         FormatValue= 0x%02X (This value is not defined in the specification)
+       }
+     } ;********* End of Write_PIN_Type command ******************
+
+     ;********** Read_Stored_Link_Key command *******************
+     0x0C0D={
+       Bytes(3,8)={
+         Name=BD_ADDR
+         FormatValue=  Key to be read for device 0x
+       }
+       Bytes(9,9)={
+         Name=Read_All_Flag
+         WordValue={
+           0x00=  Return Link Key for specified BD_ADDR
+           0x01=  Return all stored Link Keys
+         }
+         FormatValue=  0x%02X (Reserved for future use)
+       }
+     }  ;********** End of Read_Stored_Link_Key command *******************
+
+     ;********** Write_Stored_Link_Key command *******************
+     0x0C11={
+       Bytes(3,3)={
+         Name=Num_Keys_To_Write
+         FormatValue=  %d
+       }
+       Depends(Databytes(3,3))={
+         0x01={
+           Bytes(4,9)={
+             Name=BD_ADDR [1]
+             FormatValue=  0x
+           }
+           Bytes(10,25)={
+             Name=Link_Key [1]
+             FormatValue=  0x
+           }
+         }
+       }
+
+       Bytes(4,?)={
+         FormatValue=All BD_ADDR and Key data
+       }
+
+     }   ;********** End of Write_Stored_Link_Key command *******************
+
+     ;********** Delete_Stored_Link_Key command *******************
+     0x0C12={
+       Bytes(3,8)={
+         Name=BD_ADDR
+         FormatValue= Device 0x
+       }
+       Bytes(9,9)={
+         Name=Delete_All_Flag
+         WordValue={
+           0x00=  Delete only the Link Key for specified BD_ADDR
+           0x01=  Delete all stored Link Keys
+         }
+         FormatValue=  0x%02X (Reserved for future use)
+       }
+     } ;********** End of Delete_Stored_Link_Key command *******************
+ 
+     ;********** Change_Local_Name command *******************
+     0x0C13={
+       Bytes(3,?)={         
+         FormatValue=Name
+       } 
+     }  ;********** End of Change_Local_Name command *******************
+ 
+     ;********** Write_Connection_Accept_Timeout command *******************
+     0x0C16={
+       Bytes(3,4)={
+         Name=Conn_Accept_Timeout
+         FormatValue=  %d Baseband slots ( * 0.625 msec)
+       }
+     }  ;********** End Write_Connection_Accept_Timeout command *******************
+ 
+  
+     ;********** Write_Page_Timeout command *******************
+     0x0C18={
+        Bytes(3,4)={
+          Name=Page_Timeout
+          WordValue={
+            0x0000=  Illegal Page Timeout. Must be larger than 0
+          }
+          FormatValue=  %d Baseband slots ( * 0.625 msec)
+        }
+     }   ;********** End of Write_Page_Timeout command *******************
+ 
+ 
+     ;********** Write_Scan_Enable command *******************
+     0x0C1A={
+       Bytes(3,3)={
+         Name=Scan_Enable
+         WordValue={
+           0x00=  No Scans enabled. Default.
+           0x01=  Inquiry Scan enabled. Page Scan disabled.
+           0x02=  Inquiry Scan disabled.Page Scan enabled.
+           0x03=  Inquiry Scan enabled. Page Scan enabled.
+         }
+         FormatValue=  0x%02X (Value not defined in the spec) 
+       }
+     }    ;********** End Write_Scan_Enable command *******************
+ 
+ 
+     ;*********** Write_Page_Scan_Activity command *************
+     0x0C1C={
+       Bytes(3,4)={
+         Name=Page_Scan_Interval
+         FormatValue=  %d * 0.625 msec
+       }
+       Bytes(5,6)={
+         Name=Page_Scan_Window
+         FormatValue=  %d * 0.625 msec
+       }
+     }   ;*********** End of Write_Page_Scan_Activity command *************
+ 
+ 
+     ;*********** Write_Inquiry_Scan_Activity command *************
+     0x0C1E={
+       Bytes(3,4)={
+         Name=Inquiry_Scan_Interval
+         FormatValue=  %d * 0.625 msec
+       }
+       Bytes(5,6)={
+         Name=Inquiry_Scan_Window
+         FormatValue=  %d * 0.625 msec
+       }
+     }  ;*********** End of Write_Inquiry_Scan_Activity command *************
+ 
+ 
+     ;***********Write_Authentication_Enable command *************
+     0x0C20={
+       Bytes(3,3)={
+         Name=Authentication_Enable
+         WordValue={
+           0x00=  Authentication disabled (Default)
+           0x01=  Authentication enabled for all connection
+         }
+         FormatValue=  0x%02X (Reserved)
+       }
+     }   ;*********** End of Write_Authentication_Enable command *************
+ 
+ 
+     ;*********** Write_Encryption_Mode command *************
+     0x0C22={
+       Bytes(3,3)={
+         Name=Encryption_Mode
+         WordValue={
+           0x00=  Encryption disabled (Default)
+           0x01=  Encryption only for point-to-point packets
+           0x02=  Encryption for both point-to-point and broadcast packets
+         }
+         FormatValue=  0x%02X (Reserved)
+       }
+     }      ;*********** Write_Encryption_Mode command *************
+ 
+ 
+     ;*********** Write_Class_of_Device command *************
+     0x0C24={
+       Bytes(3,5)={
+         Name=Class_of_Device
+         FormatValue=  0x%06X class
+       }
+     }     ;*********** End of Write_Class_of_Device command *******
+ 
+ 
+     ;********** Write_Voice_Setting Command ************
+     0x0C26={
+       Bytes(3,4)={
+         Name=Voice_Setting
+         Bitmap={
+           0=Air Coding Format
+           1=Air Coding Format
+           2=Linear_PCM_Bit_Pos
+           3=Linear_PCM_Bit_Pos
+           4=Linear_PCM_Bit_Pos
+           5=Input Sample Size 8/16 bit
+           6=Input Data Format
+           7=Input Data Format
+           8=Input Coding
+           9=Input Coding
+         }
+       }
+     }    ;********** End of Write_Voice_Setting Command ************
+
+     ;********** Read_Automatic_Flush_Timeout Command ************
+     0x0C27={
+       Bytes(3,4)={
+         Name=Connection_Handle
+         FormatValue=  0x%04X
+       }
+     }    ;********** End of Read_Automatic_Flush_Timeout Command ************
+    
+     ;********** Write_Automatic_Flush_Timeout Command ************
+     0x0C28={
+       Bytes(3,4)={
+         Name=Connection_Handle
+         FormatValue=  0x%04X
+       }
+       Bytes(5,6)={
+         Name=Flush_Timeout
+         WordValue={
+           0x0000=  No Automatic Flush (Default)
+         }
+         FormatValue=  %d * 0.625 msec
+       }
+     }    ;********** Write_Automatic_Flush_Timeout Command ************
+    
+    
+     ;********** Write_Num_Broadcast_Retransmissions Command ************
+     0x0C2A={
+       Bytes(3,3)={
+         Name=Num_Broadcast_Retran
+         FormatValue=  %d Broadcast Retransmissions
+       }
+     }  ;********** End of Write_Num_Broadcast_Retransmissions Command ************
+    
+    
+     ;************* Write_Hold_Mode_Activity Command ***********
+     0x0C2C={
+       Bytes(3,3)={
+         Name=Hold_Mode_Activity
+         WordValue={
+            0x00=  Maintain current Power State (Default)
+            0x01=  Suspend Page Scan
+            0x02=  Suspend Inquiry Scan
+            0x04=  Suspend Periodic Inquiries
+         }
+         FormatValue=  0x%02X (Reserved for Future Use)
+       }
+     } ;************** End of Write_Hold_Mode_Activity command ******
+    
+     ;************* Read_Transmit_Power_Level command *************
+     0x0C2D={
+       Bytes(3,4)={
+         Name=Connection_Handle 
+         FormatValue=  0x%04X
+       }
+       Bytes(5,5)={
+         Name=Type
+         WordValue={
+            0x00=  Read Current Transmit Power Level
+            0x01=  Read Maximum Transmit Power Level
+         }
+         FormatValue=  0x%02X (Reserved)
+       }
+     }    ;************* End of Read_Transmit_Power_Level command *************
+    
+    
+     ;*********** Write_SCO_Flow_Control_Enable command *********
+     0x0C2F={
+       Bytes(3,3)={
+         Name=SCO_Flow_Control_Enable
+         WordValue={
+           0x00=  SCO Flow Control is disabled (Default)
+           0x01=  SCO Flow Control is enabled
+         }
+         FormatValue=  0x%02X (Value not defined in the spec)
+       }
+     }  ;************* End of Write_SCO_Flow_Control_Enable command ****
+
+
+     ;************ Set_Host_Controller_To_Host_Flow_Control command ****
+     0x0C31={
+       Bytes(3,3)={
+         Name=Flow_Control_Enable 
+         WordValue={
+           0x00=  Flow control OFF in direction from HC to Host (Default)
+           0x01=  Flow control on for HCI ACL Data Packets and off for HCI SCO Data Packets in direction from Host Controller to Host.
+           0x02=  Flow control off for HCI ACL Data Packets and on for HCI SCO Data Packets in direction from Host Controller to Host.
+           0x03=  Flow control on both for HCI ACL Data Packets and HCI SCO Data Packets in direction from Host Controller to Host.
+         }
+         FormatValue=  0x%02X (Reserved)
+       }
+     } ;********* End of Set_Host_Controller_To_Host_Flow_Control command **
+   
+   
+     ;************** Host_Buffer_Size command ***************
+     0x0C33={
+       Bytes(3,4)={
+         Name=Host_ACL_Data_Packet_Length
+         FormatValue=  %d bytes maximum
+       }
+       Bytes(5,5)={
+         Name=Host_SCO_Data_Packet_Length
+         FormatValue=  %d bytes maximum
+       }
+       Bytes(6,7)={
+         Name=Host_Total_Num_ACL_Data_Packets
+         FormatValue=  %d packets can be stored at the Host
+       }
+       Bytes(8,9)={
+         Name=Host_Total_Num_SCO_Data_Packets
+         FormatValue=  %d packets can be stored at the Host
+       }
+     }  ;************** End of Host_Buffer_Size command **********
+   
+   
+     ;************ Host_Number_Of_Completed_Packets Command
+     0x0C35={
+       Bytes(3,3)={
+         Name=Number_Of_Handles
+         FormatValue=  %d
+       }
+       Depends(Databytes(3,3))={
+         0x01={
+           Bytes(4,5)={
+             Name=Connection_Handle[1]
+             FormatValue=  0x%04X
+           }
+           Bytes(6,7)={
+             Name=Host_Num_Of_Completed_Packets [1]
+             FormatValue=  %d packets
+           }
+         }   
+       }
+
+       Bytes(4,?)={
+         FormatValue=All Handle and Num_Packets parameters
+       }
+
+     }   ;************ End of Host_Number_Of_Completed_Packets Command
+   
+   
+     ;****************** Read_Link_Supervision_Timeout command ****
+     0x0C36={
+       Bytes(3,4)={
+         Name=Connection_Handle
+         FormatValue=  0x%04X
+       }
+     }   ;****************** End of Read_Link_Supervision_Timeout command ****
+   
+     
+     ;*************** Write Link_Supervision_Timeout command *******
+     0x0C37={
+       Bytes(3,4)={
+         Name=Connection_Handle
+         FormatValue=  0x%04X
+       }
+       Bytes(5,6)={
+         Name=Link_Supervision_Timeout
+          WordValue={
+            0x0000=  No Link_Supervision_Timeout
+          }
+          FormatValue=  %d Baseband slots (*0.625 msec)
+        }
+     }    ;*************** End of Write Link_Supervision_Timeout command *******
+   
+   
+     ;*********** Write_Current_IAC_LAP command **************
+     0x0C3A={
+       Bytes(3,3)={
+         Name=Num_Current_IAC
+         FormatValue=  %d IACs
+       }
+       Depends(Databytes(3,3))={
+         0x01={
+           Bytes(4,6)={
+             Name=IAC_LAP[1]
+             FormatValue=  0x%06X
+           }
+         }   
+       }
+
+       Bytes(4,?)={
+         FormatValue=All IAC_LAP data    
+       }
+
+     }  ;*********** End of Write_Current_IAC_LAP command **************
+   
+     ;************ Write_Page_Scan_Period_Mode command *********
+     0x0C3C={
+       Bytes(3,3)={
+         Name=Page_Scan_Period_Mode
+         WordValue={
+           0x00=  P0 (Default)
+           0x01=  P1
+           0x02=  P2
+         }
+         FormatValue=  0x%02X (Reserved)
+       }
+     }    ;************ End of Write_Page_Scan_Period_Mode command *********
+   
+   
+     ;******************** Write_Page_Scan_Mode command ********
+     0x0C3E={
+       Bytes(3,3)={
+         Name=Page_Scan_Mode
+         WordValue={
+           0x00=  Mandatory Page Scan Mode (Default)
+           0x01=  Optional Page Scan Mode I
+           0x02=  Optional Page Scan Mode II
+           0x03=  Optional Page Scan Mode III
+         }
+         FormatValue=  0x%02X (Reserved)
+       }
+     }    ;******************** End of Write_Page_Scan_Mode command *****
+
+;*******************************************************************
+;******** End of Host Controller & Baseband commands ***************
+;*******************************************************************
+
+;*******************************************************************
+;********* Status Parameters Commands ******************************
+;*******************************************************************
+
+     ;*** Read_Failed_Contact_Counter Command ***********
+     0x1401={       
+       Bytes(3,4)={
+         Name=Connection_Handle
+         FormatValue=  0x%04X
+       }
+     }
+   
+     ;*** Reset_Failed_Contact_Counter Command ***********
+     0x1402={
+       Bytes(3,4)={
+         Name=Connection_Handle
+         FormatValue=  0x%04X
+       }
+     }
+   
+     ;*** Get_Link_Quality Command ***********
+     0x1403={       
+       Bytes(3,4)={
+         Name=Connection_Handle
+         FormatValue=  0x%04X
+       }
+     }
+   
+     ;*** Read_RSSI Command ***********
+     0x1405={       
+       Bytes(3,4)={
+         Name=Connection_Handle
+         FormatValue=  0x%04X
+       }
+     }    
+
+;*******************************************************************
+;********* End of Status Parameters Command ************************
+;*******************************************************************
+
+;*******************************************************************
+;********* Testing Commands                 ************************
+;*******************************************************************
+
+     ;********* Write_Loopback_Mode command *********
+     0x1802={
+       Bytes(3,3)={
+         Name=Loopback_Mode
+         WordValue={
+           0x00=  No Loopback mode enabled. Default
+           0x01=  Enable Local Loopback
+           0x02=  Enable Remote Loopback
+         }
+         FormatValue=  0x%02X (Reserved)
+       }
+     }    ;********* End of Write_Loopback_Mode command *********
+
+;*******************************************************************
+;********* End of Testing Commands          ************************
+;*******************************************************************
+
+
+   } ;************* End of all parameters for all commands *****************
+
+ } ;*************** End of Data description ********************************
+
+} ;**************** Closing brakets for the request ************************
+
+
+
+
+;***************************************************************************
+;**************** EVENTS DEFINITIONS ***************************************
+;***************************************************************************
+
+EndpointData={
+
+   ; Global definitions
+   Caption=Bluetooth HCI Event Packet
+
+   EndpointType=Interrupt
+   EndpointDirection=IN
+   EndpointId=1
+   MaxPacketSize=16
+   MaxTransferSize=3573   
+  
+   ;*** Field Definitions start here ********
+   Data={
+ 
+     Length=?
+
+     ;*** Event code ****************
+     Bytes(0,0)={
+       Name=Event Code
+       Color(100,100,10)
+       WordValue={
+         0x01=  Inquiry Complete
+         0x02=  Inquiry Result
+         0x03=  Connection Complete
+         0x04=  Connection Request
+         0x05=  Disconnection Complete
+         0x06=  Authentication Complete
+         0x07=  Remote Name Request Complete
+         0x08=  Encryption Change
+         0x09=  Change Connection Link Key Complete
+         0x0A=  Master Link Key Complete
+         0x0B=  Read Remote Supported Features Complete
+         0x0C=  Read Remote Version Information Complete
+         0x0D=  QoS Setup Complete
+         0x0E=  Command Complete
+         0x0F=  Command Status
+         0x10=  Hardware Error
+         0x11=  Flush Occurred
+         0x12=  Role Change
+         0x13=  Number Of Completed Packets
+         0x14=  Mode Change
+         0x15=  Return Link Keys
+         0x16=  PIN Code Request
+         0x17=  Link Key Request
+         0x18=  Link Key Notification
+         0x19=  Loopback Command
+         0x1A=  Data Buffer Overflow
+         0x1B=  Max Slots Change
+         0x1C=  Read Clock Offset Complete
+         0x1D=  Connection Packet Type Changed
+         0x1E=  QoS Violation
+         0x1F=  Page Scan Mode Change
+         0x20=  Page Scan Repetition Mode Change
+       }
+       FormatValue=  0x%02X (code not defined by the spec)
+     }
+    
+     Bytes(1,1)={
+       Name=Parameter Total Length
+       WordValue={
+         0x00=  No parameters for this event
+       }
+       FormatValue=  %d bytes of parameters
+     }
+
+     Depends(Databytes(0,0))={
+
+       ;************ Inquiry Complete event **********************
+       0x01={
+
+         ; Status 
+         Bytes(2,2)={
+           Name=Status
+           Color(200,250,250)
+           WordValue={
+             0x00=  Inquiry command completed successfully.
+
+             Color(255,0,0)
+             0x01=  Unknown HCI Command.
+             0x02=  No Connection.
+             0x03=  Hardware Failure.
+             0x04=  Page Timeout.
+             0x05=  Authentication Failure.
+             0x06=  Key Missing.
+             0x07=  Memory Full.
+             0x08=  Connection Timeout.
+             0x09=  Max Number Of Connections.
+             0x0A=  Max Number Of SCO Connections To A Device.
+             0x0B=  ACL connection already exists.
+             0x0C=  Command Disallowed.
+             0x0D=  Host Rejected due to limited resources.
+             0x0E=  Host Rejected due to security reasons.
+             0x0F=  Host Rejected due to remote device is only a personal device.
+             0x10=  Host Timeout.
+             0x11=  Unsupported Feature or Parameter Value.
+             0x12=  Invalid HCI Command Parameters.
+             0x13=  Other End Terminated Connection: User Ended Connection.
+             0x14=  Other End Terminated Connection: Low Resources.
+             0x15=  Other End Terminated Connection: About to Power Off.
+             0x16=  Connection Terminated by Local Host.
+             0x17=  Repeated Attempts.
+             0x18=  Pairing Not Allowed.
+             0x19=  Unknown LMP PDU.
+             0x1A=  Unsupported Remote Feature.
+             0x1B=  SCO Offset Rejected.
+             0x1C=  SCO Interval Rejected.
+             0x1D=  SCO Air Mode Rejected.
+             0x1E=  Invalid LMP Parameters.
+             0x1F=  Unspecified Error.
+             0x20=  Unsupported LMP Parameter Value.
+             0x21=  Role Change Not Allowed
+             0x22=  LMP Response Timeout
+             0x23=  LMP Error Transaction Collision
+             0x24=  LMP PDU Not Allowed
+             0x25=  Encryption Mode Not Acceptable
+             0x26=  Unit Key Used
+             0x27=  QoS is Not Supported
+             0x28=  Instant Passed
+             0x29=  Pairing with Unit Key Not Supported
+
+           }
+           FormatValue=  Reserved Error code 0x%02X
+         }
+         Bytes(3,3)={
+           Name=Num_Responses
+           FormatValue=  %d responses from the Inquiry
+         }
+
+       }
+
+       ;************ Inquiry Result event **********************
+       0x02={
+         Bytes(2,2)={
+           Name=Num_Responses
+           FormatValue=  %d responses from the Inquiry
+         }
+         Bytes(3,?)={
+           FormatValue=Device parameters
+         }
+       }
+
+       ;************ Connection Complete event **********************
+       0x03={
+
+         ; Status 
+         Bytes(2,2)={
+           Name=Status
+           Color(200,250,250)
+           WordValue={
+             0x00=  Connection completed successfully.
+
+             Color(255,0,0)
+             0x01=  Unknown HCI Command.
+             0x02=  No Connection.
+             0x03=  Hardware Failure.
+             0x04=  Page Timeout.
+             0x05=  Authentication Failure.
+             0x06=  Key Missing.
+             0x07=  Memory Full.
+             0x08=  Connection Timeout.
+             0x09=  Max Number Of Connections.
+             0x0A=  Max Number Of SCO Connections To A Device.
+             0x0B=  ACL connection already exists.
+             0x0C=  Command Disallowed.
+             0x0D=  Host Rejected due to limited resources.
+             0x0E=  Host Rejected due to security reasons.
+             0x0F=  Host Rejected due to remote device is only a personal device.
+             0x10=  Host Timeout.
+             0x11=  Unsupported Feature or Parameter Value.
+             0x12=  Invalid HCI Command Parameters.
+             0x13=  Other End Terminated Connection: User Ended Connection.
+             0x14=  Other End Terminated Connection: Low Resources.
+             0x15=  Other End Terminated Connection: About to Power Off.
+             0x16=  Connection Terminated by Local Host.
+             0x17=  Repeated Attempts.
+             0x18=  Pairing Not Allowed.
+             0x19=  Unknown LMP PDU.
+             0x1A=  Unsupported Remote Feature.
+             0x1B=  SCO Offset Rejected.
+             0x1C=  SCO Interval Rejected.
+             0x1D=  SCO Air Mode Rejected.
+             0x1E=  Invalid LMP Parameters.
+             0x1F=  Unspecified Error.
+             0x20=  Unsupported LMP Parameter Value.
+             0x21=  Role Change Not Allowed
+             0x22=  LMP Response Timeout
+             0x23=  LMP Error Transaction Collision
+             0x24=  LMP PDU Not Allowed
+             0x25=  Encryption Mode Not Acceptable
+             0x26=  Unit Key Used
+             0x27=  QoS is Not Supported
+             0x28=  Instant Passed
+             0x29=  Pairing with Unit Key Not Supported
+           }
+           FormatValue=  Reserved Error code 0x%02X
+         }
+         Bytes(3,4)={
+           Name=Connection_Handle
+           FormatValue=  0x%04X
+         }
+         Bytes(5,10)={
+           Name=BD_ADDR
+           FormatValue=  Device forming the connection: 0x
+         }
+         Bytes(11,11)={
+           Name=Link_Type
+           WordValue={
+             0x00=  SCO connection (Voice Channels)
+             0x01=  ACL connection (Data Channels)
+           }
+           FormatValue=  0x%02X (Reserved for Future Use)
+         }
+         Bytes(12,12)={
+           Name=Encryption_Mode
+           WordValue={
+             0x00=  Encryption disabled
+             0x01=  Encryption only for point-to-point packets
+             0x02=  Encryption for both point-to-point and broadcast packets
+           }
+           FormatValue=  0x%02X (Reserved)
+         }
+
+       }
+
+       ;************ Connection Request event **********************
+       0x04={
+         Bytes(2,7)={
+           Name=BD_ADDR
+           FormatValue=  Device requesting the connection: 0x
+         }
+         Bytes(8,10)={
+           Name=Class of Device
+           FormatValue= 0x%06X Device Class
+         }
+         Bytes(11,11)={
+           Name=Link_Type
+           WordValue={
+             0x00=  SCO connection requested (Voice Channels)
+             0x01=  ACL connection requested (Data Channels)
+           }
+           FormatValue=  0x%02X (Reserved for Future Use)
+         }
+       }
+
+       ;************ Disconnection Complete event **********************
+       0x05={
+
+         ; Status 
+         Bytes(2,2)={
+           Name=Status
+           Color(200,250,250)
+           WordValue={
+             0x00=  Disconnection has occurred.
+
+             Color(255,0,0)
+             0x01=  Unknown HCI Command.
+             0x02=  No Connection.
+             0x03=  Hardware Failure.
+             0x04=  Page Timeout.
+             0x05=  Authentication Failure.
+             0x06=  Key Missing.
+             0x07=  Memory Full.
+             0x08=  Connection Timeout.
+             0x09=  Max Number Of Connections.
+             0x0A=  Max Number Of SCO Connections To A Device.
+             0x0B=  ACL connection already exists.
+             0x0C=  Command Disallowed.
+             0x0D=  Host Rejected due to limited resources.
+             0x0E=  Host Rejected due to security reasons.
+             0x0F=  Host Rejected due to remote device is only a personal device.
+             0x10=  Host Timeout.
+             0x11=  Unsupported Feature or Parameter Value.
+             0x12=  Invalid HCI Command Parameters.
+             0x13=  Other End Terminated Connection: User Ended Connection.
+             0x14=  Other End Terminated Connection: Low Resources.
+             0x15=  Other End Terminated Connection: About to Power Off.
+             0x16=  Connection Terminated by Local Host.
+             0x17=  Repeated Attempts.
+             0x18=  Pairing Not Allowed.
+             0x19=  Unknown LMP PDU.
+             0x1A=  Unsupported Remote Feature.
+             0x1B=  SCO Offset Rejected.
+             0x1C=  SCO Interval Rejected.
+             0x1D=  SCO Air Mode Rejected.
+             0x1E=  Invalid LMP Parameters.
+             0x1F=  Unspecified Error.
+             0x20=  Unsupported LMP Parameter Value.
+             0x21=  Role Change Not Allowed
+             0x22=  LMP Response Timeout
+             0x23=  LMP Error Transaction Collision
+             0x24=  LMP PDU Not Allowed
+             0x25=  Encryption Mode Not Acceptable
+             0x26=  Unit Key Used
+             0x27=  QoS is Not Supported
+             0x28=  Instant Passed
+             0x29=  Pairing with Unit Key Not Supported
+           }
+           FormatValue=  Reserved Error code 0x%02X
+         }
+         Bytes(3,4)={
+           Name=Connection_Handle
+           FormatValue=  0x%04X
+         }
+         Bytes(5,5)={
+           Name=Reason
+           WordValue={
+             0x08=  Connection Timeout.
+             0x13=  User Ended Connection.
+             0x14=  Low Resources.
+             0x15=  About to Power Off.
+             0x16=  Connection Terminated by Local Host.
+             0x1A=  Unsupported Remote Feature.
+           }
+           FormatValue=  Error 0x%02X (not applicable)
+         }
+       }
+
+       ;************ Authentication Complete event **********************
+       0x06={
+
+         ; Status 
+         Bytes(2,2)={
+           Name=Status
+           Color(200,250,250)
+           WordValue={
+             0x00=  Authentication Request successfully completed.
+
+             Color(255,0,0)
+             0x01=  Unknown HCI Command.
+             0x02=  No Connection.
+             0x03=  Hardware Failure.
+             0x04=  Page Timeout.
+             0x05=  Authentication Failure.
+             0x06=  Key Missing.
+             0x07=  Memory Full.
+             0x08=  Connection Timeout.
+             0x09=  Max Number Of Connections.
+             0x0A=  Max Number Of SCO Connections To A Device.
+             0x0B=  ACL connection already exists.
+             0x0C=  Command Disallowed.
+             0x0D=  Host Rejected due to limited resources.
+             0x0E=  Host Rejected due to security reasons.
+             0x0F=  Host Rejected due to remote device is only a personal device.
+             0x10=  Host Timeout.
+             0x11=  Unsupported Feature or Parameter Value.
+             0x12=  Invalid HCI Command Parameters.
+             0x13=  Other End Terminated Connection: User Ended Connection.
+             0x14=  Other End Terminated Connection: Low Resources.
+             0x15=  Other End Terminated Connection: About to Power Off.
+             0x16=  Connection Terminated by Local Host.
+             0x17=  Repeated Attempts.
+             0x18=  Pairing Not Allowed.
+             0x19=  Unknown LMP PDU.
+             0x1A=  Unsupported Remote Feature.
+             0x1B=  SCO Offset Rejected.
+             0x1C=  SCO Interval Rejected.
+             0x1D=  SCO Air Mode Rejected.
+             0x1E=  Invalid LMP Parameters.
+             0x1F=  Unspecified Error.
+             0x20=  Unsupported LMP Parameter Value.
+             0x21=  Role Change Not Allowed
+             0x22=  LMP Response Timeout
+             0x23=  LMP Error Transaction Collision
+             0x24=  LMP PDU Not Allowed
+             0x25=  Encryption Mode Not Acceptable
+             0x26=  Unit Key Used
+             0x27=  QoS is Not Supported
+             0x28=  Instant Passed
+             0x29=  Pairing with Unit Key Not Supported
+           }
+           FormatValue=  Reserved Error code 0x%02X
+         }
+         Bytes(3,4)={
+           Name=Connection_Handle
+           FormatValue=  0x%04X
+         }
+       }
+
+       ;************ Remote Name Request Complete event **********************
+       0x07={
+
+         ; Status 
+         Bytes(2,2)={
+           Name=Status
+           Color(200,250,250)
+           WordValue={
+             0x00=  Remote Name Request successfully completed.
+
+             Color(255,0,0)
+             0x01=  Unknown HCI Command.
+             0x02=  No Connection.
+             0x03=  Hardware Failure.
+             0x04=  Page Timeout.
+             0x05=  Authentication Failure.
+             0x06=  Key Missing.
+             0x07=  Memory Full.
+             0x08=  Connection Timeout.
+             0x09=  Max Number Of Connections.
+             0x0A=  Max Number Of SCO Connections To A Device.
+             0x0B=  ACL connection already exists.
+             0x0C=  Command Disallowed.
+             0x0D=  Host Rejected due to limited resources.
+             0x0E=  Host Rejected due to security reasons.
+             0x0F=  Host Rejected due to remote device is only a personal device.
+             0x10=  Host Timeout.
+             0x11=  Unsupported Feature or Parameter Value.
+             0x12=  Invalid HCI Command Parameters.
+             0x13=  Other End Terminated Connection: User Ended Connection.
+             0x14=  Other End Terminated Connection: Low Resources.
+             0x15=  Other End Terminated Connection: About to Power Off.
+             0x16=  Connection Terminated by Local Host.
+             0x17=  Repeated Attempts.
+             0x18=  Pairing Not Allowed.
+             0x19=  Unknown LMP PDU.
+             0x1A=  Unsupported Remote Feature.
+             0x1B=  SCO Offset Rejected.
+             0x1C=  SCO Interval Rejected.
+             0x1D=  SCO Air Mode Rejected.
+             0x1E=  Invalid LMP Parameters.
+             0x1F=  Unspecified Error.
+             0x20=  Unsupported LMP Parameter Value.
+             0x21=  Role Change Not Allowed
+             0x22=  LMP Response Timeout
+             0x23=  LMP Error Transaction Collision
+             0x24=  LMP PDU Not Allowed
+             0x25=  Encryption Mode Not Acceptable
+             0x26=  Unit Key Used
+             0x27=  QoS is Not Supported
+             0x28=  Instant Passed
+             0x29=  Pairing with Unit Key Not Supported
+           }
+           FormatValue=  Reserved Error code 0x%02X
+         }
+         Bytes(3,8)={
+           Name=BD_ADDR
+           FormatValue=  Name was requested for device: 0x
+         }
+         Bytes(9,?)={           
+           FormatValue=Remote_Name
+         }
+       }
+
+       ;************ Encryption Change event **********************
+       0x08={
+
+         ; Status 
+         Bytes(2,2)={
+           Name=Status
+           Color(200,250,250)
+           WordValue={
+             0x00=  Encryption Change has occurred.
+
+             Color(255,0,0)
+             0x01=  Unknown HCI Command.
+             0x02=  No Connection.
+             0x03=  Hardware Failure.
+             0x04=  Page Timeout.
+             0x05=  Authentication Failure.
+             0x06=  Key Missing.
+             0x07=  Memory Full.
+             0x08=  Connection Timeout.
+             0x09=  Max Number Of Connections.
+             0x0A=  Max Number Of SCO Connections To A Device.
+             0x0B=  ACL connection already exists.
+             0x0C=  Command Disallowed.
+             0x0D=  Host Rejected due to limited resources.
+             0x0E=  Host Rejected due to security reasons.
+             0x0F=  Host Rejected due to remote device is only a personal device.
+             0x10=  Host Timeout.
+             0x11=  Unsupported Feature or Parameter Value.
+             0x12=  Invalid HCI Command Parameters.
+             0x13=  Other End Terminated Connection: User Ended Connection.
+             0x14=  Other End Terminated Connection: Low Resources.
+             0x15=  Other End Terminated Connection: About to Power Off.
+             0x16=  Connection Terminated by Local Host.
+             0x17=  Repeated Attempts.
+             0x18=  Pairing Not Allowed.
+             0x19=  Unknown LMP PDU.
+             0x1A=  Unsupported Remote Feature.
+             0x1B=  SCO Offset Rejected.
+             0x1C=  SCO Interval Rejected.
+             0x1D=  SCO Air Mode Rejected.
+             0x1E=  Invalid LMP Parameters.
+             0x1F=  Unspecified Error.
+             0x20=  Unsupported LMP Parameter Value.
+             0x21=  Role Change Not Allowed
+             0x22=  LMP Response Timeout
+             0x23=  LMP Error Transaction Collision
+             0x24=  LMP PDU Not Allowed
+             0x25=  Encryption Mode Not Acceptable
+             0x26=  Unit Key Used
+             0x27=  QoS is Not Supported
+             0x28=  Instant Passed
+             0x29=  Pairing with Unit Key Not Supported
+           }
+           FormatValue=  Reserved Error code 0x%02X
+         }
+         Bytes(3,4)={
+           Name=Connection_Handle
+           FormatValue=  0x%04X
+         }
+         Bytes(5,5)={
+           Name=Encryption_Enable
+           WordValue={
+             0x00=  Link Level Encryption is OFF
+             0x01=  Link Level Encryption is ON
+           }
+           FormatValue=  0x%02X (Value is not defined in the spec)
+         }
+
+       }
+
+       ;************ Change Connection Link Key Complete event **********************
+       0x09={
+
+         ; Status 
+         Bytes(2,2)={
+           Name=Status
+           Color(200,250,250)
+           WordValue={
+             0x00=  Command Succeeded.
+
+             Color(255,0,0)
+             0x01=  Unknown HCI Command.
+             0x02=  No Connection.
+             0x03=  Hardware Failure.
+             0x04=  Page Timeout.
+             0x05=  Authentication Failure.
+             0x06=  Key Missing.
+             0x07=  Memory Full.
+             0x08=  Connection Timeout.
+             0x09=  Max Number Of Connections.
+             0x0A=  Max Number Of SCO Connections To A Device.
+             0x0B=  ACL connection already exists.
+             0x0C=  Command Disallowed.
+             0x0D=  Host Rejected due to limited resources.
+             0x0E=  Host Rejected due to security reasons.
+             0x0F=  Host Rejected due to remote device is only a personal device.
+             0x10=  Host Timeout.
+             0x11=  Unsupported Feature or Parameter Value.
+             0x12=  Invalid HCI Command Parameters.
+             0x13=  Other End Terminated Connection: User Ended Connection.
+             0x14=  Other End Terminated Connection: Low Resources.
+             0x15=  Other End Terminated Connection: About to Power Off.
+             0x16=  Connection Terminated by Local Host.
+             0x17=  Repeated Attempts.
+             0x18=  Pairing Not Allowed.
+             0x19=  Unknown LMP PDU.
+             0x1A=  Unsupported Remote Feature.
+             0x1B=  SCO Offset Rejected.
+             0x1C=  SCO Interval Rejected.
+             0x1D=  SCO Air Mode Rejected.
+             0x1E=  Invalid LMP Parameters.
+             0x1F=  Unspecified Error.
+             0x20=  Unsupported LMP Parameter Value.
+             0x21=  Role Change Not Allowed
+             0x22=  LMP Response Timeout
+             0x23=  LMP Error Transaction Collision
+             0x24=  LMP PDU Not Allowed
+             0x25=  Encryption Mode Not Acceptable
+             0x26=  Unit Key Used
+             0x27=  QoS is Not Supported
+             0x28=  Instant Passed
+             0x29=  Pairing with Unit Key Not Supported
+           }
+           FormatValue=  Reserved Error code 0x%02X
+         }
+         Bytes(3,4)={
+           Name=Connection_Handle
+           FormatValue=  0x%04X
+         }
+       }
+
+       ;************ Master Link Key Complete event **********************
+       0x0A={
+
+         ; Status 
+         Bytes(2,2)={
+           Name=Status
+           Color(200,250,250)
+           WordValue={
+             0x00=  Command Succeeded.
+
+             Color(255,0,0)
+             0x01=  Unknown HCI Command.
+             0x02=  No Connection.
+             0x03=  Hardware Failure.
+             0x04=  Page Timeout.
+             0x05=  Authentication Failure.
+             0x06=  Key Missing.
+             0x07=  Memory Full.
+             0x08=  Connection Timeout.
+             0x09=  Max Number Of Connections.
+             0x0A=  Max Number Of SCO Connections To A Device.
+             0x0B=  ACL connection already exists.
+             0x0C=  Command Disallowed.
+             0x0D=  Host Rejected due to limited resources.
+             0x0E=  Host Rejected due to security reasons.
+             0x0F=  Host Rejected due to remote device is only a personal device.
+             0x10=  Host Timeout.
+             0x11=  Unsupported Feature or Parameter Value.
+             0x12=  Invalid HCI Command Parameters.
+             0x13=  Other End Terminated Connection: User Ended Connection.
+             0x14=  Other End Terminated Connection: Low Resources.
+             0x15=  Other End Terminated Connection: About to Power Off.
+             0x16=  Connection Terminated by Local Host.
+             0x17=  Repeated Attempts.
+             0x18=  Pairing Not Allowed.
+             0x19=  Unknown LMP PDU.
+             0x1A=  Unsupported Remote Feature.
+             0x1B=  SCO Offset Rejected.
+             0x1C=  SCO Interval Rejected.
+             0x1D=  SCO Air Mode Rejected.
+             0x1E=  Invalid LMP Parameters.
+             0x1F=  Unspecified Error.
+             0x20=  Unsupported LMP Parameter Value.
+             0x21=  Role Change Not Allowed
+             0x22=  LMP Response Timeout
+             0x23=  LMP Error Transaction Collision
+             0x24=  LMP PDU Not Allowed
+             0x25=  Encryption Mode Not Acceptable
+             0x26=  Unit Key Used
+             0x27=  QoS is Not Supported
+             0x28=  Instant Passed
+             0x29=  Pairing with Unit Key Not Supported
+           }
+           FormatValue=  Reserved Error code 0x%02X
+         }
+         Bytes(3,4)={
+           Name=Connection_Handle
+           FormatValue=  0x%04X
+         }
+         Bytes(5,5)={
+           Name=Key_Flag
+           WordValue={
+            0x00=  Using semi-permanent Link Keys
+            0x01=  Using Temporary Link Key
+           }
+           FormatValue=  0x%02X (Value is not defined in the spec)
+         }         
+       }
+
+       ;************ Read_Remote_Supported_Features Complete event ********
+       0x0B={
+
+         ; Status 
+         Bytes(2,2)={
+           Name=Status
+           Color(200,250,250)
+           WordValue={
+             0x00=  Command Succeeded.
+
+             Color(255,0,0)
+             0x01=  Unknown HCI Command.
+             0x02=  No Connection.
+             0x03=  Hardware Failure.
+             0x04=  Page Timeout.
+             0x05=  Authentication Failure.
+             0x06=  Key Missing.
+             0x07=  Memory Full.
+             0x08=  Connection Timeout.
+             0x09=  Max Number Of Connections.
+             0x0A=  Max Number Of SCO Connections To A Device.
+             0x0B=  ACL connection already exists.
+             0x0C=  Command Disallowed.
+             0x0D=  Host Rejected due to limited resources.
+             0x0E=  Host Rejected due to security reasons.
+             0x0F=  Host Rejected due to remote device is only a personal device.
+             0x10=  Host Timeout.
+             0x11=  Unsupported Feature or Parameter Value.
+             0x12=  Invalid HCI Command Parameters.
+             0x13=  Other End Terminated Connection: User Ended Connection.
+             0x14=  Other End Terminated Connection: Low Resources.
+             0x15=  Other End Terminated Connection: About to Power Off.
+             0x16=  Connection Terminated by Local Host.
+             0x17=  Repeated Attempts.
+             0x18=  Pairing Not Allowed.
+             0x19=  Unknown LMP PDU.
+             0x1A=  Unsupported Remote Feature.
+             0x1B=  SCO Offset Rejected.
+             0x1C=  SCO Interval Rejected.
+             0x1D=  SCO Air Mode Rejected.
+             0x1E=  Invalid LMP Parameters.
+             0x1F=  Unspecified Error.
+             0x20=  Unsupported LMP Parameter Value.
+             0x21=  Role Change Not Allowed
+             0x22=  LMP Response Timeout
+             0x23=  LMP Error Transaction Collision
+             0x24=  LMP PDU Not Allowed
+             0x25=  Encryption Mode Not Acceptable
+             0x26=  Unit Key Used
+             0x27=  QoS is Not Supported
+             0x28=  Instant Passed
+             0x29=  Pairing with Unit Key Not Supported
+           }
+           FormatValue=  Reserved Error code 0x%02X
+         }
+         Bytes(3,4)={
+           Name=Connection_Handle
+           FormatValue=  0x%04X
+         }
+         Bytes(5,12)={
+           Name=LMP_Features
+           FormatValue=  0x
+         }
+       }
+
+       ;************ Read Remote Version Information Complete event ********
+       0x0C={
+
+         ; Status 
+         Bytes(2,2)={
+           Name=Status
+           Color(200,250,250)
+           WordValue={
+             0x00=  Command Succeeded.
+
+             Color(255,0,0)
+             0x01=  Unknown HCI Command.
+             0x02=  No Connection.
+             0x03=  Hardware Failure.
+             0x04=  Page Timeout.
+             0x05=  Authentication Failure.
+             0x06=  Key Missing.
+             0x07=  Memory Full.
+             0x08=  Connection Timeout.
+             0x09=  Max Number Of Connections.
+             0x0A=  Max Number Of SCO Connections To A Device.
+             0x0B=  ACL connection already exists.
+             0x0C=  Command Disallowed.
+             0x0D=  Host Rejected due to limited resources.
+             0x0E=  Host Rejected due to security reasons.
+             0x0F=  Host Rejected due to remote device is only a personal device.
+             0x10=  Host Timeout.
+             0x11=  Unsupported Feature or Parameter Value.
+             0x12=  Invalid HCI Command Parameters.
+             0x13=  Other End Terminated Connection: User Ended Connection.
+             0x14=  Other End Terminated Connection: Low Resources.
+             0x15=  Other End Terminated Connection: About to Power Off.
+             0x16=  Connection Terminated by Local Host.
+             0x17=  Repeated Attempts.
+             0x18=  Pairing Not Allowed.
+             0x19=  Unknown LMP PDU.
+             0x1A=  Unsupported Remote Feature.
+             0x1B=  SCO Offset Rejected.
+             0x1C=  SCO Interval Rejected.
+             0x1D=  SCO Air Mode Rejected.
+             0x1E=  Invalid LMP Parameters.
+             0x1F=  Unspecified Error.
+             0x20=  Unsupported LMP Parameter Value.
+             0x21=  Role Change Not Allowed
+             0x22=  LMP Response Timeout
+             0x23=  LMP Error Transaction Collision
+             0x24=  LMP PDU Not Allowed
+             0x25=  Encryption Mode Not Acceptable
+             0x26=  Unit Key Used
+             0x27=  QoS is Not Supported
+             0x28=  Instant Passed
+             0x29=  Pairing with Unit Key Not Supported
+           }
+           FormatValue=  Reserved Error code 0x%02X
+         }
+         Bytes(3,4)={
+           Name=Connection_Handle
+           FormatValue=  0x%04X
+         }
+         Bytes(5,5)={
+           Name=LMP_Version
+           WordValue={
+             0x00= Bluetooth LMP 1.0
+             0x01= Bluetooth LMP 1.1
+           }
+           FormatValue=  VersNr %d (reserved)
+         }
+         Bytes(6,7)={
+           Name=Manufacturer_Name
+           WordValue={
+             0x00= Ericsson Mobile Communications
+             0x01= Nokia Mobile Phones
+             0x02= Intel Corp.
+             0x03= IBM Corp.
+             0x04= Toshiba Corp.
+             0x05= 3Com
+             0x06= Microsoft
+             0x07= Lucent
+             0x08= Motorola
+             0x09= Infineon Technologies AG
+             0x0A= Cambridge Silicon Radio
+             0x0B= Silicon Wave
+             0x0C= Digianswer
+             0xFFFF=  CompId: no valid number applies
+           }
+           FormatValue=  CompId 0x%04X (reserved)
+         }
+         Bytes(8,9)={
+           Name=LMP_Subversion
+           WordValue={
+             0xFFFF=  SubVersNr: no valid number applies
+           }
+           FormatValue=  SubVersNr 0x%04X
+         }
+       }
+
+       ;************ QoS Setup Complete event ******************
+       0x0D={
+
+         ; Status 
+         Bytes(2,2)={
+           Name=Status
+           Color(200,250,250)
+           WordValue={
+             0x00=  Command Succeeded.
+
+             Color(255,0,0)
+             0x01=  Unknown HCI Command.
+             0x02=  No Connection.
+             0x03=  Hardware Failure.
+             0x04=  Page Timeout.
+             0x05=  Authentication Failure.
+             0x06=  Key Missing.
+             0x07=  Memory Full.
+             0x08=  Connection Timeout.
+             0x09=  Max Number Of Connections.
+             0x0A=  Max Number Of SCO Connections To A Device.
+             0x0B=  ACL connection already exists.
+             0x0C=  Command Disallowed.
+             0x0D=  Host Rejected due to limited resources.
+             0x0E=  Host Rejected due to security reasons.
+             0x0F=  Host Rejected due to remote device is only a personal device.
+             0x10=  Host Timeout.
+             0x11=  Unsupported Feature or Parameter Value.
+             0x12=  Invalid HCI Command Parameters.
+             0x13=  Other End Terminated Connection: User Ended Connection.
+             0x14=  Other End Terminated Connection: Low Resources.
+             0x15=  Other End Terminated Connection: About to Power Off.
+             0x16=  Connection Terminated by Local Host.
+             0x17=  Repeated Attempts.
+             0x18=  Pairing Not Allowed.
+             0x19=  Unknown LMP PDU.
+             0x1A=  Unsupported Remote Feature.
+             0x1B=  SCO Offset Rejected.
+             0x1C=  SCO Interval Rejected.
+             0x1D=  SCO Air Mode Rejected.
+             0x1E=  Invalid LMP Parameters.
+             0x1F=  Unspecified Error.
+             0x20=  Unsupported LMP Parameter Value.
+             0x21=  Role Change Not Allowed
+             0x22=  LMP Response Timeout
+             0x23=  LMP Error Transaction Collision
+             0x24=  LMP PDU Not Allowed
+             0x25=  Encryption Mode Not Acceptable
+             0x26=  Unit Key Used
+             0x27=  QoS is Not Supported
+             0x28=  Instant Passed
+             0x29=  Pairing with Unit Key Not Supported
+           }
+           FormatValue=  Reserved Error code 0x%02X
+         }
+         Bytes(3,4)={
+           Name=Connection_Handle
+           FormatValue=  0x%04X
+         }
+         Bytes(5,5)={
+           Name=Flags
+           FormatValue=  0x%02X (All values reserved)
+         }
+         Bytes(6,6)={
+           Name=Service_Type
+           WordValue={
+             0x00=  No Traffic Available
+             0x01=  Best Effort Available
+             0x02=  Guaranteed Available
+           }
+           FormatValue=  0x%02X (Reserved in the spec)
+         }
+         Bytes(7,10)={
+           Name=Token_Rate
+           FormatValue=  Available Token Rate: %i bytes per second
+         }
+         Bytes(11,14)={
+           Name=Peak_Bandwidth
+           FormatValue=  Available Peak Bandwidth: %i bytes per second
+         }
+         Bytes(15,18)={
+           Name=Latency
+           FormatValue=  Available Latency: %i microseconds
+         }
+         Bytes(19,22)={
+           Name=Delay_Variation
+           FormatValue=  Available Delay Variation: %i microseconds
+         }
+       }
+
+
+       ;************ Command Complete event **********************
+       0x0E={
+         Bytes(2,2)={
+           Name=Num_HCI_Command_Packets
+           FormatValue=  Host can send %d commands
+         }
+         Bytes(3,4)={
+           Name=Command_Opcode
+           Color(0,100,200)
+           WordValue={
+             0x0000=  NOP (changing number of outstanding HCI commands)
+
+             0x0402=  HCI_Inquiry_Cancel
+             0x0403=  HCI_Periodic_Inquiry_Mode
+             0x0404=  HCI_Exit_Periodic_Inquiry_Mode
+             0x040B=  HCI_Link_Key_Request_Reply
+             0x040C=  HCI_Link_Key_Request_Negative_Reply
+             0x040D=  HCI_PIN_Code_Request_Reply
+             0x040E=  HCI_PIN_Code_Request_Negative_Reply
+             
+             0x0809=  HCI_Role_Discovery
+             0x080C=  HCI_Read_Link_Policy_Settings
+             0x080D=  HCI_Write_Link_Policy_Settings
+             
+             0x0C01=  HCI_Set_Event_Mask
+             0x0C03=  HCI_Reset
+             0x0C05=  HCI_Set_Event_Filter
+             0x0C08=  HCI_Flush
+             0x0C09=  HCI_Read_PIN_Type
+             0x0C0A=  HCI_Write_PIN_Type
+             0x0C0B=  HCI_Create_New_Unit_Key
+             0x0C0D=  HCI_Read_Stored_Link_Key
+             0x0C11=  HCI_Write_Stored_Link_Key
+             0x0C12=  HCI_Delete_Stored_Link_Key
+             0x0C13=  HCI_Change_Local_Name
+             0x0C14=  HCI_Read_Local_Name
+             0x0C15=  HCI_Read_Connection_Accept_Timeout
+             0x0C16=  HCI_Write_Connection_Accept_Timeout
+             0x0C17=  HCI_Read_Page_Timeout
+             0x0C18=  HCI_Write_Page_Timeout
+             0x0C19=  HCI_Read_Scan_Enable
+             0x0C1A=  HCI_Write_Scan_Enable
+             0x0C1B=  HCI_Read_Page_Scan_Activity
+             0x0C1C=  HCI_Write_Page_Scan_Activity
+             0x0C1D=  HCI_Read_Inquiry_Scan_Activity
+             0x0C1E=  HCI_Write_Inquiry_Scan_Activity
+             0x0C1F=  HCI_Read_Authentication_Enable
+             0x0C20=  HCI_Write_Authentication_Enable
+             0x0C21=  HCI_Read_Encryption_Mode
+             0x0C22=  HCI_Write_Encryption_Mode
+             0x0C23=  HCI_Read_Class_of_Device
+             0x0C24=  HCI_Write_Class_of_Device
+             0x0C25=  HCI_Read_Voice_Setting
+             0x0C26=  HCI_Write_Voice_Setting
+             0x0C27=  HCI_Read_Automatic_Flush_Timeout
+             0x0C28=  HCI_Write_Automatic_Flush_Timeout
+             0x0C29=  HCI_Read_Num_Broadcast_Retransmissions
+             0x0C2A=  HCI_Write_Num_Broadcast_Retransmissions
+             0x0C2B=  HCI_Read_Hold_Mode_Activity
+             0x0C2C=  HCI_Write_Hold_Mode_Activity
+             0x0C2D=  HCI_Read_Transmit_Power_Level
+             0x0C2E=  HCI_Read_SCO_Flow_Control_Enable
+             0x0C2F=  HCI_Write_SCO_Flow_Control_Enable
+             0x0C31=  HCI_Set_Host_Controller_To_Host_Flow_Control
+             0x0C33=  HCI_Host_Buffer_Size
+             0x0C35=  HCI_Host_Number_Of_Completed_Packets
+             0x0C36=  HCI_Read_Link_Supervision_Timeout
+             0x0C37=  HCI_Write_Link_Supervision_Timeout
+             0x0C38=  HCI_Read_Number_Of_Supported_IAC
+             0x0C39=  HCI_Read_Current_IAC_LAP
+             0x0C3A=  HCI_Write_Current_IAC_LAP
+             0x0C3B=  HCI_Read_Page_Scan_Period_Mode
+             0x0C3C=  HCI_Write_Page_Scan_Period_Mode
+             0x0C3D=  HCI_Read_Page_Scan_Mode
+             0x0C3E=  HCI_Write_Page_Scan_Mode
+             
+             0x1001=  HCI_Read_Local_Version_Information 
+             0x1003=  HCI_Read_Local_Supported_Features 
+             0x1005=  HCI_Read_Buffer_Size
+             0x1007=  HCI_Read_Country_Code
+             0x1009=  HCI_Read_BD_ADDR 
+             
+             0x1401=  HCI_Read_Failed_Contact_Counter
+             0x1402=  HCI_Reset_Failed_Contact_Counter
+             0x1403=  HCI_Get_Link_Quality
+             0x1405=  HCI_Read_RSSI
+             
+             0x1801=  HCI_Read_Loopback_Mode
+             0x1802=  HCI_Write_Loopback_Mode
+             0x1803=  HCI_Enable_Device_Under_Test_Mode
+           }
+           FormatValue=  Undefined command 0x%04X
+         }       
+
+         ; Status (every complete has it)
+         Bytes(5,5)={
+           Name=Status
+           Color(200,250,250)
+           WordValue={
+             0x00=  Command Succeeded
+
+             Color(255,0,0)
+             0x01=  Unknown HCI Command.
+             0x02=  No Connection.
+             0x03=  Hardware Failure.
+             0x04=  Page Timeout.
+             0x05=  Authentication Failure.
+             0x06=  Key Missing.
+             0x07=  Memory Full.
+             0x08=  Connection Timeout.
+             0x09=  Max Number Of Connections.
+             0x0A=  Max Number Of SCO Connections To A Device.
+             0x0B=  ACL connection already exists.
+             0x0C=  Command Disallowed.
+             0x0D=  Host Rejected due to limited resources.
+             0x0E=  Host Rejected due to security reasons.
+             0x0F=  Host Rejected due to remote device is only a personal device.
+             0x10=  Host Timeout.
+             0x11=  Unsupported Feature or Parameter Value.
+             0x12=  Invalid HCI Command Parameters.
+             0x13=  Other End Terminated Connection: User Ended Connection.
+             0x14=  Other End Terminated Connection: Low Resources.
+             0x15=  Other End Terminated Connection: About to Power Off.
+             0x16=  Connection Terminated by Local Host.
+             0x17=  Repeated Attempts.
+             0x18=  Pairing Not Allowed.
+             0x19=  Unknown LMP PDU.
+             0x1A=  Unsupported Remote Feature.
+             0x1B=  SCO Offset Rejected.
+             0x1C=  SCO Interval Rejected.
+             0x1D=  SCO Air Mode Rejected.
+             0x1E=  Invalid LMP Parameters.
+             0x1F=  Unspecified Error.
+             0x20=  Unsupported LMP Parameter Value.
+             0x21=  Role Change Not Allowed
+             0x22=  LMP Response Timeout
+             0x23=  LMP Error Transaction Collision
+             0x24=  LMP PDU Not Allowed
+             0x25=  Encryption Mode Not Acceptable
+             0x26=  Unit Key Used
+             0x27=  QoS is Not Supported
+             0x28=  Instant Passed
+             0x29=  Pairing with Unit Key Not Supported
+           }
+           FormatValue=  Reserved Error code 0x%02X
+         }
+
+         Depends(Databytes(3,4))={
+
+         ; ****** Link Control **********************************
+
+           ; HCI_Link_Key_Request_Reply
+           0x040B={
+             Bytes(6,11)={
+               Name=BD_ADDR
+               FormatValue=   Device: 0x
+             }
+           }  
+
+           ; HCI_Link_Key_Request_Negative_Reply
+           0x040C={
+             Bytes(6,11)={
+               Name=BD_ADDR
+               FormatValue=   Device: 0x
+             }
+           }
+
+           ; HCI_PIN_Code_Request_Reply
+           0x040D=  {
+             Bytes(6,11)={
+               Name=BD_ADDR
+               FormatValue=   Device: 0x
+             }
+           }
+
+           ; HCI_PIN_Code_Request_Negative_Reply
+           0x040E={
+             Bytes(6,11)={
+               Name=BD_ADDR
+               FormatValue=   Device: 0x
+             }
+           }
+
+         ; ****** Link Policy **********************************
+
+           ; HCI_Role_Discovery
+           0x0809={
+             Bytes(6,7)={
+               Name=Connection_Handle
+               FormatValue=  0x%04X
+             }        
+             Bytes(8,8)={
+               Name=Current_Role
+               WordValue={
+                 0x00=  Currently the Master for this Connection_Handle
+                 0x01=  Currently the Slave for this Connection_Handle
+               }
+               FormatValue=  0x%02X (value not defined in the spec)
+             }
+           }
+
+           ; HCI_Read_Link_Policy_Settings
+           0x080C={
+             Bytes(6,7)={
+               Name=Connection_Handle
+               FormatValue=  0x%04X
+             }        
+             Bytes(8,9)={
+               Name=Link_Policy_Settings
+               WordValue={
+                   0x0000=  Disable All LM Modes (Default)
+                   0x0001=  Enable Master Slave Switch
+                   0x0002=  Enable Hold Mode
+                   0x0004=  Enable Sniff Mode
+                   0x0008=  Enable Park Mode
+                   0x0010=  Reserved (0x0010)
+                   0x0020=  Reserved (0x0020)
+                   0x0040=  Reserved (0x0040)
+                   0x0080=  Reserved (0x0080)
+                   0x0100=  Reserved (0x0100)
+                   0x0200=  Reserved (0x0200) 
+                   0x0400=  Reserved (0x0400)
+                   0x0800=  Reserved (0x0800)
+                   0x1000=  Reserved (0x1000)
+                   0x2000=  Reserved (0x2000)
+                   0x4000=  Reserved (0x4000)
+                   0x8000=  Reserved (0x8000)
+               }
+               FormatValue=  0x%04X (Value not defined in the spec)
+             }
+           }
+
+           ; HCI_Write_Link_Policy_Settings
+           0x080D={
+             Bytes(6,7)={
+               Name=Connection_Handle
+               FormatValue=  0x%04X
+             }        
+           }
+
+
+         ; ****** HC & Baseband ***********************************
+
+           ;  HCI_Flush
+           0x0C08={
+             Bytes(6,7)={
+               Name=Connection_Handle
+               FormatValue=  0x%04X connection flushed
+             }        
+           }
+
+           ;  HCI_Read_PIN_Type
+           0x0C09={
+             Bytes(6,6)={
+               Name=PIN_Type
+               WordValue={
+                 0x00=  Variable PIN
+                 0x01=  Fixed PIN
+               }             
+               FormatValue=  0x%02 (value not defined in the spec)
+             }
+           }
+
+           ;  HCI_Read_Stored_Link_Key
+           0x0C0D={
+             Bytes(6,7)={
+               Name=Max_Num_Keys
+               FormatValue=  HC can store %d Link Keys
+             }
+             Bytes(8,9)={
+               Name=Num_Keys_Read
+               FormatValue=  %d Link Keys read
+             }
+           }
+
+           ;  HCI_Write_Stored_Link_Key
+           0x0C11={
+             Bytes(6,7)={
+               Name=Num_Keys_Written
+               FormatValue=  %d Link Keys successfully written
+             }
+           }
+
+           ;  HCI_Delete_Stored_Link_Key
+           0x0C12={
+             Bytes(6,7)={
+               Name=Num_Keys_Deleted
+               FormatValue=  %d Link Keys deleted
+             }
+           }
+
+           ;  HCI_Read_Local_Name
+           0x0C14={
+             Bytes(6,?)={
+               FormatValue=Name
+             }
+           }
+
+           ;  HCI_Read_Connection_Accept_Timeout
+           0x0C15={
+             Bytes(6,7)={
+               Name=Connection_Accept_Timeout
+               WordValue={
+                 0x0000=  0 (Illegal, must be larger than 0)
+               }
+               FormatValue=  %d Baseband slots (* 0.625 msec)
+             }
+           }
+
+           ;  HCI_Read_Page_Timeout
+           0x0C17={
+             Bytes(6,7)={
+               Name=Page_Timeout
+               WordValue={
+                 0x0000=  0 (Illegal, must be larger than 0)
+               }
+               FormatValue=  %d Baseband slots ( * 0.625 msec)
+             }
+           }
+
+           ;  HCI_Read_Scan_Enable
+           0x0C19={
+             Bytes(6,6)={
+               Name=Scan_Enable
+               WordValue={
+                 0x00=  No Scans enabled. Default.
+                 0x01=  Inquiry Scan enabled. Page Scan disabled.
+                 0x02=  Inquiry Scan disabled.Page Scan enabled.
+                 0x03=  Inquiry Scan enabled. Page Scan enabled.
+               }
+               FormatValue=  0x%02X (Value not defined in the spec) 
+             }
+           }
+
+           ;  HCI_Read_Page_Scan_Activity
+           0x0C1B={
+             Bytes(6,7)={
+               Name=Page_Scan_Interval
+               FormatValue=  %d Baseband slots ( * 0.625 msec)
+             }
+             Bytes(8,9)={
+               Name=Page_Scan_Window
+               FormatValue=  %d Baseband slots ( * 0.625 msec)
+             }
+           }
+
+           ;  HCI_Read_Inquiry_Scan_Activity
+           0x0C1D={
+             Bytes(6,7)={
+               Name=Inquiry_Scan_Interval
+               FormatValue=  %d Baseband slots ( * 0.625 msec)
+             }
+             Bytes(8,9)={
+               Name=Inquiry_Scan_Window
+               FormatValue=  %d Baseband slots ( * 0.625 msec)
+             }
+           }
+
+           ;  HCI_Read_Authentication_Enable
+           0x0C1F={
+             Bytes(6,6)={
+               Name=Authentication_Enable
+               WordValue={
+                 0x00=  Authentication disabled
+                 0x01=  Authentication enabled for all connections
+               }
+               FormatValue=  0x%02X (Value not defined in the spec) 
+             }
+           }
+
+           ;  HCI_Read_Encryption_Mode
+           0x0C21={
+             Bytes(6,6)={
+               Name=Encryption_Mode
+               WordValue={
+                 0x00=  Encryption disabled
+                 0x01=  Encryption only for point-to-point packets
+                 0x02=  Encryption for both point-to-point and broadcast packets
+               }
+               FormatValue=  0x%02X (Reserved)
+             }
+           }
+
+           ; HCI_Read_Class_of_Device
+           0x0C23={
+             Bytes(6,8)={
+               Name=Class_of_Device
+               FormatValue=  0x%06X class
+             }
+           }
+
+           ;  HCI_Read_Voice_Setting
+           0x0C25={
+             Bytes(6,7)={
+               Name=Voice_Setting
+               Bitmap={
+                 0=Air Coding Format
+                 1=Air Coding Format
+                 2=Linear_PCM_Bit_Pos
+                 3=Linear_PCM_Bit_Pos
+                 4=Linear_PCM_Bit_Pos
+                 5=Input Sample Size 8/16 bit
+                 6=Input Data Format
+                 7=Input Data Format
+                 8=Input Coding
+                 9=Input Coding
+               }
+             }
+           }
+
+           ;  HCI_Read_Automatic_Flush_Timeout
+           0x0C27={
+             Bytes(6,7)={
+               Name=Connection_Handle
+               FormatValue=  0x%04X
+             }        
+             Bytes(8,9)={
+               Name=Flush_Timeout
+               WordValue={
+                 0x0000=  No Automatic Flush
+               }
+               FormatValue=  %d Baseband slots ( * 0.625 msec)
+             }             
+           }
+
+           ;  HCI_Write_Automatic_Flush_Timeout
+           0x0C28={
+             Bytes(6,7)={
+               Name=Connection_Handle
+               FormatValue=  0x%04X
+             }        
+           }
+
+           ;  HCI_Read_Num_Broadcast_Retransmissions
+           0x0C29={
+             Bytes(6,6)={
+               Name=Num_Broadcast_Retran:
+               FormatValue=  %d retransmissions
+             }
+           }
+
+           ;  HCI_Read_Hold_Mode_Activity
+           0x0C2B={
+             Bytes(6,6)={
+               Name=Hold_Mode_Activity
+               WordValue={
+                 0x00=  Maintain current Power State
+                 0x01=  Suspend Page Scan
+                 0x02=  Suspend Inquiry Scan
+                 0x04=  Suspend Periodic Inquiries
+               }
+               FormatValue=  0x%02X (Reserved)
+             }
+           }
+
+           ;  HCI_Read_Transmit_Power_Level
+           0x0C2D={
+             Bytes(6,7)={
+               Name=Connection_Handle
+               FormatValue=  0x%04X
+             }     
+             Bytes(8,8)={
+               Name=Transmit_Power_Level
+               FormatValue=  %d ( -30, in dB )
+             }   
+           }
+
+           ;  HCI_Read_SCO_Flow_Control_Enable
+           0x0C2E={
+             Bytes(6,6)={
+               Name=SCO_Flow_Control_Enable
+               WordValue={
+                 0x00=  SCO Flow Control is disabled (Default)
+                 0x01=  SCO Flow Control is enabled
+               }
+               FormatValue=  0x%02X (Value not defined in the spec)
+             }
+           }
+
+           ;  HCI_Read_Link_Supervision_Timeout
+           0x0C36={
+             Bytes(6,7)={
+               Name=Connection_Handle
+               FormatValue=  0x%04X
+             }        
+             Bytes(8,9)={
+               Name=Link_Supervision_Timeout
+               WordValue={
+                 0x0000=  No Link_Supervision_Timeout
+               }
+               FormatValue=  %d Baseband slots ( * 0.625 msec)
+             }             
+           }
+
+           ;  HCI_Write_Link_Supervision_Timeout
+           0x0C37={
+             Bytes(6,7)={
+               Name=Connection_Handle
+               FormatValue=  0x%04X
+             }        
+           }
+
+           ;  HCI_Read_Number_Of_Supported_IAC
+           0x0C38={
+             Bytes(6,6)={
+               Name=Num_Support_IAC
+               FormatValue=  Local device can listen for %d IAC during an Inquiry Scan
+             }
+             Bytes(7,9)={
+               Name=IAC_LAP[0]
+               FormatValue=  0x%06X
+             }
+             Bytes(10,12)={
+               Name=IAC_LAP[1]
+               FormatValue=  0x%06X
+             }
+             Bytes(13,15)={
+               Name=IAC_LAP[0]
+               FormatValue=  0x%06X
+             }
+             Bytes(16,?)={
+               FormatValue=The rest of IAC_LAPs
+             }
+           }
+
+           ;  HCI_Read_Current_IAC_LAP
+           0x0C39={
+           }
+
+           ;  HCI_Read_Page_Scan_Period_Mode
+           0x0C3B={
+             Bytes(3,3)={
+               Name=Page_Scan_Period_Mode
+               WordValue={
+                 0x00=  P0 (Default)
+                 0x01=  P1
+                 0x02=  P2
+               }
+               FormatValue=  0x%02X (Reserved)
+             }
+           }
+
+           ;  HCI_Read_Page_Scan_Mode
+           0x0C3D={
+             Bytes(12,12)={
+               Name=Page_Scan_Mode
+               WordValue={
+                 0x00=  Mandatory Page Scan Mode
+                 0x01=  Optional Page Scan Mode I
+                 0x02=  Optional Page Scan Mode II
+                 0x03=  Optional Page Scan Mode III
+               }
+               FormatValue=  0x%02X (Reserved)
+             }
+           }
+
+         ; *** Informational Parameters ****************************
+
+           ;  HCI_Read_Local_Version_Information 
+           0x1001={
+             Bytes(6,6)={
+               Name=HCI_Version
+               WordValue={
+                 0x00=  Bluetooth HCI Specification 1.0
+               }
+               FormatValue=  0x%02X
+             }
+             Bytes(7,8)={
+               Name=HCI_Revision
+               FormatValue=  0x%04X
+             }
+             Bytes(9,9)={
+               Name=LMP_Version
+               FormatValue=  VersNr %d
+             }
+             Bytes(10,11)={
+               Name=Manufacturer_Name
+               WordValue={
+                 0xFFFF=  CompId: no valid number applies
+               }
+               FormatValue=  CompId 0x%04X
+             }
+             Bytes(12,13)={
+               Name=LMP_Subversion
+               WordValue={
+                 0xFFFF=  SubVersNr: no valid number applies
+               }
+               FormatValue=  SubVersNr 0x%04X
+             }
+           }
+
+           ;  HCI_Read_Local_Supported_Features 
+           0x1003={
+             Bytes(6,13)={
+               Name=LMP_Features
+               FormatValue=  0x
+             }
+           }
+
+           ;  HCI_Read_Buffer_Size
+           0x1005={
+             Bytes(6,7)={
+               Name=HC_ACL_Data_Packet_Length
+               FormatValue=  HC able to accept %d bytes of ACL Data
+             }
+             Bytes(8,8)={
+               Name=HC_SCO_Data_Packet_Length
+               FormatValue=  HC able to accept %d bytes of SCO Data
+             }
+             Bytes(9,10)={
+               Name=HC_Total_Num_ACL_Data_Packets
+               FormatValue=  %d ACL Data Packets can be stored in HC's buffers
+             }
+             Bytes(11,12)={
+               Name=HC_Total_Num_SCO_Data_Packets
+               FormatValue=  %d SCO Data Packets can be stored in HC's buffers
+             }
+           }
+
+           ;  HCI_Read_Country_Code
+           0x1007={
+             Bytes(6,6)={
+               Name=Country Code
+               WordValue={
+                 0x00=  North America & Europe
+                 0x01=  France
+                 0x02=  Spain
+                 0x03=  Japan
+               }
+               FormatValue=  0x%02X (Reserved)
+             }
+           }
+
+           ;  HCI_Read_BD_ADDR
+           0x1009={
+             Bytes(6,11)={
+               Name=BD_ADDR
+               FormatValue=  Device 0x
+             }
+           }
+
+
+         ;***** Status Parameters ********************************
+
+           ;  HCI_Read_Failed_Contact_Counter
+           0x1401={
+             Bytes(6,7)={
+               Name=Connection_Handle
+               FormatValue=  0x%04X
+             }
+             Bytes(8,8)={
+               Name=Failed_Contact_Counter
+               FormatValue=  %d contacts failed
+             }
+           }
+
+           ;  HCI_Reset_Failed_Contact_Counter
+           0x1402={
+             Bytes(6,7)={
+               Name=Connection_Handle
+               FormatValue=  0x%04X
+             }
+           }
+
+           ;  HCI_Get_Link_Quality
+           0x1403={
+             Bytes(6,7)={
+               Name=Connection_Handle
+               FormatValue=  0x%04X
+             }
+             Bytes(8,8)={
+               Name=Link_Quality
+               FormatValue=  %d (the higher the better, 0-255)
+             }    
+           }
+
+           ;  HCI_Read_RSSI
+           0x1405={
+             Bytes(6,7)={
+               Name=Connection_Handle
+               FormatValue=  0x%04X
+             }
+             Bytes(8,8)={
+               Name=RSSI
+               FormatValue=  %d ( -128, in dB )
+             }   
+           }
+
+         ;***** Testing Commands ********************************
+
+           ;  HCI_Read_Loopback_Mode  
+           0x1801={
+             Bytes(6,6)={
+               Name=Loopback_Mode
+               WordValue={
+                 0x00=  No Loopback mode enabled. Default.
+                 0x01=  Enable Local Loopback
+                 0x02=  Enable Remote Loopback
+               }
+               FormatValue=  0x%02X (Reserved)
+             }
+           }
+
+         } ; end opcode dependency
+
+       } ; end Command complete
+
+
+      ;************ Command Status event **********************
+       0x0F={
+         Bytes(2,2)={
+           Name=Status
+           Color(200,250,250)
+           WordValue={
+             0x00=  Command currently in pending.
+
+             Color(255,0,0)
+             0x01=  Unknown HCI Command.
+             0x02=  No Connection.
+             0x03=  Hardware Failure.
+             0x04=  Page Timeout.
+             0x05=  Authentication Failure.
+             0x06=  Key Missing.
+             0x07=  Memory Full.
+             0x08=  Connection Timeout.
+             0x09=  Max Number Of Connections.
+             0x0A=  Max Number Of SCO Connections To A Device.
+             0x0B=  ACL connection already exists.
+             0x0C=  Command Disallowed.
+             0x0D=  Host Rejected due to limited resources.
+             0x0E=  Host Rejected due to security reasons.
+             0x0F=  Host Rejected due to remote device is only a personal device.
+             0x10=  Host Timeout.
+             0x11=  Unsupported Feature or Parameter Value.
+             0x12=  Invalid HCI Command Parameters.
+             0x13=  Other End Terminated Connection: User Ended Connection.
+             0x14=  Other End Terminated Connection: Low Resources.
+             0x15=  Other End Terminated Connection: About to Power Off.
+             0x16=  Connection Terminated by Local Host.
+             0x17=  Repeated Attempts.
+             0x18=  Pairing Not Allowed.
+             0x19=  Unknown LMP PDU.
+             0x1A=  Unsupported Remote Feature.
+             0x1B=  SCO Offset Rejected.
+             0x1C=  SCO Interval Rejected.
+             0x1D=  SCO Air Mode Rejected.
+             0x1E=  Invalid LMP Parameters.
+             0x1F=  Unspecified Error.
+             0x20=  Unsupported LMP Parameter Value.
+             0x21=  Role Change Not Allowed
+             0x22=  LMP Response Timeout
+             0x23=  LMP Error Transaction Collision
+             0x24=  LMP PDU Not Allowed
+             0x25=  Encryption Mode Not Acceptable
+             0x26=  Unit Key Used
+             0x27=  QoS is Not Supported
+             0x28=  Instant Passed
+             0x29=  Pairing with Unit Key Not Supported
+           }
+           FormatValue=  Reserved Error code 0x%02X
+         }
+         Bytes(3,3)={
+           Name=Num_HCI_Command_Packets
+           FormatValue=  Host can send %d commands
+         }
+         Bytes(4,5)={
+           Name=Command_Opcode
+           Color(0,100,200)
+           WordValue={
+             0x0000=  NOP (changing number of outstanding HCI commands)
+
+             0x0401=  HCI_Inquiry
+             0x0402=  HCI_Inquiry_Cancel
+             0x0403=  HCI_Periodic_Inquiry_Mode
+             0x0404=  HCI_Exit_Periodic_Inquiry_Mode
+             0x0405=  HCI_Create_Connection
+             0x0406=  HCI_Disconnect
+             0x0407=  HCI_Add_SCO_Connection
+             0x0409=  HCI_Accept_Connection_Request
+             0x040A=  HCI_Reject_Connection_Request
+             0x040B=  HCI_Link_Key_Request_Reply
+             0x040C=  HCI_Link_Key_Request_Negative_Reply
+             0x040D=  HCI_PIN_Code_Request_Reply
+             0x040E=  HCI_PIN_Code_Request_Negative_Reply
+             0x040F=  HCI_Change_Connection_Packet_Type
+             0x0411=  HCI_Authentication_Request
+             0x0413=  HCI_Set_Connection_Encryption
+             0x0415=  HCI_Change_Connection_Link_Key
+             0x0417=  HCI_Master_Link_Key
+             0x0419=  HCI_Remote_Name_Request
+             0x041B=  HCI_Read_Remote_Supported_Features
+             0x041D=  HCI_Read_Remote_Version_Information
+             0x041F=  HCI_Read_Clock_Offset
+             
+             0x0801=  HCI_Hold_Mode
+             0x0803=  HCI_Sniff_Mode
+             0x0804=  HCI_Exit_Sniff_Mode
+             0x0805=  HCI_Park_Mode
+             0x0806=  HCI_Exit_Park_Mode
+             0x0807=  HCI_QoS_Setup
+             0x0809=  HCI_Role_Discovery
+             0x080B=  HCI_Switch_Role
+             0x080C=  HCI_Read_Link_Policy_Settings
+             0x080D=  HCI_Write_Link_Policy_Settings
+             
+             0x0C01=  HCI_Set_Event_Mask
+             0x0C03=  HCI_Reset
+             0x0C05=  HCI_Set_Event_Filter
+             0x0C08=  HCI_Flush
+             0x0C09=  HCI_Read_PIN_Type
+             0x0C0A=  HCI_Write_PIN_Type
+             0x0C0B=  HCI_Create_New_Unit_Key
+             0x0C0D=  HCI_Read_Stored_Link_Key
+             0x0C11=  HCI_Write_Stored_Link_Key
+             0x0C12=  HCI_Delete_Stored_Link_Key
+             0x0C13=  HCI_Change_Local_Name
+             0x0C14=  HCI_Read_Local_Name
+             0x0C15=  HCI_Read_Connection_Accept_Timeout
+             0x0C16=  HCI_Write_Connection_Accept_Timeout
+             0x0C17=  HCI_Read_Page_Timeout
+             0x0C18=  HCI_Write_Page_Timeout
+             0x0C19=  HCI_Read_Scan_Enable
+             0x0C1A=  HCI_Write_Scan_Enable
+             0x0C1B=  HCI_Read_Page_Scan_Activity
+             0x0C1C=  HCI_Write_Page_Scan_Activity
+             0x0C1D=  HCI_Read_Inquiry_Scan_Activity
+             0x0C1E=  HCI_Write_Inquiry_Scan_Activity
+             0x0C1F=  HCI_Read_Authentication_Enable
+             0x0C20=  HCI_Write_Authentication_Enable
+             0x0C21=  HCI_Read_Encryption_Mode
+             0x0C22=  HCI_Write_Encryption_Mode
+             0x0C23=  HCI_Read_Class_of_Device
+             0x0C24=  HCI_Write_Class_of_Device
+             0x0C25=  HCI_Read_Voice_Setting
+             0x0C26=  HCI_Write_Voice_Setting
+             0x0C27=  HCI_Read_Automatic_Flush_Timeout
+             0x0C28=  HCI_Write_Automatic_Flush_Timeout
+             0x0C29=  HCI_Read_Num_Broadcast_Retransmissions
+             0x0C2A=  HCI_Write_Num_Broadcast_Retransmissions
+             0x0C2B=  HCI_Read_Hold_Mode_Activity
+             0x0C2C=  HCI_Write_Hold_Mode_Activity
+             0x0C2D=  HCI_Read_Transmit_Power_Level
+             0x0C2E=  HCI_Read_SCO_Flow_Control_Enable
+             0x0C2F=  HCI_Write_SCO_Flow_Control_Enable
+             0x0C31=  HCI_Set_Host_Controller_To_Host_Flow_Control
+             0x0C33=  HCI_Host_Buffer_Size
+             0x0C35=  HCI_Host_Number_Of_Completed_Packets
+             0x0C36=  HCI_Read_Link_Supervision_Timeout
+             0x0C37=  HCI_Write_Link_Supervision_Timeout
+             0x0C38=  HCI_Read_Number_Of_Supported_IAC
+             0x0C39=  HCI_Read_Current_IAC_LAP
+             0x0C3A=  HCI_Write_Current_IAC_LAP
+             0x0C3B=  HCI_Read_Page_Scan_Period_Mode
+             0x0C3C=  HCI_Write_Page_Scan_Period_Mode
+             0x0C3D=  HCI_Read_Page_Scan_Mode
+             0x0C3E=  HCI_Write_Page_Scan_Mode
+             
+             0x1001=  HCI_Read_Local_Version_Information 
+             0x1003=  HCI_Read_Local_Supported_Features 
+             0x1005=  HCI_Read_Buffer_Size
+             0x1007=  HCI_Read_Country_Code
+             0x1009=  HCI_Read_BD_ADDR 
+             
+             0x1401=  HCI_Read_Failed_Contact_Counter
+             0x1402=  HCI_Reset_Failed_Contact_Counter
+             0x1403=  HCI_Get_Link_Quality
+             0x1405=  HCI_Read_RSSI
+             
+             0x1801=  HCI_Read_Loopback_Mode
+             0x1802=  HCI_Write_Loopback_Mode
+             0x1803=  HCI_Enable_Device_Under_Test_Mode
+           }
+           FormatValue=  Undefined command 0x%04X
+         }       
+       }
+
+       ;************ Hardware Error event **********************
+       0x10={
+         Bytes(2,2)={
+           Name=Hardware_Code
+           FormatValue=  0x%02X (implementation specific)
+         }
+       }
+
+       ;************ Flush Occurred event **********************
+       0x11={
+         Bytes(2,3)={
+           Name=Connection_Handle
+           FormatValue=  0x%04X was flushed
+         }
+       }
+
+       ;************ Role Change event **********************
+       0x12={
+
+         ; Status 
+         Bytes(2,2)={
+           Name=Status
+           Color(200,250,250)
+           WordValue={
+             0x00=  Role change has occurred.
+
+             Color(255,0,0)
+             0x01=  Unknown HCI Command.
+             0x02=  No Connection.
+             0x03=  Hardware Failure.
+             0x04=  Page Timeout.
+             0x05=  Authentication Failure.
+             0x06=  Key Missing.
+             0x07=  Memory Full.
+             0x08=  Connection Timeout.
+             0x09=  Max Number Of Connections.
+             0x0A=  Max Number Of SCO Connections To A Device.
+             0x0B=  ACL connection already exists.
+             0x0C=  Command Disallowed.
+             0x0D=  Host Rejected due to limited resources.
+             0x0E=  Host Rejected due to security reasons.
+             0x0F=  Host Rejected due to remote device is only a personal device.
+             0x10=  Host Timeout.
+             0x11=  Unsupported Feature or Parameter Value.
+             0x12=  Invalid HCI Command Parameters.
+             0x13=  Other End Terminated Connection: User Ended Connection.
+             0x14=  Other End Terminated Connection: Low Resources.
+             0x15=  Other End Terminated Connection: About to Power Off.
+             0x16=  Connection Terminated by Local Host.
+             0x17=  Repeated Attempts.
+             0x18=  Pairing Not Allowed.
+             0x19=  Unknown LMP PDU.
+             0x1A=  Unsupported Remote Feature.
+             0x1B=  SCO Offset Rejected.
+             0x1C=  SCO Interval Rejected.
+             0x1D=  SCO Air Mode Rejected.
+             0x1E=  Invalid LMP Parameters.
+             0x1F=  Unspecified Error.
+             0x20=  Unsupported LMP Parameter Value.
+             0x21=  Role Change Not Allowed
+             0x22=  LMP Response Timeout
+             0x23=  LMP Error Transaction Collision
+             0x24=  LMP PDU Not Allowed
+             0x25=  Encryption Mode Not Acceptable
+             0x26=  Unit Key Used
+             0x27=  QoS is Not Supported
+             0x28=  Instant Passed
+             0x29=  Pairing with Unit Key Not Supported
+           }
+           FormatValue=  Reserved Error code 0x%02X
+         }
+         Bytes(3,8)={
+           Name=BD_ADDR
+           FormatValue=   For device: 0x
+         }
+         Bytes(9,9)={
+           Name=New_Role
+           WordValue={
+             0x00=  Currently the Master for specified BD_ADDR
+             0x01=  Currently the Slave for specified BD_ADDR
+           }
+           FormatValue=  0x%02X (value not defined in the spec)
+         }
+       }
+
+       ;************ Number Of Completed Packets ***************************
+       0x13={
+         Bytes(2,2)={
+           Name=Number_of_Handles
+           FormatValue=  %d
+         }
+         Depends(Databytes(2,2))={
+           0x01={
+             Bytes(3,4)={
+               Name=Connection_Handle[1]
+               FormatValue=  0x%04X
+             }
+             Bytes(5,6)={
+               Name=HC_Num_Of_Completed_Packets[1]
+               FormatValue=  %d
+             }
+           }
+         }
+         By_tes(3,?)={
+           FormatValue=Completed packets for all connections
+         }
+       }
+
+       ;************ Mode Change ***************************
+       0x14={
+
+         ; Status 
+         Bytes(2,2)={
+           Name=Status
+           Color(200,250,250)
+           WordValue={
+             0x00=  A Mode Change has occurred.
+
+             Color(255,0,0)
+             0x01=  Unknown HCI Command.
+             0x02=  No Connection.
+             0x03=  Hardware Failure.
+             0x04=  Page Timeout.
+             0x05=  Authentication Failure.
+             0x06=  Key Missing.
+             0x07=  Memory Full.
+             0x08=  Connection Timeout.
+             0x09=  Max Number Of Connections.
+             0x0A=  Max Number Of SCO Connections To A Device.
+             0x0B=  ACL connection already exists.
+             0x0C=  Command Disallowed.
+             0x0D=  Host Rejected due to limited resources.
+             0x0E=  Host Rejected due to security reasons.
+             0x0F=  Host Rejected due to remote device is only a personal device.
+             0x10=  Host Timeout.
+             0x11=  Unsupported Feature or Parameter Value.
+             0x12=  Invalid HCI Command Parameters.
+             0x13=  Other End Terminated Connection: User Ended Connection.
+             0x14=  Other End Terminated Connection: Low Resources.
+             0x15=  Other End Terminated Connection: About to Power Off.
+             0x16=  Connection Terminated by Local Host.
+             0x17=  Repeated Attempts.
+             0x18=  Pairing Not Allowed.
+             0x19=  Unknown LMP PDU.
+             0x1A=  Unsupported Remote Feature.
+             0x1B=  SCO Offset Rejected.
+             0x1C=  SCO Interval Rejected.
+             0x1D=  SCO Air Mode Rejected.
+             0x1E=  Invalid LMP Parameters.
+             0x1F=  Unspecified Error.
+             0x20=  Unsupported LMP Parameter Value.
+             0x21=  Role Change Not Allowed
+             0x22=  LMP Response Timeout
+             0x23=  LMP Error Transaction Collision
+             0x24=  LMP PDU Not Allowed
+             0x25=  Encryption Mode Not Acceptable
+             0x26=  Unit Key Used
+             0x27=  QoS is Not Supported
+             0x28=  Instant Passed
+             0x29=  Pairing with Unit Key Not Supported
+           }
+           FormatValue=  Reserved Error code 0x%02X
+         }
+         Bytes(3,4)={
+           Name=Connection_Handle
+           FormatValue=  0x%04X
+         }
+         Bytes(5,5)={
+           Name=Current_Mode
+           WordValue={
+             0x00=  Active Mode
+             0x01=  Hold Mode
+             0x02=  Sniff Mode
+             0x03=  Park Mode
+           }
+           FormatValue=  0x%02X (Reserved)
+         }
+         Bytes(6,7)={
+           Depends(Databytes(5,5))={
+             0x01={
+               Name=Interval
+               FormatValue=  Wait %d Baseband slots in Hold Mode
+             }
+             0x02={
+               Name=Interval
+               FormatValue=  %d Baseband slots between sniff intervals
+             }
+             0x03={               
+               Name=Interval
+               FormatValue=  %d Baseband slots between consecutive beacons               
+             }
+             0x00={               
+               Name=Interval
+               FormatValue=  0x%02X (not used)               
+             }
+           }
+         }
+       }
+
+       ;************ Return Link Keys event **********************
+       0x15={
+         Bytes(2,2)={
+           Name=Num_Keys
+           FormatValue=  %d Link Keys contained in this event
+         }
+         Bytes(3,?)={
+           FormatValue=All devices and Link Keys
+         }
+       }
+
+       ;************ PIN Code Request event **********************
+       0x16={
+         Bytes(2,7)={
+           Name=BD_ADDR
+           FormatValue=  New link key is being created for device 0x
+         }
+       }
+
+       ;************ Link Key Request event **********************
+       0x17={
+         Bytes(2,7)={
+           Name=BD_ADDR
+           FormatValue=  Stored link key is being requested for device 0x
+         }
+       }
+
+       ;************ Link Key Notification event **********************
+       0x18={
+         Bytes(2,7)={
+           Name=BD_ADDR
+           FormatValue=  Link key for device 0x
+         }
+         Bytes(8,23)={
+           Name=Link_Key
+           FormatValue=  0x
+         }
+         Bytes(24,24)={
+           Name= Key_Type
+           WordValue={
+             0x00=  Combination Key
+             0x01=  Local Unit Key
+             0x02=  Remote Unit Key
+           }
+           FormatValue=  0x%02X (Reserved)
+         }
+       }
+
+       0x19={
+         Bytes(2,3)={
+           Name=Command_Opcode
+           WordValue={
+             0x0401=  HCI_Inquiry
+             0x0402=  HCI_Inquiry_Cancel
+             0x0403=  HCI_Periodic_Inquiry_Mode
+             0x0404=  HCI_Exit_Periodic_Inquiry_Mode
+             0x0405=  HCI_Create_Connection
+             0x0406=  HCI_Disconnect
+             0x0407=  HCI_Add_SCO_Connection
+             0x0409=  HCI_Accept_Connection_Request
+             0x040A=  HCI_Reject_Connection_Request
+             0x040B=  HCI_Link_Key_Request_Reply
+             0x040C=  HCI_Link_Key_Request_Negative_Reply
+             0x040D=  HCI_PIN_Code_Request_Reply
+             0x040E=  HCI_PIN_Code_Request_Negative_Reply
+             0x040F=  HCI_Change_Connection_Packet_Type
+             0x0411=  HCI_Authentication_Request
+             0x0413=  HCI_Set_Connection_Encryption
+             0x0415=  HCI_Change_Connection_Link_Key
+             0x0417=  HCI_Master_Link_Key
+             0x0419=  HCI_Remote_Name_Request
+             0x041B=  HCI_Read_Remote_Supported_Features
+             0x041D=  HCI_Read_Remote_Version_Information
+             0x041F=  HCI_Read_Clock_Offset
+             
+             0x0801=  HCI_Hold_Mode
+             0x0803=  HCI_Sniff_Mode
+             0x0804=  HCI_Exit_Sniff_Mode
+             0x0805=  HCI_Park_Mode
+             0x0806=  HCI_Exit_Park_Mode
+             0x0807=  HCI_QoS_Setup
+             0x0809=  HCI_Role_Discovery
+             0x080B=  HCI_Switch_Role
+             0x080C=  HCI_Read_Link_Policy_Settings
+             0x080D=  HCI_Write_Link_Policy_Settings
+             
+             0x0C01=  HCI_Set_Event_Mask
+             0x0C03=  HCI_Reset
+             0x0C05=  HCI_Set_Event_Filter
+             0x0C08=  HCI_Flush
+             0x0C09=  HCI_Read_PIN_Type
+             0x0C0A=  HCI_Write_PIN_Type
+             0x0C0B=  HCI_Create_New_Unit_Key
+             0x0C0D=  HCI_Read_Stored_Link_Key
+             0x0C11=  HCI_Write_Stored_Link_Key
+             0x0C12=  HCI_Delete_Stored_Link_Key
+             0x0C13=  HCI_Change_Local_Name
+             0x0C14=  HCI_Read_Local_Name
+             0x0C15=  HCI_Read_Connection_Accept_Timeout
+             0x0C16=  HCI_Write_Connection_Accept_Timeout
+             0x0C17=  HCI_Read_Page_Timeout
+             0x0C18=  HCI_Write_Page_Timeout
+             0x0C19=  HCI_Read_Scan_Enable
+             0x0C1A=  HCI_Write_Scan_Enable
+             0x0C1B=  HCI_Read_Page_Scan_Activity
+             0x0C1C=  HCI_Write_Page_Scan_Activity
+             0x0C1D=  HCI_Read_Inquiry_Scan_Activity
+             0x0C1E=  HCI_Write_Inquiry_Scan_Activity
+             0x0C1F=  HCI_Read_Authentication_Enable
+             0x0C20=  HCI_Write_Authentication_Enable
+             0x0C21=  HCI_Read_Encryption_Mode
+             0x0C22=  HCI_Write_Encryption_Mode
+             0x0C23=  HCI_Read_Class_of_Device
+             0x0C24=  HCI_Write_Class_of_Device
+             0x0C25=  HCI_Read_Voice_Setting
+             0x0C26=  HCI_Write_Voice_Setting
+             0x0C27=  HCI_Read_Automatic_Flush_Timeout
+             0x0C28=  HCI_Write_Automatic_Flush_Timeout
+             0x0C29=  HCI_Read_Num_Broadcast_Retransmissions
+             0x0C2A=  HCI_Write_Num_Broadcast_Retransmissions
+             0x0C2B=  HCI_Read_Hold_Mode_Activity
+             0x0C2C=  HCI_Write_Hold_Mode_Activity
+             0x0C2D=  HCI_Read_Transmit_Power_Level
+             0x0C2E=  HCI_Read_SCO_Flow_Control_Enable
+             0x0C2F=  HCI_Write_SCO_Flow_Control_Enable
+             0x0C31=  HCI_Set_Host_Controller_To_Host_Flow_Control
+             0x0C33=  HCI_Host_Buffer_Size
+             0x0C35=  HCI_Host_Number_Of_Completed_Packets
+             0x0C36=  HCI_Read_Link_Supervision_Timeout
+             0x0C37=  HCI_Write_Link_Supervision_Timeout
+             0x0C38=  HCI_Read_Number_Of_Supported_IAC
+             0x0C39=  HCI_Read_Current_IAC_LAP
+             0x0C3A=  HCI_Write_Current_IAC_LAP
+             0x0C3B=  HCI_Read_Page_Scan_Period_Mode
+             0x0C3C=  HCI_Write_Page_Scan_Period_Mode
+             0x0C3D=  HCI_Read_Page_Scan_Mode
+             0x0C3E=  HCI_Write_Page_Scan_Mode
+             
+             0x1001=  HCI_Read_Local_Version_Information 
+             0x1003=  HCI_Read_Local_Supported_Features 
+             0x1005=  HCI_Read_Buffer_Size
+             0x1007=  HCI_Read_Country_Code
+             0x1009=  HCI_Read_BD_ADDR 
+             
+             0x1401=  HCI_Read_Failed_Contact_Counter
+             0x1402=  HCI_Reset_Failed_Contact_Counter
+             0x1403=  HCI_Get_Link_Quality
+             0x1405=  HCI_Read_RSSI
+             
+             0x1801=  HCI_Read_Loopback_Mode
+             0x1802=  HCI_Write_Loopback_Mode
+             0x1803=  HCI_Enable_Device_Under_Test_Mode
+           }
+           FormatValue=  Undefined command 0x%04X
+         }       
+         Bytes(4,4)={
+           Name=Parameter_Total_Length
+           FormatValue=  %d bytes
+         }
+         Bytes(5,?)={
+           FormatValue=Command Parameters
+         }
+       }
+
+       ;************ Data Buffer Overflow event **********************
+       0x1A={
+         Bytes(2,2)={
+           Name=Link_Type
+           WordValue={
+             0x00=  SCO Buffer Overflow (Voice Channels)
+             0x01=  ACL Buffer Overflow (Data Channels)
+           }
+           FormatValue=  0x%02X (value reserved in the spec)
+         }
+       }
+
+       ;************ Max Slots Change event **********************
+       0x1B={
+         Bytes(2,3)={
+           Name=Connection_Handle
+           FormatValue=  0x%04X
+         }
+         Bytes(4,4)={
+           Name=LMP_Max_Slots
+           FormatValue=  Max %d slots allowed to use for baseband packets
+         }
+       }
+
+       ;************ Read Clock Offset Complete event **********************
+       0x1C={
+
+         ; Status 
+         Bytes(2,2)={
+           Name=Status
+           Color(200,250,250)
+           WordValue={
+             0x00=  Command Succeeded.
+
+             Color(255,0,0)
+             0x01=  Unknown HCI Command.
+             0x02=  No Connection.
+             0x03=  Hardware Failure.
+             0x04=  Page Timeout.
+             0x05=  Authentication Failure.
+             0x06=  Key Missing.
+             0x07=  Memory Full.
+             0x08=  Connection Timeout.
+             0x09=  Max Number Of Connections.
+             0x0A=  Max Number Of SCO Connections To A Device.
+             0x0B=  ACL connection already exists.
+             0x0C=  Command Disallowed.
+             0x0D=  Host Rejected due to limited resources.
+             0x0E=  Host Rejected due to security reasons.
+             0x0F=  Host Rejected due to remote device is only a personal device.
+             0x10=  Host Timeout.
+             0x11=  Unsupported Feature or Parameter Value.
+             0x12=  Invalid HCI Command Parameters.
+             0x13=  Other End Terminated Connection: User Ended Connection.
+             0x14=  Other End Terminated Connection: Low Resources.
+             0x15=  Other End Terminated Connection: About to Power Off.
+             0x16=  Connection Terminated by Local Host.
+             0x17=  Repeated Attempts.
+             0x18=  Pairing Not Allowed.
+             0x19=  Unknown LMP PDU.
+             0x1A=  Unsupported Remote Feature.
+             0x1B=  SCO Offset Rejected.
+             0x1C=  SCO Interval Rejected.
+             0x1D=  SCO Air Mode Rejected.
+             0x1E=  Invalid LMP Parameters.
+             0x1F=  Unspecified Error.
+             0x20=  Unsupported LMP Parameter Value.
+             0x21=  Role Change Not Allowed
+             0x22=  LMP Response Timeout
+             0x23=  LMP Error Transaction Collision
+             0x24=  LMP PDU Not Allowed
+             0x25=  Encryption Mode Not Acceptable
+             0x26=  Unit Key Used
+             0x27=  QoS is Not Supported
+             0x28=  Instant Passed
+             0x29=  Pairing with Unit Key Not Supported
+           }
+           FormatValue=  Reserved Error code 0x%02X
+         }
+         Bytes(3,4)={
+           Name=Connection_Handle
+           FormatValue=  0x%04X
+         }
+         Bytes(5,6)={
+           Name=Clock_Offset
+           Bitmap={
+             0=Bit  2 of CLKslave-CLKmaster
+             1=Bit  3 of CLKslave-CLKmaster
+             2=Bit  4 of CLKslave-CLKmaster
+             3=Bit  5 of CLKslave-CLKmaster
+             4=Bit  6 of CLKslave-CLKmaster
+             5=Bit  7 of CLKslave-CLKmaster
+             6=Bit  8 of CLKslave-CLKmaster
+             7=Bit  9 of CLKslave-CLKmaster
+             8=Bit 10 of CLKslave-CLKmaster
+             9=Bit 11 of CLKslave-CLKmaster
+             10=Bit 12 of CLKslave-CLKmaster
+             11=Bit 13 of CLKslave-CLKmaster
+             12=Bit 14 of CLKslave-CLKmaster
+             13=Bit 15 of CLKslave-CLKmaster
+             14=Bit 16 of CLKslave-CLKmaster
+             15=Clock_Offset_Valid_Flag
+           }
+         }
+       }
+
+       ;************ Connection Packet Type Changed event *******************
+       0x1D={
+
+         ; Status 
+         Bytes(2,2)={
+           Name=Status
+           Color(200,250,250)
+           WordValue={
+             0x00=  Connection Packet Type changed successfully.
+
+             Color(255,0,0)
+             0x01=  Unknown HCI Command.
+             0x02=  No Connection.
+             0x03=  Hardware Failure.
+             0x04=  Page Timeout.
+             0x05=  Authentication Failure.
+             0x06=  Key Missing.
+             0x07=  Memory Full.
+             0x08=  Connection Timeout.
+             0x09=  Max Number Of Connections.
+             0x0A=  Max Number Of SCO Connections To A Device.
+             0x0B=  ACL connection already exists.
+             0x0C=  Command Disallowed.
+             0x0D=  Host Rejected due to limited resources.
+             0x0E=  Host Rejected due to security reasons.
+             0x0F=  Host Rejected due to remote device is only a personal device.
+             0x10=  Host Timeout.
+             0x11=  Unsupported Feature or Parameter Value.
+             0x12=  Invalid HCI Command Parameters.
+             0x13=  Other End Terminated Connection: User Ended Connection.
+             0x14=  Other End Terminated Connection: Low Resources.
+             0x15=  Other End Terminated Connection: About to Power Off.
+             0x16=  Connection Terminated by Local Host.
+             0x17=  Repeated Attempts.
+             0x18=  Pairing Not Allowed.
+             0x19=  Unknown LMP PDU.
+             0x1A=  Unsupported Remote Feature.
+             0x1B=  SCO Offset Rejected.
+             0x1C=  SCO Interval Rejected.
+             0x1D=  SCO Air Mode Rejected.
+             0x1E=  Invalid LMP Parameters.
+             0x1F=  Unspecified Error.
+             0x20=  Unsupported LMP Parameter Value.
+             0x21=  Role Change Not Allowed
+             0x22=  LMP Response Timeout
+             0x23=  LMP Error Transaction Collision
+             0x24=  LMP PDU Not Allowed
+             0x25=  Encryption Mode Not Acceptable
+             0x26=  Unit Key Used
+             0x27=  QoS is Not Supported
+             0x28=  Instant Passed
+             0x29=  Pairing with Unit Key Not Supported
+           }
+           FormatValue=  Reserved Error code 0x%02X
+         }
+         Bytes(3,4)={
+           Name=Connection_Handle
+           FormatValue=  0x%04X
+         }
+         Bytes(5,6)={
+           Name=Packet_Type
+           WordValue={
+             0x0001=  Reserved (0x0001)
+             0x0002=  Reserved (0x0002)
+             0x0004=  Reserved (0x0004)
+             0x0008=  DM1
+             0x0010=  DH1
+             0x0020=  HV1 
+             0x0040=  HV2 
+             0x0080=  HV3 
+             0x0100=  Reserved (0x0100) 
+             0x0200=  Reserved (0x0200) 
+             0x0400=  DM3
+             0x0800=  DH3
+             0x1000=  Reserved (0x1000) 
+             0x2000=  Reserved (0x2000)
+             0x4000=  DM5
+             0x8000=  DH5
+           }
+           FormatValue=  0x%04X
+         }
+       }
+
+       ;************ QoS Violation event **********************
+       0x1E={
+         Bytes(2,3)={
+           Name=Connection_Handle
+           FormatValue=  0x%04X (LM is not able to provide QoS for)
+         }
+       }
+
+       ;************ Page Scan Mode Change event **********************
+       0x1F={
+         Bytes(2,7)={
+           Name=BD_ADDR
+           FormatValue=   Device 0x
+         }
+         Bytes(8,8)={
+           Name=Page_Scan_Mode
+           WordValue={
+             0x00=  Mandatory Page Scan Mode
+             0x01=  Optional Page Scan Mode I
+             0x02=  Optional Page Scan Mode II
+             0x03=  Optional Page Scan Mode III
+           }
+           FormatValue=Page_Scan_Mode: 0x%02X (Reserved)
+         }
+       }
+
+       ;************ Page Scan Repetition Mode Change event ******************
+       0x20={
+         Bytes(2,7)={
+           Name=BD_ADDR
+           FormatValue=   Device 0x
+         }
+         Bytes(8,8)={
+           Name=Page_Scan_Repetition_Mode
+           WordValue={
+             0x00=  R0
+             0x01=  R1
+             0x02=  R2
+           }
+           FormatValue=  0x%02X (Reserved)
+         }
+       }
+
+
+     } ; end main depend
+
+   } ; end data
+
+}
+
+EndpointData={
+
+   ; Global definitions
+   Caption=Bluetooth ACL or SCO Data Packet
+
+   EndpointType=Bulk
+   EndpointId=2
+   MaxPacketSize=64
+   MaxTransferSize=3573   
+  
+   ;*** Field Definitions start here ********
+   Data={
+ 
+     Length=?
+
+     Bytes(0,1)={
+       Name=Connection Handle & Flags
+       FormatValue=  0x%04X
+     }
+
+     Bytes(2,3)={
+       Name=DataTotalLength
+       FormatValue=  %d
+     }
+
+     Bytes(4,?)={
+       FormatValue=ACL or SCO Data
+     }
+
+   }
+}

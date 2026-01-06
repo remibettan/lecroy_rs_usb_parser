@@ -1,0 +1,48 @@
+#
+#  Copyright (c) 2001, Computer Access Technology Corp. - All Rights Reserved
+#
+#  VirtualDATA.dec
+#
+#  Virtual DATA Display Decoder
+#
+
+%include "DecoderTools.inc"    #include usefull decoder functions
+%include "USBCommon.inc"    #include usefull decoder functions
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block 
+#
+#----  Output
+# out.Decoded   - amount of data has been decoded
+#
+
+
+set ModuleType  = "DataBlock Decoder";
+set OutputType  = "Display DATA";
+
+# The following values are for usb analyzer decoding
+set UsbClassCode = 0x98;
+set UsbDecodeType = "Endpoint";
+set UsbEndpId = 1;
+set UsbEndpType = "Bulk";
+set UsbEndpDir = "In";
+set UsbMaxPktSize=64;
+set UsbMaxXferSize=16384;   
+
+
+#
+# Parsing entry point
+#
+const VDATAdColour = 0xB31C54;
+
+
+ProcessData()
+{
+    GetNBits( in.Data, 0, 0 );
+    ShowDataBlockReOrder( in.DataLength );
+
+    out.Decoded = in.DataLength;
+
+    return Complete();
+}

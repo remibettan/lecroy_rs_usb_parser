@@ -1,0 +1,333 @@
+#
+#  Copyright (c) 2003, Computer Access Technology Corp. - All Rights Reserved
+#
+#  MS_BulkOnlySCSIInEndpoint.dec
+#
+#  Mass Storage Class SCSI SubClass Bulk-Only Protocol In Endpoint Decoder
+#
+
+%include "CATCScriptAPI.inc"
+
+# SCSI definitions
+%include "..\Shared\SCSI\SCSI_Defs.inc"
+
+%include "UsbCommon.inc"
+%include "MS_Common.inc"
+%include "MS_BulkOnlyInEndp.inc"
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block 
+#
+#----  Output
+# out.Decoded   - amount of data has been decoded
+#
+
+
+set OutputType    = "Mass Strg Bulk-Only SCSI In Endp";
+set UsbDecodeType = "Endpoint";
+set UsbEndpId     = 5; # just a unique value for each endpoint of the same Class/Vendor/Product to distinguish them
+set UsbClassCode  = 0x8; # Mass Storage Class
+set UsbSubClass     = 0x06;
+set UsbProtocol     = 0x50; # Bulk-Only
+set UsbEndpType   = "Bulk";
+set UsbEndpDir    = "In";
+set UsbMaxXferSize       = 0x7FFFFFFF;  #try largest possible positive value  
+set UsbMaxXferDecodeSize = 36;  # Max bytes that we will be decoding  
+set UsbMaxPktSize        = 512;
+set UsbScriptDecodeType  = 2; # Combined decoding for Cells and Text decoding  
+set UsbDecHdrType = 2; # This type references decoder byte containing the SCSI Opcode  
+set UsbDecHdrLen  = 1; # This 1 byte is passed in to this via the in context
+set UsbXferCompleteClue = 8; # An Xfer of this type will complete an OUT in progress  
+
+
+
+
+#############################################################################
+#                               View Settings                               #
+#############################################################################
+#
+#    In this section user can set up which fields are to be shown and 
+#    which are to be hidden in expanded and collapsed states.
+#    Zero-value everywhere means that fields will not be shown,
+#    otherwise means opposite.
+#
+
+# -----------------------  Separate Field View Settings ---------------------
+# The FIRST value in list-variables defines if the field is to be shown or
+# hidden in COLLAPSED state. 
+# 0 - means the field is to be shown.
+# 1 - means the field is to be hidden.
+# 
+# The SECOND value in list-variables defines if the field is to be shown or
+# hidden in EXPANDED state. 
+# 0 - means the field is to be shown.
+# 1 - means the field is to be hidden.
+#
+# i.e.  const RPD_Field = [0, 1]; - means that field 'Field' will be hidden
+# in collapsed state and will be shown in expanded state. 
+#
+
+#           [collapsed, expanded]   
+ const SOB_CDB    = [0, 1];
+#-----------------------------------------------------------------------------
+
+
+set HeaderPrinted = 0;
+set PrevOpcode = 0;
+
+#
+# Parsing entry point
+#
+
+
+ProcessData()
+{
+    InitType2Decoder();
+    Prefix =  "SOB";
+        
+    HeaderPrinted = 0;
+    status_block_size = ProcessBulkOnlyCSW(0);
+    
+    if (status_block_size != 0)
+    {
+        # Status block exists, so we're done!
+        out.Decoded = in.DataLength;
+        #(debug)AddCaptionCell("  Status Seen  ", "At Beginning", "");
+        return Complete();
+    }
+    
+    # No status block, so check if this is a response to a control command,
+    # as opposed to a block of READ data
+    
+    PrevOpcode = GetNBits(in.DecodeParams, 0, 8);
+    #SCSILevel = GetNBits(in.DecodeParams, 8, 8);
+    Read_SCSILevel();
+ 
+    #Trace ("PrevOpcode:", PrevOpcode, "\n");
+    
+    GetNBits(in.Data, 0, 0); # reset pointers    
+    SetFieldOffsetLen(0, 8);
+    
+    if (HeaderPrinted == 0)
+    {
+        AddDecodedTextHeader();
+        HeaderPrinted = 1;
+    }
+ 
+    AddDecSeparator();
+    FieldColor = MassStorageColor;
+    if (SCSILevel == 0) # Xfer level
+    {
+        AddCaptionCell("  Mass  ", "Storage", "This data payload represents a Mass Storage Data Bulk.");
+        
+        AddDecSeparator();
+    }
+	  
+    FieldColor = Bulk_CSWCellColor;
+    
+    save_endian = LittleEndian;
+    LittleEndian = 0;
+
+    select
+    {
+        ((PrevOpcode == 0x08) || 
+         (PrevOpcode == 0x28) || 
+         (PrevOpcode == 0x3E))  : DoRead();         # READ (6, 10, LONG)       
+        (PrevOpcode == 0x12)    : DoInquiry();      # INQUIRY   
+        (PrevOpcode == 0x25)    : DoReadCapacity(); # READ_CAPACITY
+        (PrevOpcode == 0x9E)    : DoReadCapacity16(); # READ_CAPACITY 16
+        ((PrevOpcode == 0x1A) || 
+         (PrevOpcode == 0x5A))  : DoModeSense();    # MODE_SENSE (6, 10)       
+        (PrevOpcode == 0x03)    : DoRequestSense(); # REQUEST_SENSE       
+		(PrevOpcode == 0xC0)    : Do_C0();    
+		(PrevOpcode == 0xC5)    : Do_C5();
+		(PrevOpcode == 0xD5)    : Do_D5();
+		(PrevOpcode == 0x1C)    : Do_1C();   
+        (PrevOpcode == 0xA1) ||
+         (PrevOpcode == 0x85)   : DoATAPassThough();
+    };
+        
+    # Previous command was NOT one which recieves command response information
+    # For example, this could be plain old READ data
+    
+    LittleEndian = save_endian;       
+    
+    if (in.DataLength > 13)
+    {
+        if (GetDataLong(in.DataLength - 13) == 0x53425355)
+        {
+            status_block_size = ProcessBulkOnlyCSW(in.DataLength - 13);
+            
+            if ((PrevOpcode == 0x08) || 
+                (PrevOpcode == 0x28) || 
+                (PrevOpcode == 0x3E)) 
+            {
+                out.Decoded = 0x0D000000;  # 13 shifted into the high nibble;
+            } 
+                      
+            
+        }
+    }
+    
+    #Anything else will be shown as raw data.
+    SCSILevel = 0;
+    return Complete();
+}
+ 
+ 
+DoRead()
+{
+    AddDecSeparator();
+    if (in.DataLength < 13)
+    {
+        AddCaptionCell("  READ  ", "Short Response", "Response is too short to contain a Command Status Wrapper Block", _ERROR);       
+        out.Decoded = 0;
+        ShowDataBlockReOrder(in.DataLength);    
+    }
+    else
+    {
+        #ShowDataBlockReOrder(in.DataLength - 13);
+        #out.Decoded = in.DataLength;
+         out.Decoded = 0;
+    }
+}
+
+%include "MS_Special_1.inc"
+
+DoInquiry()
+{
+    DoInquiryResponse();   
+  
+    if (SpecialDecode == 17)
+    {
+        DoSpecialDecode_17();
+    }
+    else
+    {
+        out.Decoded = 36;
+        if (in.DataLength > 36) #djdj remove when out.Decoded examined
+        {
+            if (in.DataLength < MaxShowDataBlockSize)
+            {         
+                ShowDataBlockReOrder(in.DataLength - 36);
+            }
+        }
+        else
+        {
+            out.Decoded = in.DataLength;
+        }
+    }
+}
+
+DoModeSense()
+{
+    AddDecSeparator();
+
+    if (PrevOpcode == 0x1A)
+    {
+        FieldColor = CDB_ModeSense6_Color;
+	    DoModeSense6Response();
+    }
+    else
+    {
+        FieldColor = CDB_ModeSense10_Color;
+        DoModeSense10Response();
+    }
+    out.Decoded = in.DataLength;
+}
+
+
+
+DoRequestSense()
+{
+    AddDecSeparator();
+    FieldColor = CDB_RequestSense_Color;
+    if (in.DataLength == 0)
+    {
+        AddCaptionCell("  REQUEST_SENSE  ", "No Response", "Device server returned nothing in response to MODE_SENSE Command", _MONOCOLOR);
+    }
+    else
+    {
+        AddCaptionCell("  REQUEST_SENSE  ", "Response", "Response to MODE_SENSE Command", _MONOCOLOR);
+        ShowSenseData(in.DataLength);
+    }
+    out.Decoded = in.DataLength;
+}
+
+
+
+DoReadCapacity()
+{
+    AddDecSeparator();
+    FieldColor = CDB_ReadCapcty_Color;
+    AddCaptionCell("  READ_CAPACITY  ", "Response", "Response to READ_CAPACITY Command", _MONOCOLOR);
+    
+    lba = GetDataLong(0);
+    if (lba & 0x80000000)
+    {
+        #AddSimplePLCell("LBA", Format ("0x%08X", lba), "Logical Block Address", FieldColor, [_TABULARCELL, SCSI_CELL_LBA, "TEXT_CAPTION"]);
+        AddPayLoadCell("LBA", Format ("0x%08X", lba), "Logical Block Address", FieldColor, [_TABULARCELL, SCSI_CELL_LBA, "TEXT_CAPTION"]);
+    }
+    else
+    {
+        #AddSimplePLCell("LBA", Format ("0x%08X", lba), Format ("Logical Block Address: %d", lba), FieldColor, [_TABULARCELL, SCSI_CELL_LBA, "TEXT_CAPTION"]);
+        AddPayLoadCell("LBA", Format ("0x%08X", lba), Format ("Logical Block Address: %d", lba), FieldColor, [_TABULARCELL, SCSI_CELL_LBA, "TEXT_CAPTION"]);    }
+    
+    block_len = GetDataLong(4);
+    if (block_len & 0x80000000)
+    {
+        #AddSimplePLCell("Block Len", Format ("0x%08X", block_len), "Block Length", FieldColor, [_TABULARCELL, SCSI_CELL_LENGTH, "TEXT_CAPTION" ]);
+        AddPayLoadCell("Block Len", Format ("0x%08X", block_len), "Block Length", FieldColor, [_TABULARCELL, SCSI_CELL_LENGTH, "TEXT_CAPTION" ]);
+    }
+    else
+    {
+        #AddSimplePLCell("Block Len", Format ("0x%08X", block_len), Format ("Block Length: %d", block_len), FieldColor, [_TABULARCELL, SCSI_CELL_LENGTH, "TEXT_CAPTION" ]);
+        AddPayLoadCell("Block Len", Format ("0x%08X", block_len), Format ("Block Length: %d", block_len), FieldColor, [_TABULARCELL, SCSI_CELL_LENGTH, "TEXT_CAPTION" ]);
+    }
+    out.Decoded = in.DataLength;
+}    
+        
+DoReadCapacity16()
+{
+    AddDecSeparator();
+    FieldColor = CDB_ReadCapcty_Color;
+    AddCaptionCell("  READ_CAPACITY(16)  ", "Response", "Response to READ_CAPACITY_16 Command", _MONOCOLOR);
+    
+    lba_upper = GetDataLong(0);
+    lba_lower = GetDataLong(4);
+    str = "";
+    str = Format ("0x%08X", lba_upper);
+    str += Format ("%08X", lba_lower);
+    AddPayLoadCell("LBA", str, "Logical Block Address", FieldColor, [_TABULARCELL, SCSI_CELL_LBA, "TEXT_CAPTION"]);
+    
+    block_len = GetDataLong(8);
+    AddPayLoadCell("Block Len", Format ("0x%08X", block_len ), "Block Length", FieldColor, [_TABULARCELL, SCSI_CELL_LENGTH, "TEXT_CAPTION" ]);
+
+    bitz = GetDataByte(12);
+    AddPayLoadCell("PROT_EN", Format ("%d", bitz & 1 ), "Protected Information", FieldColor, [_TABULARCELL, SCSI_CELL_LENGTH, "TEXT_CAPTION" ]);
+    AddPayLoadCell("RTO_EN", Format ("%d", (bitz & 2) >> 1), "Reference Tag Own Enable", FieldColor, [_TABULARCELL, SCSI_CELL_LENGTH, "TEXT_CAPTION" ]);
+
+    out.Decoded = in.DataLength;
+}    
+
+DoATAPassThough()
+{
+    # Protocol field in ATA Pass-Through command should be 0x0F that means "Return Response Information"
+    if( in.Protocol == 0x0F )
+        return 0;
+     
+    AddDecSeparator();
+    FieldColor = CDB_ATAPassThough_Color;
+    if (in.DataLength == 0)
+    {
+        AddCaptionCell("ATA PASS-THROUGH", "No Response", "Device server returned nothing in response to ATA PASS-THROUGH Command", _MONOCOLOR);
+    }
+    else
+    {
+        AddCaptionCell("ATA PASS-THROUGH", "Response", "Response to ATA PASS-THROUGH Command", _MONOCOLOR);
+        ShowATAReturnDescriptor();
+    }
+    
+    out.Decoded = in.DataLength;
+}

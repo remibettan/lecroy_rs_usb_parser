@@ -1,0 +1,106 @@
+#
+#  Copyright (c) 2016, LeCroy Corp. - All Rights Reserved
+#
+#  USBTMC_Interrupt-IN.dec
+#
+#  USB test and Measurement Interrupt-IN Protocol Out Endpoint Decoder 
+#
+# V1.0 - MGD
+
+%include "CATCScriptAPI.inc"
+%include "UsbCommon.inc"
+
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block 
+#
+#----  Output
+# out.Decoded   - amount of data has been decoded
+#
+
+#---------------------------  Common Globals -----------------------------------
+
+set OutputType    = "USBTMC Interrupt-IN";
+set UsbDecodeType = "Endpoint";
+set UsbEndpId     = 3; # just a unique value for each endpoint of the same Class/Vendor/Product to distinguish them
+set UsbClassCode  = 0xFE;  #USBTMC
+set UsbSubClass     = 0x03; #USBTMC
+set UsbProtocol     = 0x00; #USBTMC
+set UsbEndpType   = "Interrupt";
+set UsbEndpDir    = "In";
+
+set usbtmc_colour = 0xAE2800;
+#-------------------------------------------------------------------------------
+
+
+
+#############################################################################
+#                               View Settings                               #
+#############################################################################
+#
+#    In this section user can set up which fields are to be shown and 
+#    which are to be hidden in expanded and collapsed states.
+#    Zero-value everywhere means that fields will not be shown,
+#    otherwise means opposite.
+#
+
+# -----------------------  Separate Field View Settings ---------------------
+# The FIRST value in list-variables defines if the field is to be shown or
+# hidden in COLLAPSED state. 
+# 0 - means the field is to be shown.
+# 1 - means the field is to be hidden.
+# 
+# The SECOND value in list-variables defines if the field is to be shown or
+# hidden in EXPANDED state. 
+# 0 - means the field is to be shown.
+# 1 - means the field is to be hidden.
+#
+# i.e.  const RPD_Field = [0, 1]; - means that field 'Field' will be hidden
+# in collapsed state and will be shown in expanded state. 
+#
+
+#           [collapsed, expanded]   
+ const SOB_CDB    = [0, 1];
+#-----------------------------------------------------------------------------
+
+
+ProcessData()
+{
+    CommonDecoderInit();
+
+    SetCellColor(usbtmc_colour);
+    AddCaptionCell("TMC","Class","In order to view comments in text field, user must expand this caption cell",usbtmc_colour,_MONOCOLOR);  # will allow for the expansion of certain fields
+    
+    #if(SimpleShowItem())
+    {
+        value = 0;
+        
+        value = GetNBits(in.Data, 0, 8);
+        AddPayLoadCell("bNotify1", Format("0x%x", value), "bNotify1");
+
+        value = GetDataByteArray(1, in.DataLength - 1);
+        value = GetArrayHexStringEx(value, 1);
+        value = Format("0x%x", value);
+        AddPayLoadCell("bNotify2", Format("%s", value), "bNotify2");
+    }
+    
+    out.Decoded = in.DataLength;  
+    
+    if( out.Decoded > in.DataLength )
+        out.Decoded = in.DataLength; 
+            
+    AddSeparator();
+
+    return Complete();
+}
+
+####################################################################################
+#                       USBTracer specific caption cell                            #
+####################################################################################
+
+AddSpecCaptionCell(caption, text, tooltip, FieldColor, addparam, addparam1, addparam2 )
+{   
+    AddCell(caption, text, tooltip, FieldColor, _USBBULK_HEADER, addparam, addparam1, addparam2 );        
+    return 1;        
+}

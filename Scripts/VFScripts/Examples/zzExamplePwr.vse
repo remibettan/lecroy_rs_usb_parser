@@ -1,0 +1,268 @@
+#
+#  Copyright (c) 1998 - 2010, LeCroy Corp. PSG. - All Rights Reserved
+#
+#   zExamplePwr.vse
+#
+#   Verification script
+#
+#   Brief Description: 
+#   An example of processing for Power Information captured with a USB trace.
+#   Can be used with the sample trace PowerTrackersample.usb
+#
+
+
+######################################################################################################
+#                                         Module info                                                #
+######################################################################################################
+#       Filling of this block is necessary for proper verification script operation...               #
+######################################################################################################
+
+
+#
+# Specify here the brief description for your verification script.
+# This name will be shown in the verification script dialog.
+#
+set DecoderDesc = "USB Suite VSE sample script for processing Power Capture data and output to HTML file.";
+
+######################################################################################################
+
+
+#
+# include main Verification Script Engine definitions
+#
+%include  "VSTools.inc"
+
+%include  "html.inc"           # common header for samples using HTML output
+
+######################################################################################
+#                            Global Variables and Constants                          #
+######################################################################################
+
+const MAX_NUMBER_OF_EVENTS = 100;
+set   EventCount = 0;
+
+set   PowerCaptured = 0; # flag to indicate presence of Power Capture data
+
+######################################################################################
+
+
+
+######################################################################################
+#   OnStartScript()                                                                  #
+######################################################################################
+#                                                                                    #
+# It is a main intialization routine for setting up all necessary                    #
+# script parameters before running the script.                                       #
+#                                                                                    #
+# Specify in the body of this function initial values for global variables           #
+# and what kind of trace events should be sent to the script.                        #
+# ( By default, only all frames and Link state change events from both channels      #
+#  will be passed to the script.                                                     #
+#                                                                                    #
+#  Please see CATC Verification Script Engine Manual for more details about          #
+#  recorded trace "events" passed to verification scripts.                           #
+#                                                                                    #
+######################################################################################
+#
+OnStartScript()
+{  
+    EventCount = 0;    
+    
+    #############################################
+    # Specify which channel/level/event         #
+    # should be sent to the script              #
+    #############################################  
+    
+    # Please see VSE manual for details about VSE sending capabilities.
+           
+    SendAllChannels();             # sends trace events of all channels
+    
+    SendLevelOnly ( _PKT );        # sends trace events of PACKET level only        
+   
+    SendAllTraceEvents();
+
+    # This script only processe the trace data
+    ScriptForDisplayOnly();
+
+    # Call the IsPowerCaptured primitive function to determine if power was captured for this trace
+    if( IsPowerCaptured() )
+    {
+        PowerCaptured = 1;
+        
+        ReportText( "This trace contains Power Caprure data, proceeding..." );
+        
+        #################################
+        # Prepare HTML output file      #          
+        #################################
+    
+        html_file_path = GetApplicationDataFolder() + "\\" + GetTraceName(1) + "_vs_output.htm";
+    
+        H_OpenFile( html_file_path, "sample_ata_commands" );
+        
+        H_Line( "<font color=#FF0000>**************************************************************</font>" );
+        H_Line( "Trace path  : " + GetTraceName () );
+        H_Line( "Script name : " + GetScriptName() );
+        H_Line( "<font color=#FF0000>**************************************************************</font>" ); 
+        H_Line( " " );   
+
+    }
+    else
+    {
+        ReportText( "This trace doesn't contain Power Caprure data." ); 
+        ReportText( "The script is not applicable, terminating processing." );
+        
+        PowerCaptured = 0;
+    }
+}
+
+
+######################################################################################
+#   ProcessEvent()                                                                   #
+######################################################################################
+#                                                                                    #
+# It is a main script function called by the application when the next waited event  #
+# occured in the evaluated trace.                                                    #
+#                                                                                    #
+######################################################################################
+#
+ProcessEvent()
+{
+    if( !PowerCaptured )
+        ScriptDone(); # terminate the script on first packet if now power data
+        
+    # Output the power readings for the starting packets
+    
+    power = in.Power;
+    if( power != null )
+    {
+        ReportText( FormatEx( "Packet %d - Power: %s, Voltage: %s, Current: %s", in.Index, 
+                              FormatPowerValue( power ), FormatPowerValue( in.Voltage ),
+                              FormatPowerValue( in.Current ) ) );
+    } 
+
+    # when reached the specified number of packets, switch to processing power values by time
+    # and end the script
+    if( EventCount == MAX_NUMBER_OF_EVENTS ) 
+    {   
+        ReportText( "----------------------------" );
+        
+        # Start the output HTML table
+        H_Table( "border=1" ); 
+        PrepareHTMLTableHdr();
+
+        # determine the starting and ending time of the trace
+        cur_time = GetTraceStartTime();
+        end_time = GetTraceEndTime();
+
+        duration = SubtractTime(end_time, cur_time);
+        step = DivTimeByInt(duration, MAX_NUMBER_OF_EVENTS); 
+        
+        for( i=0; i<MAX_NUMBER_OF_EVENTS; i++ )
+        {
+            if( IsLessTime( cur_time, end_time ) )
+            {
+                 # output power values at the current taime value
+                 
+                 p_str = FormatPowerValue( GetPwrPowerValue( cur_time ) );
+                 v_str = FormatPowerValue( GetPwrVoltageValue( cur_time ) );
+                 c_str = FormatPowerValue( GetPwrCurrentValue( cur_time ) );
+                 ReportText( FormatEx( "At Time %s - Power: %s W, Voltage: %s V, Current: %s A", 
+                             TimeToText( cur_time ), p_str, v_str, c_str ) );
+            
+                 # Add row to HTML table
+                 
+                 H_Row();       
+                 H_Cell( TimeToText( cur_time ) );
+                 H_Cell( p_str );
+                 H_Cell( v_str );    
+                 H_Cell( c_str );    
+                 H_EndRow();
+            }
+                        
+            cur_time = AddTime( cur_time, step );       
+        }
+
+        # finish script processing. OnFinishScript() will be called
+        ScriptDone(); 
+    }
+   
+    EventCount++;    
+    
+    return Complete();
+}
+
+######################################################################################
+#   OnFinishScript()                                                                 #
+######################################################################################
+#                                                                                    #
+# It is a main script function called by the application when the script completed   #
+# running. Specify in this function some resetting procedures for a successive run   #
+# of this script.                                                                    #
+#                                                                                    #
+######################################################################################
+#
+OnFinishScript()
+{
+    if( PowerCaptured )
+    {
+        # Finish the HTML table and offer the user to open the HTML file in browser
+        
+        H_EndTable();
+
+        str = "Would you like to open HTML file\nwith the results summary?";
+        result = MsgBox( str, _MB_YESNO | _MB_QUESTION, "HTML Results" );
+
+        if( result == _MB_YES )
+            ShowInBrowser( HTMLFile );
+
+        H_CloseFile();
+    }
+    
+    return 0;
+}
+
+
+######################################################################################
+######################################################################################
+######################################################################################
+
+
+######################################################################################
+#   Additional script functions.                                                     #
+######################################################################################
+
+# function fo prepare the header for the output HTML table
+PrepareHTMLTableHdr()
+{
+    H_Row();
+
+        H_Cell( "<font color=#000000>Time</font>",     "bgcolor=#00FF00" );
+        
+        H_Cell( "<font color=#000000>Power (W)</font>",    "bgcolor=#FFFF00" );
+        H_Cell( "<font color=#000000>Voltage (V)</font>",  "bgcolor=#00FFFF" );
+        H_Cell( "<font color=#000000>Current (A)</font>",  "bgcolor=#7F7F7F" );
+          
+    H_EndRow();    
+}
+
+# function to format the micro- value of the power reading
+FormatPowerValue( value )
+{
+    local_val = value;
+    
+    str  = FormatEx( "%d.", local_val/1000000 );
+    local_val = local_val % 1000000;
+    str += FormatEx( "%d", local_val/100000 );
+    local_val = local_val % 100000;
+    str += FormatEx( "%d", local_val/10000 );
+    local_val = local_val % 10000;
+    str += FormatEx( "%d", local_val/1000 );
+    local_val = local_val % 1000;
+    str += FormatEx( "%d", local_val/100 );
+    local_val = local_val % 100;
+    str += FormatEx( "%d", local_val/10 );
+    local_val = local_val % 10;
+    str += FormatEx( "%d", local_val );
+    
+    return str;
+}

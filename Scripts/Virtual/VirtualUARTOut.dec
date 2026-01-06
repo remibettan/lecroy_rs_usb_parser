@@ -1,0 +1,210 @@
+#
+#  Copyright (c) 2001, Computer Access Technology Corp. - All Rights Reserved
+#
+#  VirtualUART.dec
+#
+#  Virtual UART Display Decoder
+#
+
+%include "DecoderTools.inc"    #include usefull decoder functions
+%include "USBCommon.inc"    #include usefull decoder functions
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block 
+#
+#----  Output
+# out.Decoded   - amount of data has been decoded
+#
+
+const Tabular_Def_Table = Map( 
+[   
+    #----------------------------------------------------------------------------------------------------------------------
+    #       id                     ,      colId                          , 		containerCellId
+    #----------------------------------------------------------------------------------------------------------------------
+    [ CELL_UART_COMMAND_OUT        , TABULAR_SCRIPT_COLUMN_ID_SUBTYPE    , TABULAR_SCRIPT_CONTAINER_CELL_ID_NONE ]
+] );
+
+
+set ModuleType  = "DataBlock Decoder";
+set OutputType  = "Virtual UART";
+
+# The following values are for usb analyzer decoding
+set UsbClassCode = 0x99;
+set UsbDecodeType = "Endpoint";
+set UsbEndpId = 1;
+set UsbEndpType = "Bulk";
+set UsbEndpDir = "Out";
+set UsbMaxPktSize=64;
+set UsbMaxXferSize=16384;   
+
+
+#
+# Parsing entry point
+#
+const VUARTdColour = 0xb3541c;
+
+set UARTCommandTable =
+[
+    [ 0xFF,  "Unknown",        "Unknown",                       "CMD_FF"  ],
+    [ 0x01,  "Open",           "Port Open",                     "min_set" ],
+    [ 0x02,  "Close",          "Port Close",                    "min_set" ],
+    [ 0x03,  "Setup",          "Port SETUP",                    "CMD_03"  ],
+    [ 0x04,  "Set RTS",        "Port set RTS state",            "CMD_SET" ],
+    [ 0x05,  "Set DTS",        "Port set DTS state",            "CMD_SET" ],
+    [ 0x06,  "Set Break",      "Port set Break",                "CMD_SET" ],
+    [ 0x07,  "Dump",           "Dump Memory",                   "CMD_07"  ],
+    [ 0x08,  "Status",         "Port STATUS command",           "min_set" ],
+    [ 0x09,  "Purge",          "Port Purge UART FIFO",          "CMD_09"  ],
+    [ 0x0A,  "Modem",          "Port modem ststus bits",        "min_set" ],
+    [ 0x0B,  "H/W Info",       "Get Hardware Information",      "CMD_08"  ],
+    [ 0x0C,  "TX Done",        "Port REPORT_TX_DONE command",   "min_set" ],
+    [ 0x0D,  "Event",          "Unsolicited Status Event",      "CMD_0D"  ],
+    [ 0x0E,  "Echo",           "Send ECHO data",                "CMD_0E"  ],
+    [ 0x0F,  "Test",           "Perform specified Test",        "CMD_0F"  ],
+    [ 0x10,  "CMD_DONE",       "Command Completed Sucessfully", "CMD_10"  ],
+    [ 0x11,  "CMD_FAIL",       "Command Completed with Error",  "CMD_11"  ],
+    [ 0x12,  "TX Block",        "Report next TX block done",    "CMD_12"  ]
+];
+
+
+ProcessData()
+{
+    cmd= GetNBits(in.Data, 0, 8);
+
+    cmdS = Find(UARTCommandTable, cmd);
+
+	Call(cmdS[3],[cmd]);
+
+#    ShowDataBlock(length);
+    
+###### uncomment the following lines if you need the original data of Virtual UART
+#    GetNBits(in.Data, 0, 0);
+#    ShowDataBlockReOrder(in.DataLength);
+#########################################################################
+
+    out.Decoded = in.DataLength;
+
+    return Complete();
+}
+
+
+
+CMD_FF(cmd)
+{
+    AddCell( "Virtual UART", cmdS[1], cmdS[2] + Format("0x%0X",cmd), VUARTdColour , [_TABULARCELL, CELL_UART_COMMAND_OUT]);
+    GetNBits(in.Data, 0, 0);
+    ShowDataBlockReOrder(in.DataLength);
+}
+
+min_set( cmd )
+{
+    cmdS = Find( UARTCommandTable, cmd );
+	port=NextNBits( 8 );
+
+    AddCell("Virtual UART", "Port " + port + " " + cmdS[1] , cmdS[2], VUARTdColour , [_TABULARCELL, CELL_UART_COMMAND_OUT]);
+}
+
+CMD_SET( cmd )
+{
+    cmdS  = Find( UARTCommandTable, cmd );
+	port  = NextNBits( 8 );
+	state = NextNBits( 8 );
+
+    AddCell("Virtual UART", "Port " + port + " " + cmdS[1] + " = " + state , cmdS[2], VUARTdColour , [_TABULARCELL, CELL_UART_COMMAND_OUT]);
+}
+
+CMD_03( cmd )
+{
+    cmdS = Find(UARTCommandTable, cmd);
+    port=NextNBits(8);
+    baud=NextNBits(8) + NextNBits(8) * 0x00000100 + NextNBits(8) * 0x00010000 + NextNBits(8) * 0x01000000;
+    bits=NextNBits(8);
+    stop=NextNBits(8);
+    prty=NextNBits(8);
+    swfc=NextNBits(8);
+    xoff=NextNBits(8);
+    xon =NextNBits(8);
+    hwfc=NextNBits(8);
+    loop=NextNBits(8);
+
+    if( baud < 1000 )
+    {
+       rate = Format("%d ",baud );
+    }
+    else
+    {
+      rate = Format("%d ", baud / 1000 ) + Format(",%03d ", baud % 1000 );
+    }
+
+    BeginCellBlock( "Virtual UART", "Port " + Format("%d ",port) + cmdS[1] , cmdS[2], VUARTdColour , [_TABULARCELL, CELL_UART_COMMAND_OUT]);
+    if( in.Expanded )
+    {
+        AddCell( "Baud",    rate,                      "Data Rate",              VUARTdColour );
+        AddCell( "Bits",    bits,                      "Data Bits",              VUARTdColour );
+        AddCell( "Stop",    stop,                      "Stop Bits",              VUARTdColour );
+        AddCell( "Parity",  Format( "%c",      prty ), "",                       VUARTdColour );
+        AddCell( "S/W",     Format( "%c",      swfc ) +
+                            Format( " 0x%02X", xoff ) +
+                            Format( " 0x%02X", xon  ), "Software Flow Controll", VUARTdColour );
+        AddCell( "H/W",     Format(  "0x%02X", hwfc ), "Hardware Flow Controll", VUARTdColour );
+        AddCell( "Loop",    loop,                      "Loopback",               VUARTdColour );
+
+        GetNBits( in.Data, 0, 0 );
+        ShowDataBlockReOrder( in.DataLength );
+
+    }
+
+    EndCellBlock();
+}
+
+CMD_0D( cmd )
+{
+    cmdS  = Find( UARTCommandTable, cmd );
+	port  = NextNBits( 8 );
+	event = NextNBits( 8 );
+	info  = NextNBits( 8 );
+
+    AddCell( "Virtual UART", "Port " + port + " " + cmdS[1] , cmdS[2], VUARTdColour , [_TABULARCELL, CELL_UART_COMMAND_OUT]);
+
+    if( event & 0x01 )
+    {
+        AddCell( "Modem",   info + Format( " (0x%02X)", info ), "", 0xAAFFAA );
+    }
+
+    if( event & 0x02 )
+    {
+        AddCell( "Error",   info + Format( " (0x%02X)", info ), "", 0xAAAAFF );
+    }
+
+    if( event & 0x04 )
+    {
+        AddCell( "Flow",    info + Format( " (0x%02X)", info ), "", 0xAAFFAA );
+    }
+
+    if( event & 0x08 )
+    {
+        AddCell( "Connect", info + Format( " (0x%02X)", info ), "", 0xAAFFAA );
+    }
+}
+
+CMD_10( cmd )
+{
+    cmdS = Find( UARTCommandTable, cmd );
+    cmdC = Find( UARTCommandTable, NextNBits(8) );
+	port = NextNBits(8);
+
+    AddCell( "Virtual UART", "Done " + port + " " + cmdC[1] , cmdC[2], VUARTdColour, [ _LOWERCOLOR, 0xAAFFAA ] , [_TABULARCELL, CELL_UART_COMMAND_OUT]);
+}
+
+
+CMD_11( cmd )
+{
+    cmdS = Find( UARTCommandTable, cmd );
+    cmdC = Find( UARTCommandTable, NextNBits(8) );
+
+    AddCell("Virtual UART", "Fail " + cmdC[1]  , cmdC[2], VUARTdColour, _ERROR , [_TABULARCELL, CELL_UART_COMMAND_OUT]);
+}
+
+
+

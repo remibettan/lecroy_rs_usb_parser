@@ -1,0 +1,1668 @@
+#*******************************************************************************
+#
+#  FILENAME: AudioRequests.dec 
+#
+#  Copyright (C) 2016 Teledyne LeCroy, Inc. - All Rights Reserved
+#
+#  DESCRIPTION
+#    Vendor Request File for Audio 3.0 Decoder
+#
+#  REVISION HISTORY
+#    12/23/2016    Created
+#
+#*******************************************************************************  
+
+%include "CATCScriptAPI.inc"             #.inc files that are included
+%include "UsbCommon.inc"
+%include "Audio3.0CurrentEntityIdMap_EditMe.inc"
+%include "AudioCellColors.inc"
+%include "Audio3.0RequestsHelper.inc"
+%include "AudioTables.inc"
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block
+#
+#----  Output
+# out.Decoded   - amount of data has been decoded
+#
+
+const Tabular_Def_Table = Map(
+[
+    #----------------------------------------------------------------------------------------------------------------------
+    #       id                     ,      colId                          , 		containerCellId
+    #----------------------------------------------------------------------------------------------------------------------
+    [ CELL_REQUEST                 , TABULAR_SCRIPT_COLUMN_ID_SUBTYPE    , TABULAR_SCRIPT_CONTAINER_CELL_ID_NONE ],
+    [ CELL_WVALUE                  , TABULAR_SCRIPT_COLUMN_ID_NONE       , TABULAR_SCRIPT_CONTAINER_CELL_ID_MISC ],
+    [ CELL_AUDIO_CONTROL_SELECTOR  , TABULAR_SCRIPT_COLUMN_ID_NONE       , TABULAR_SCRIPT_CONTAINER_CELL_ID_MISC ]
+] );
+
+#############################################################################
+#                               View Settings                               #
+#############################################################################
+#
+#    In this section user can set up which fields are to be shown and
+#    which are to be hidden in expanded and collapsed states.
+#    Zero-value everywhere means that fields will not be shown,
+#    otherwise means opposite.
+#
+
+
+# ----------------------- All Field View Settings ---------------------------
+#   These settings have priority above separate field View Settings in
+#   expanded state ONLY.
+#   In order separate field View Settings to work properly
+#   BOTH All Field View Settings should be set to 0.
+#
+#   Due to the fact that ViewAll-setting and HideAll-setting are
+#   exceptive propositions - ViewAll has been set a higher priority.
+# ---------------------------------------------------------------------------
+
+const ADT_ViewAll              = 0;
+const ADT_HideAll              = 0;
+# ---------------------------------------------------------------------------
+
+
+# -----------------------  Separate Field View Settings ---------------------
+# The FIRST value in list-variables defines if the field is to be shown or
+# hidden in COLLAPSED state.
+# 0 - means the field is to be shown.
+# 1 - means the field is to be hidden.
+#
+# The SECOND value in list-variables defines if the field is to be shown or
+# hidden in EXPANDED state.
+# 0 - means the field is to be shown.
+# 1 - means the field is to be hidden.
+#
+# i.e.  const RPD_Field = [0, 1]# - means that field 'Field' will be hidden
+# in collapsed state and will be shown in expanded state.
+#
+
+
+
+
+#                       [collapsed, expanded]
+const ADT_bmRequestType       = [1, 1];
+const ADT_HiIndex             = [1, 1];
+const ADT_LoIndex             = [1, 1];
+const ADT_HiValue             = [1, 1];
+const ADT_LoValue             = [1, 1];
+const ADT_wValue              = [1, 1];
+const ADT_wLength             = [1, 1];
+const ADT_wIndex              = [1, 1];
+const ADT_wNumSubRanges       = [1, 1];
+const ADT_bCUR                = [1, 1];
+const ADT_bMIN                = [1, 1];
+const ADT_bMAX                = [1, 1];
+const ADT_bRES                = [1, 1];
+const ADT_wCUR                = [1, 1];
+const ADT_wMIN                = [1, 1];
+const ADT_wMAX                = [1, 1];
+const ADT_wRES                = [1, 1];
+const ADT_dCUR                = [1, 1];
+const ADT_dMIN                = [1, 1];
+const ADT_dMAX                = [1, 1];
+const ADT_dRES                = [1, 1];
+const ADT_bNrChannels         = [1, 1];
+const ADT_bmChannelConfig     = [1, 1];
+const ADT_iChannelNames       = [1, 1];
+const ADT_bmBandsPresent      = [1, 1];
+const ADT_bBand               = [1, 1];
+const ADT_bControlSize        = [1, 1];
+const ADT_bCUR_Lo             = [1, 1];
+const ADT_bCUR_Hi             = [1, 1];
+
+
+#-----------------------------------------------------------------------------
+
+
+set OutputType      = "Audio 3.0 Class Requests";
+set UsbDecodeType   = "Request";
+set UsbReqType      = "Class";
+set UsbClassCode    = 0x01;    # Class code for Audio
+set UsbScriptDecodeType = 1;   # Combined decoding for Cells and Text decoding
+set UsbProtocol     = 0x30;         # this is used to seperate the 1.0, 2.0 and 3.0
+
+
+set bReqType = 0;     #Declaring global variables
+set bRequest = 0;
+set wValue   = 0;
+set wIndex   = 0;
+set wLength  = 0;
+set EntiyId  = 0;
+set AttributeString = "";
+set BaseColor = 0;
+set EntityString = "";
+
+
+
+set FullyDecoded = 1;  # Variable that will determine if request has been fully decoded
+ProcessData()
+{
+    CommonDecoderInit();
+
+    UnitDecoderInit("ADT");
+
+    SetCellColor(AudioCaptionColor);
+
+    AddCaptionCell("Audio","Class","In order to view comments in text field, user must expand this caption cell",_MONOCOLOR);  # will allow for the expansion of certain fields
+    RestoreCellColor();
+    AddSeparator();
+
+    FullyDecoded = 1;
+    out.Decoded  = 0;
+
+    if (in.DataLength < 8)
+    {
+        AddPLCellMonoNoDlg("Error", "Illegal Payload", "Nothing is being decoded", __ERROR);
+        return Complete();
+    }
+
+    GetNBits( in.Data, 0, 0 );      #Initialize pointer/counter for NextNBits_()
+
+    bReqType = NextNBits_(8);
+    bRequest = NextNBits_(8);
+    
+    _row = Find(AudioCSRequesCodes_v3_Table, bRequest);  # will determine which request is being used
+    
+    AddRequestCell (_row[1]);
+    
+    if (bRequest == 0x01 || bRequest == 0x02 || bRequest == 0x04) # CUR. RANGE and INTEN
+    {
+        if (bReqType == 0x21 || bReqType == 0xA1) #Interface
+        {
+            data = PeekNBits_(32); # wValue and wIndex
+            
+            CN = (data & 0xFF000000) >> 24;
+            CS = (data & 0x00FF0000) >> 16;
+            
+            Interface = (data & 0x0000FF00) >> 8;
+            EntityID  = (data & 0x000000FF);
+            
+            EntityRow   = Find(CurrentEntityIdMap, EntityID);
+            InternalRow = Find (AudioControlSelectors_v3_Table, EntityRow[2]);
+            
+            if (InternalRow[2] != null)
+                controlRow = Find (InternalRow[2], CS);
+            else
+                controlRow = null;
+                
+            FieldColor = wValueColor;
+            
+            CN = NextNBits_(8);
+            
+            if (controlRow != null && controlRow[1] == "MU_MIXER_CONTROL")
+            {
+                AddPayLoadCell("MCN", Format("0x%02X", CN), Format("The Mix Control Number (MCN) = %d", CN));
+            }
+            else
+            {
+                AddPayLoadCell("CN", Format("0x%02X", CN), Format("The Channel Number (CN) = %d", CN));
+            }
+
+            CS = NextNBits_(8);
+            
+            if (EntityID == 0)
+                AddPayLoadCell("Control Selector", Format("0x%02X", CS), Format("Control Selector = %d", CS), FieldColor, [_TABULARCELL, CELL_AUDIO_CONTROL_SELECTOR, "TEXT_CAPTION"]);
+            else if (controlRow == null)
+                AddPayLoadCell("Control Selector", Format("0x%02X", CS), WARNING_SIGN + "We don't have the Entity ID information!", _WARNING, [_TABULARCELL, CELL_AUDIO_CONTROL_SELECTOR, "TEXT_CAPTION"]);
+            else
+                AddPayLoadCell("Control Selector", controlRow[1], Format("The Control Selector value is 0x%02X", CS), FieldColor, [_TABULARCELL, CELL_AUDIO_CONTROL_SELECTOR, "TEXT_CAPTION"]);
+
+            FieldColor = wIndexColor;
+            
+            Interface = NextNBits_(8);
+            AddPayLoadCell("Interface", Format("0x%02X", Interface), Format("Interface %d", Interface));
+
+            EntityID = NextNBits_(8);
+            if (EntityID == 0)
+                AddPayLoadCell("Entity ID", "0", "This entity is addressing the interface itself");
+            else if (EntityRow[0] != 0xFF)
+                AddPayLoadCell("Entity ID", EntityRow[0] , Format("The Entity ID is 0x%02X", EntityID));
+            else
+                AddPayLoadCell("Entity ID", Format("0x%02X", EntityID), WARNING_SIGN + "Unknown EntityID, you might need to set up the Audio3.0CurrentEntityIdMap according to your descriptors",_WARNING);
+
+            FieldColor = wLengthColor;
+            
+            wLength = NextDataWord_();
+            AddPayLoadCell("wLength", Format("%d", wLength), Format("Length of the payload = 0x%04X", wLength));
+            AddSeparator();
+            
+            if (controlRow != null && controlRow[2]!= null)
+                decoded = Call(controlRow[2], [controlRow[3], controlRow[4], controlRow[5], controlRow[6]]);
+            else
+                decoded = 0;
+        }
+        else if (bReqType == 0x22 || bReqType == 0xA2) # Endpoint
+        {
+            lowByte  = NextNBits_(8);
+            FieldColor = wValueColor;
+            AddPayLoadCell("CN/MCN", Format("0x%02X", lowByte), Format("The logical channel %d of the cluster is to be influenced", lowByte));
+
+            highByte = NextNBits_(8);
+            func_row = Find(AudioEndpointControlSelectors_v3_Table, highByte);
+
+            AddPayLoadCell("CS", func_row[1], Format(" Control Selector = 0x%02X", highByte));
+
+            FieldColor = wIndexColor;
+            wIndex = NextDataWord_();
+            lowByte = wIndex & 0x00FF;
+			AddPayLoadCell("Endpoint", Format("0x%02X",lowByte), Format("Endpoint %d",lowByte));
+
+			FieldColor = wLengthColor;
+			wLength = NextDataWord_();
+            AddPayLoadCell("wLength", Format("%d", wLength), Format("Length of the payload = 0x%04X", wLength));
+            AddSeparator();
+            if (func_row[2] != null)
+                decoded = Call(func_row[2], [ func_row[3], func_row[4], func_row[5],func_row[6] ]);
+            else
+                decoded = 0;
+        }
+        else
+        {
+            wValue = NextDataWord_();
+            AddPayLoadCell("wValue", Format("0x%04X", wValue), Format("wValue = 0x%04X", wValue), FieldColor, [_TABULARCELL, CELL_WVALUE, "TEXT_CAPTION"]);
+            wIndex = NextDataWord_();
+            AddPayLoadCell("wIndex", Format("0x%04X", wIndex), Format("wIndex = 0x%04X", wIndex));
+            wLength = NextDataWord_();
+            AddPayLoadCell("wLength", Format("%d", wLength), Format("Length of the payload = 0x%04X", wLength));
+
+            decoded = 0;
+        }
+    }
+    else if (bRequest == 0x03 ) #MEN
+    {
+        AddWValueCell("", "Zero-based offset value that can be used to access only parts of the Entity's memory space");
+
+        if (bReqType == 0x21 || bReqType == 0xA1) #Interface
+        {
+            lowByte = NextNBits_(8);
+			AddPayLoadCell("Interface", Format("0x%02X",lowByte), Format("Interface %d",lowByte));
+
+            highByte = NextNBits_(8);
+            AddPayLoadCell("EntityId", Format("0x%02X", highByte), Format("Entity ID = %d", highByte));
+
+        }
+        else if (bReqType == 0x22 || bReqType == 0xA2) # Endpoint
+        {
+            wIndex = NextDataWord_();
+            lowByte = wIndex & 0x00FF;
+			AddPayLoadCell("Endpoint", Format("0x%02X",lowByte), Format("Endpoint %d",lowByte));
+        }
+        else
+        {
+            wIndex = NextDataWord_();
+			AddPayLoadCell("wIndex", Format("0x%04X", wIndex), Format("wIndex = 0x%04X", wIndex));
+	    }
+	    wLength = NextDataWord_();
+	    AddPayLoadCell("wLength", Format("%d", wLength), Format("Length of the payload = 0x%04X", wLength));
+	    decoded = 0;
+    }
+    else if (bReqType == 0xA1 && bRequest == 0x05 ) # CLASS-SPECIFIC STRING REQUEST
+    {
+        wStrDescrID = NextDataWord_(); # wValue of the request
+        AddPayLoadCell("wStrDescrID", Format("0x%04X", wStrDescrID), Format("wStrDescrID = %d", wStrDescrID));
+        
+        wIndex = NextDataWord_();
+        
+        iLangIDRequest   = (wIndex & 0xFF00) >> 8;
+        Interface        = (wIndex & 0x00FF);
+        
+        AddPayLoadCell("Interface", Format("0x%02X", Interface), Format("Interface %d", Interface));
+        AddPayLoadCell("iLangID", Format("0x%02X", iLangIDRequest), Format("iLangID %d", iLangIDRequest));
+        
+        wLengthRequest = NextDataWord_();
+        AddPayLoadCell("wLength", Format("0x%04X", wLengthRequest), Format("wLength(length of the string descriptor) = %d", wLengthRequest));
+        
+        
+        # Descriptor
+        DescriptorStartOffset = 8;
+        wLength            = GetDataWord(DescriptorStartOffset);
+        bDescriptorType    = GetDataByte(DescriptorStartOffset + 2);
+        bDescriptorSubtype = GetDataByte(DescriptorStartOffset + 3);
+        wStrDescrID        = GetDataWord(DescriptorStartOffset + 4);
+        iLangID            = GetDataByte(DescriptorStartOffset + 6);
+        
+        AddShortDataHeader(FormatEx ("%s Descriptor (%d bytes)", "Audio Class Specific STRING Descriptor", wLength));
+        
+        AddEntry( 0, "wLength", wLength, 4, "Unicode String Length is", 0);
+        AddDescriptionOnly(FormatEx("%d bytes (%d chars)", bLength , (bLength-7)/2));
+        AddFieldBreak();
+
+        AddEntry( 2, "bDescriptorType", bDescriptorType, 2, "CS_STRING. Type of this descriptor.", 0);
+        AddFieldBreak();
+
+        AddEntry( 3, "bDescriptorSubtype", bDescriptorType, 2, "SUBTYPE_UNDEFINED", 0);
+        AddFieldBreak();
+        
+        AddEntry( 4, "wStrDescrID", wStrDescrID, 4, "Unique ID for this class-specific String descriptor.", 0);
+        AddFieldBreak();
+        
+        AddEntry( 6, "iLangID", iLangID, 2, "Zero-based index into the LANGID code array as returned by the device.", 0);
+        AddFieldBreak();
+        
+        length_to_decode = in.DataLength - (DescriptorStartOffset + 7);
+        DescriptorCellString = ObtainUnicodeString(DescriptorStartOffset + 7, length_to_decode);
+        AddEntry( 7, "STRING", "", 2, "String:" + DescriptorCellString, 0);
+        AddFieldBreak();
+    
+        GetNBits( in.Data, DescriptorStartOffset + 7 + length_to_decode, 0 );
+        
+        decoded = length_to_decode + 7;
+    }
+    else if ((bReqType == 0xA1 || bReqType == 0xA2) && (bRequest == 0x06)) #CLASS-SPECIFIC HIGH CAPABILITY_DESCRIPTOR REQUEST
+    {
+        wDescriptorID = NextDataWord_(); # wValue of the request
+        AddPayLoadCell("wDescriptorID", Format("0x%04X", wDescriptorID), Format("wDescriptorID = %d", wDescriptorID));
+        
+        wIndex = NextDataWord_() & 0x00FF ;
+        
+        if(bReqType == 0xA1)
+        {
+            AddPayLoadCell("Interface", Format("0x%02X", wIndex), Format("Interface %d", wIndex));
+        }
+        else # bReqType == 0xA2
+        {
+            AddPayLoadCell("Endpoint", Format("0x%02X", wIndex), Format("Endpoint %d", wIndex));
+        }
+        
+        wLengthRequest = NextDataWord_();
+        AddPayLoadCell("wLength", Format("0x%04X", wLengthRequest), Format("The length of the descriptor to return: %d", wLengthRequest));
+ 
+        # Descriptor
+        bDescriptorType = GetDataByte(10);
+        
+        desc_type_row   = null;
+        desc_type_row   = Find(AudioDescriptorType_v3_Table, bDescriptorType);
+        
+        decoded = 0;
+        if((desc_type_row != null) && (desc_type_row[0] != 0xFF))
+        {
+            decoded = Call(desc_type_row[1], 8);
+        }
+                
+        GetNBits(in.Data, 8 + decoded, 0);
+    }
+    else
+    {
+        # bRequest that's unknown, so we use standard stuff
+        wValue = NextDataWord_();
+        AddPayLoadCell("wValue", Format("0x%04X", wValue), Format("wValue = 0x%04X", wValue), FieldColor, [_TABULARCELL, CELL_WVALUE, "TEXT_CAPTION"]);
+        wIndex = NextDataWord_();
+        AddPayLoadCell("wIndex", Format("0x%04X", wIndex), Format("wIndex = 0x%04X", wIndex));
+        wLength = NextDataWord_();
+        AddPayLoadCell("wLength", Format("%d", wLength), Format("Length of the payload = 0x%04X", wLength));
+        decoded = 0;
+    }
+    out.Decoded = 8 + decoded;
+
+    ############ for Debug purposes#########
+    # GetNBits(in.Data, 0, 0);             #
+    # ShowDataBlock(in.DataLength);        #
+    ########################################
+
+    return Complete();
+}
+
+Audio_CS_UNDEFINED()
+{
+    AddStringToDlg("The CS_UNDEFINED descriptor type is not supported in HIGH CAPABILITY_DESCRIPTOR REQUEST","","",_ERROR);
+    return 0;
+}
+
+Audio_CS_DEVICE()
+{
+    AddStringToDlg("The CS_DEVICE descriptor type is not supported in HIGH CAPABILITY_DESCRIPTOR REQUEST","","",_ERROR);
+    return 0;
+}
+
+Audio_CS_CONFIGURATION()
+{
+    AddStringToDlg("The CS_CONFIGURATION descriptor type is not supported in HIGH CAPABILITY_DESCRIPTOR REQUEST","","",_ERROR);
+    return 0;
+}
+
+Audio_CS_STRING()
+{
+    AddStringToDlg("The CS_STRING descriptor type is not supported in HIGH CAPABILITY_DESCRIPTOR REQUEST","","",_ERROR);
+    return 0;
+}
+
+Audio_CS_ENDPOINT()
+{
+    AddStringToDlg("The CS_ENDPOINT descriptor type is not supported in HIGH CAPABILITY_DESCRIPTOR REQUEST","","",_ERROR);
+    return 0;
+}
+
+Audio_CS_INTERFACE(descriptor_start_offset)
+{
+    decoded_offset     = 0;
+    
+    wLength            = GetDataWord(descriptor_start_offset);
+    bDescriptorType    = GetDataByte(descriptor_start_offset + 2);
+    bDescriptorSubtype = GetDataByte(descriptor_start_offset + 3);
+    
+    AddShortDataHeader(FormatEx ("%s Descriptor  (%d bytes)", "Audio Class Specific INTERFACE", wLength ));
+    
+    if (wLength > in.DataLength - descriptor_start_offset)
+    {
+        AddStringToDlg("No enough data for this descriptor", FormatEx("Length required %d bytes, Actual Length %d bytes", wLength, in.DataLength - descriptor_start_offset), OutputUnknownData(in.DataLength - descriptor_start_offset, 0));
+        return 0;
+    }
+    
+    AddEntry(0, "wLength", wLength, 4, "Size of the descriptor, in bytes.", 0);
+    AddFieldBreak();
+
+    AddEntry(2, "bDescriptorType", bDescriptorType, 2, "CS_CLUSTER descriptor type.", 0);
+    AddFieldBreak();
+
+    # Calling appropriate descriptor's sub type
+    subtype_row = Find(ACDescriptorSubType_v3_Table, bDescriptorSubType);
+    
+    if((subtype_row[0] == 0x04) || (subtype_row[0] == 0x0F)) # Only EXTENDED_TERMINAL and CONNECTORS subtypes using the HIGH CAPABILITY_DESCRIPTOR REQUEST.
+    {
+        AddEntry(3, "bDescriptorSubtype", bDescriptorSubtype, 2, Format ("%s descriptor subtype", func_row[1]), 0);
+        AddFieldBreak();
+    }
+    else
+    {
+        AddStringToDlg(FormatEx("The Subtype 0x%02X(%s) not supported in HIGH CAPABILITY_DESCRIPTOR REQUEST", bDescriptorSubType, subtype_row[1]),"","",_ERROR);
+        return decoded_offset;
+    }
+    
+    decoded_offset = 4;
+    if (func_row[2] != null)
+    {
+        decoded_offset += Call(func_row[2], decoded_offset);
+    }
+    else
+    {
+        AddStringToDlg(FormatEx("Unknown subtype 0x%02X", bDescriptorSubType), "", "" ,_ERROR);
+    }
+    
+    return decoded_offset;
+}
+
+EXTENDED_TERMINAL_sub(descriptor_start_offset)
+{
+    decoded_offset     = 0;
+    
+    wLength            = GetDataWord(descriptor_start_offset);
+    bDescriptorType    = GetDataByte(descriptor_start_offset + 2);
+    bDescriptorSubtype = GetDataByte(descriptor_start_offset + 3);
+    wDescriptorID      = GetDataWord(descriptor_start_offset + 4);
+    bNrChannels        = GetDataByte(descriptor_start_offset + 6);
+    
+    AddShortDataHeader(FormatEx ("%s Descriptor (%d bytes)", "EXTENDED TERMINAL", wLength));
+    
+    if (wLength > in.DataLength - descriptor_start_offset )
+    {
+        AddStringToDlg("No enough data for this descriptor",FormatEx("Length required %d bytes, Actual Length %d bytes", wLength, in.DataLength - descriptor_start_offset), OutputUnknownData(in.DataLength - descriptor_start_offset, 0));
+        return 0;
+    }
+    
+    AddEntry(0, "wLength", wLength, 4, "Total length of the EXTENDED TERMINAL descriptor, in bytes.", 0);
+    AddFieldBreak();
+    
+    AddEntry(2, "bDescriptorType", bDescriptorType, 2, "CS_INTERFACE descriptor type.", 0);
+    AddFieldBreak();
+    
+    if(bDescriptorSubtype == 0x04) #Should be equal to EXTENDED_TERMINAL
+    {
+        AddEntry(3, "bDescriptorSubtype", bDescriptorSubtype, 2, "EXTENDED_TERMINAL descriptor subtype.", 0);
+        AddFieldBreak();
+    }
+    else
+    {
+        AddStringToDlg(FormatEx("Unknown subtype 0x%02X for DescriptorType 0x%02X", bDescriptorSubType, bDescriptorType),"","",_ERROR);
+    }
+    
+    
+    AddEntry(4, "wDescriptorID", wDescriptorID, 4, "Unique ID of this Extended Terminal descriptor.", 0);
+    AddFieldBreak();
+    
+    AddEntry(6, "bNrChannels", bNrChannels, 2, "Number of channels present in the Cluster of the Terminal.", 0);
+    AddFieldBreak();
+    
+    decoded_offset = 7;
+    
+    data_remained = wLength - decoded_offset;
+    
+    while (data_remained > 0)
+    {
+        #SEGMENTS
+        bSegmentType     = GetDataByte(decoded_offset + 9);
+        desc_segment_row = Find(ExtendedTerminalSegmentTypeTable, bSegmentType);
+        
+        descriptor_start_offset += decoded_offset;
+        decoded          = Call(desc_segment_row[2], descriptor_start_offset, desc_segment_row[1]);
+        
+        data_remained -= decoded;
+        
+        if((decoded == 0) || (data_remained < 0))
+            data_remained = 0;
+        
+        decoded_offset += decoded;
+    }
+        
+    return decoded_offset;
+}
+
+CONNECTORS_sub(descriptor_start_offset)
+{
+    decoded_offset     = 0;
+    
+    wLength            = GetDataWord(descriptor_start_offset);
+    bDescriptorType    = GetDataByte(descriptor_start_offset + 2);
+    bDescriptorSubtype = GetDataByte(descriptor_start_offset + 3);
+    wDescriptorID      = GetDataWord(descriptor_start_offset + 4);
+    bNrConnectors      = GetDataByte(descriptor_start_offset + 6);
+    
+    AddShortDataHeader(FormatEx ("%s Descriptor (%d bytes)", "CONNECTORS", wLength));
+    
+    if (wLength > in.DataLength - descriptor_start_offset )
+    {
+        AddStringToDlg("No enough data for this descriptor",FormatEx("Length required %d bytes, Actual Length %d bytes", wLength, in.DataLength - descriptor_start_offset), OutputUnknownData(in.DataLength - descriptor_start_offset, 0));
+        return 0;
+    }
+    
+    AddEntry(0, "wLength", wLength, 4, "Size of this descriptor, in bytes.", 0);
+    AddFieldBreak();
+    
+    AddEntry(2, "bDescriptorType", bDescriptorType, 2, "CS_INTERFACE descriptor type.", 0);
+    AddFieldBreak();
+    
+    if(bDescriptorSubtype == 0x04) #Should be equal to CONNECTORS
+    {
+        AddEntry(3, "bDescriptorSubtype", bDescriptorSubtype, 2, "CONNECTORS descriptor subtype.", 0);
+        AddFieldBreak();
+    }
+    else
+    {
+        AddStringToDlg(FormatEx("Unknown subtype 0x%02X for DescriptorType 0x%02X", bDescriptorSubType, bDescriptorType),"","",_ERROR);
+    }
+    
+    AddEntry(4, "wDescriptorID", wDescriptorID, 4, "Unique ID of this Connectors descriptor.", 0);
+    AddFieldBreak();
+    
+    AddEntry(6, "bNrConnectors", bNrConnectors, 2, "The number of Connectors associated with this Terminal.", 0);
+    AddFieldBreak();
+    
+    connector_count = (wLength - 7) / 11;
+    counter = 0;
+    data_offset = descriptor_start_offset + 7;
+    
+    while (connector_count > 0)
+    {
+        baConID          = GetDataByte(data_offset);
+        waClusterDescrID = GetDataWord(data_offset + 1);
+        baConType        = GetDataByte(data_offset + 3);
+        bmaConAttributes = GetDataByte(data_offset + 4);
+        waConDescrStr    = GetDataWord(data_offset + 5);
+        daConColor       = GetDataLong(data_offset + 7);
+
+        AddEntry(data_offset, FormatEx("baConID(%d)", counter), baConID, 2, "ID for Connector.", 0, 1);
+        AddFieldBreak();
+        
+        AddEntry(data_offset + 1, FormatEx("waClusterDescrID(%d)", counter), waClusterDescrID, 4, "ID of the physical Cluster descriptor transported over Connector.", 0, 1);
+        AddFieldBreak();
+        
+        conn_type_row = null;
+        conn_type_row = Find(ConnectorTypeTable, baConType);
+        
+        if(conn_type_row != null)
+        {
+            AddEntry(data_offset + 3, FormatEx("baConType(%d)", counter), baConType, 2, FormatEx("The Connector Type of Connector: %s", conn_type_row[1]), 0, 1);
+            AddFieldBreak();
+        }
+        else
+        {
+            AddStringToDlg(FormatEx("Unknown connector type 0x%02X.", baConType),"","",_ERROR);
+        }
+        
+        gender        = (bmaConAttributes & 0x3);      # D1..0
+        Insertion_rep = (bmaConAttributes & 0x4) >> 2; # D2
+        
+        gender_row = Find(ConAttributeGenderTable, gender);
+        
+        if(Insertion_rep)
+            Insertion_rep_str = "YES";
+        else
+            Insertion_rep_str = "NO";
+        
+        AddEntry(data_offset + 4, FormatEx("bmaConAttributes(%d)", counter), bmaConAttributes, 2, FormatEx("D1..0: Gender: %s  and  D2: Insertion/Removal Reporting: %s", gender_row[1], Insertion_rep_str), 0, 1);
+        AddFieldBreak();
+        
+        AddEntry(data_offset + 5, FormatEx("waConDescrStr(%d)", counter), waConDescrStr, 4, "ID of a String descriptor that provides a physical description of Connector.", 0, 1);
+        AddFieldBreak();
+        
+        
+        AddEntry(data_offset + 7, FormatEx("daConColor(%d)", counter), daConColor, 8, "The Connector color of Connector.", 0);
+        AddFieldBreak();
+        
+        data_offset += 11;
+        connector_count -= 1;
+        counter += 1;
+    }
+}
+
+
+CHANNEL_BANDWIDTH_sub(descriptor_start_offset, segment_type)
+{
+    segment_size = 11;
+    
+    if ((in.DataLength - descriptor_start_offset) < segment_size)
+    {
+        AddStringToDlg("No enough data for this SEGMENT",FormatEx("Length required %d bytes, Actual Length %d bytes", segment_size, in.DataLength - descriptor_start_offset), OutputUnknownData(in.DataLength - descriptor_start_offset, 0));
+        return 0;
+    }
+    
+    wLength       = GetDataWord(descriptor_start_offset);
+    bSegmentType  = GetDataByte(descriptor_start_offset + 2);
+    dMinFreq      = GetDataLong(descriptor_start_offset + 3);
+    dMaxFreq      = GetDataLong(descriptor_start_offset + 7);
+    
+    if(wLength == segment_size)
+    {
+        AddEntry(0, "wLength", wLength, 4, "Length of the this Segment, in bytes.", 0);
+        AddFieldBreak();
+    }
+    else
+    {
+        AddStringToDlg(FormatEx("Unknown size 0x%02X for this SegmentType", wLength),"","",_ERROR);
+    }
+    
+    AddEntry(2, "bSegmentType", bSegmentType, 2, segment_type, 0);
+    AddFieldBreak();
+    
+    AddEntry(3, "dMinFreq", dMinFreq, 8, "Lower -3 dB frequency point in Hz.", 0);
+    AddFieldBreak();
+    
+    AddEntry(7, "dMaxFreq", dMaxFreq, 8, "Upper -3 dB frequency point in Hz.", 0);
+    AddFieldBreak();
+    
+    return segment_size;
+}
+
+CHANNEL_MAGNITUDE_RESPONSE_sub(descriptor_start_offset, segment_type)
+{
+    wLength       = GetDataWord(descriptor_start_offset);
+    bSegmentType  = GetDataByte(descriptor_start_offset + 2);
+
+    if ((in.DataLength - descriptor_start_offset) < wLength)
+    {
+        AddStringToDlg("No enough data for this SEGMENT",FormatEx("Length required %d bytes, Actual Length %d bytes", wLength, in.DataLength - descriptor_start_offset), OutputUnknownData(in.DataLength - descriptor_start_offset, 0));
+        return 0;
+    }
+    
+    AddEntry(0, "wLength", wLength, 4, "Length of the this Segment, in bytes.", 0);
+    AddFieldBreak();
+        
+    AddEntry(2, "bSegmentType", bSegmentType, 2, segment_type, 0);
+    AddFieldBreak();
+    
+    frequency_pairs_count = (wLength - 3) / 6;
+    counter = 0;
+    data_offset = descriptor_start_offset + 3;
+    while (frequency_pairs_count > 0)
+    {
+        dFreq        = GetDataLong(data_offset);
+        wMagnitude   = GetDataWord(data_offset + 4);
+
+        AddEntry(data_offset, FormatEx("dFreq(%d)", counter), dFreq, 8, "Frequency point(HZ).", 0, 1);
+        AddFieldBreak();
+        
+        AddEntry(data_offset + 4, FormatEx("wMagnitude(%d)", counter), wMagnitude, 4, "Magnitude value.", 0, 1);
+        AddFieldBreak();
+        
+        data_offset += 6;
+        frequency_pairs_count -= 1;
+        counter += 1;
+    }
+    
+    return wLength;
+}
+
+CHANNEL_MAGNITUDE_PHASE_RESPONSE_sub(descriptor_start_offset, segment_type)
+{
+    wLength       = GetDataWord(descriptor_start_offset);
+    bSegmentType  = GetDataByte(descriptor_start_offset + 2);
+
+    if ((in.DataLength - descriptor_start_offset) < wLength)
+    {
+        AddStringToDlg("No enough data for this SEGMENT",FormatEx("Length required %d bytes, Actual Length %d bytes", wLength, in.DataLength - descriptor_start_offset), OutputUnknownData(in.DataLength - descriptor_start_offset, 0));
+        return 0;
+    }
+    
+    AddEntry(0, "wLength", wLength, 4, "Length of the this Segment, in bytes.", 0);
+    AddFieldBreak();
+        
+    AddEntry(2, "bSegmentType", bSegmentType, 2, segment_type, 0);
+    AddFieldBreak();
+    
+    frequency_pairs_count = (wLength - 3) / 8;
+    counter = 0;
+    data_offset = descriptor_start_offset + 3;
+    while (frequency_pairs_count > 0)
+    {
+        dFreq        = GetDataLong(data_offset);
+        wMagnitude   = GetDataWord(data_offset + 4);
+        wPhase       = GetDataWord(data_offset + 6);
+
+        AddEntry(data_offset, FormatEx("dFreq(%d)", counter), dFreq, 8, "Frequency point(HZ).", 0, 1);
+        AddFieldBreak();
+        
+        AddEntry(data_offset + 4, FormatEx("wMagnitude(%d)", counter), wMagnitude, 4, "Magnitude value.", 0, 1);
+        AddFieldBreak();
+        
+        AddEntry(data_offset + 6, FormatEx("wPhase(%d)", counter), wPhase, 4, "wPhase value.", 0, 1);
+        AddFieldBreak();
+        
+        data_offset += 8;
+        frequency_pairs_count -= 1;
+        counter += 1;
+    }
+    
+    return wLength;
+}
+
+CHANNEL_POSITION_XYZ_sub(descriptor_start_offset, segment_type)
+{
+    segment_size = 15;
+    
+    if ((in.DataLength - descriptor_start_offset) < segment_size)
+    {
+        AddStringToDlg("No enough data for this SEGMENT",FormatEx("Length required %d bytes, Actual Length %d bytes", segment_size, in.DataLength - descriptor_start_offset), OutputUnknownData(in.DataLength - descriptor_start_offset, 0));
+        return 0;
+    }
+    
+    wLength       = GetDataWord(descriptor_start_offset);
+    bSegmentType  = GetDataByte(descriptor_start_offset + 2);
+    dX            = GetDataLong(descriptor_start_offset + 3);
+    dY            = GetDataLong(descriptor_start_offset + 7);
+    dZ            = GetDataLong(descriptor_start_offset + 11);
+    
+    if(wLength == segment_size)
+    {
+        AddEntry(0, "wLength", wLength, 4, "Length of the this Segment, in bytes.", 0);
+        AddFieldBreak();
+    }
+    else
+    {
+        AddStringToDlg(FormatEx("Unknown size 0x%02X for this SegmentType", wLength),"","",_ERROR);
+    }
+    
+    AddEntry(2, "bSegmentType", bSegmentType, 2, segment_type, 0);
+    AddFieldBreak();
+    
+    AddEntry(3, "dX", dX, 8, "X-coordinate of the audio source or sink, associated with the channel.", 0);
+    AddFieldBreak();
+    
+    AddEntry(7, "dY", dY, 8, "Y-coordinate of the audio source or sink, associated with the channel.", 0);
+    AddFieldBreak();
+    
+    AddEntry(11, "dZ", dZ, 8, "Z-coordinate of the audio source or sink, associated with the channel.", 0);
+    AddFieldBreak();
+    
+    return segment_size;
+}
+
+CHANNEL_POSITION_THETA_PHI_sub(descriptor_start_offset, segment_type)
+{
+    segment_size = 15;
+    
+    if ((in.DataLength - descriptor_start_offset) < segment_size)
+    {
+        AddStringToDlg("No enough data for this SEGMENT",FormatEx("Length required %d bytes, Actual Length %d bytes", segment_size, in.DataLength - descriptor_start_offset), OutputUnknownData(in.DataLength - descriptor_start_offset, 0));
+        return 0;
+    }
+    
+    wLength       = GetDataWord(descriptor_start_offset);
+    bSegmentType  = GetDataByte(descriptor_start_offset + 2);
+    dR            = GetDataLong(descriptor_start_offset + 3);
+    dP            = GetDataLong(descriptor_start_offset + 7);
+    dT            = GetDataLong(descriptor_start_offset + 11);
+    
+    if(wLength == segment_size)
+    {
+        AddEntry(0, "wLength", wLength, 4, "Length of the this Segment, in bytes.", 0);
+        AddFieldBreak();
+    }
+    else
+    {
+        AddStringToDlg(FormatEx("Unknown size 0x%02X for this SegmentType", wLength),"","",_ERROR);
+    }
+    
+    AddEntry(2, "bSegmentType", bSegmentType, 2, segment_type, 0);
+    AddFieldBreak();
+    
+    AddEntry(3, "dR", dR, 8, "R-coordinate of the audio source or sink, associated with the channel.", 0);
+    AddFieldBreak();
+    
+    AddEntry(7, "d_Phi", dP, 8, "Phi-coordinate of the audio source or sink, associated with the channel.", 0);
+    AddFieldBreak();
+    
+    AddEntry(11, "d_Theta", dT, 8, "Theta-coordinate of the audio source or sink, associated with the channel.", 0);
+    AddFieldBreak();
+    
+    return segment_size;
+}
+
+DecodeRequestToText()
+{
+    return DecodeRequestToTextCommon( AudioCSRequesCodes_v3_Table );
+}
+
+Audio_CS_CLUSTER(descriptor_start_offset)
+{   
+    decoded_offset     = 0;
+    
+    wLength            = GetDataWord(descriptor_start_offset);
+    bDescriptorType    = GetDataByte(descriptor_start_offset + 2);
+    bDescriptorSubtype = GetDataByte(descriptor_start_offset + 3);
+    wDescriptorID      = GetDataWord(descriptor_start_offset + 4);
+    bNrChannels        = GetDataByte(descriptor_start_offset + 6);
+    
+    AddShortDataHeader(FormatEx ("%s Descriptor (%d bytes)", "CLUSTER", wLength));
+    
+    if (wLength > in.DataLength - descriptor_start_offset )
+    {
+        AddStringToDlg("No enough data for this descriptor",FormatEx("Length required %d bytes, Actual Length %d bytes", wLength, in.DataLength - descriptor_start_offset), OutputUnknownData(in.DataLength - descriptor_start_offset, 0));
+        return 0;
+    }
+    
+    AddEntry(0, "wLength", wLength, 4, "Total length of the Cluster descriptor, in bytes.", 0);
+    AddFieldBreak();
+    
+    AddEntry(2, "bDescriptorType", bDescriptorType, 2, "CS_CLUSTER descriptor type.", 0);
+    AddFieldBreak();
+    
+    if(bDescriptorSubtype == 0) #Should be equal to SUBTYPE_UNDEFINED(0)
+    {
+        AddEntry(3, "bDescriptorSubtype", bDescriptorSubtype, 2, "SUBTYPE_UNDEFINED descriptor subtype.", 0);
+        AddFieldBreak();
+    }
+    else
+    {
+        AddStringToDlg(FormatEx("Unknown subtype 0x%02X for DescriptorType 0x%02X", bDescriptorSubType, bDescriptorType),"","",_ERROR);
+    }
+    
+    
+    AddEntry(4, "wDescriptorID", wDescriptorID, 4, "Unique ID of this Cluster descriptor.", 0);
+    AddFieldBreak();
+    
+    AddEntry(6, "bNrChannels", bNrChannels, 2, "Number of channels present in the Cluster.", 0);
+    AddFieldBreak();
+    
+    decoded_offset = 7;
+    
+    data_remained = wLength - decoded_offset;
+    
+    while (data_remained > 0)
+    {
+        #SEGMENTS
+        
+        bSegmentType     = GetDataByte(decoded_offset + 9);
+        desc_segment_row = Find(ClusterDescriptorSegmentTypeTable, bSegmentType);
+        
+        descriptor_start_offset += decoded_offset;
+        decoded          = Call(desc_segment_row[2], descriptor_start_offset, desc_segment_row[1]);
+        
+        data_remained -= decoded;
+        
+        if((decoded == 0) || (data_remained < 0))
+            data_remained = 0;
+        
+        decoded_offset += decoded;
+    }
+        
+    return decoded_offset;
+}
+
+END_SEGMENT_sub(descriptor_start_offset, segment_type)
+{
+    segment_size = 3;
+    
+    if ((in.DataLength - descriptor_start_offset) < segment_size)
+    {
+        AddStringToDlg("No enough data for this SEGMENT",FormatEx("Length required %d bytes, Actual Length %d bytes", segment_size, in.DataLength - descriptor_start_offset), OutputUnknownData(in.DataLength - descriptor_start_offset, 0));
+        return 0;
+    }
+    
+    wLength       = GetDataWord(descriptor_start_offset);
+    bSegmentType  = GetDataByte(descriptor_start_offset + 2);
+    
+    if(wLength == segment_size)
+    {
+        AddEntry(0, "wLength", wLength, 4, "Length of this Segment, in bytes.", 0);
+        AddFieldBreak();
+    }
+    else
+    {
+        AddStringToDlg(FormatEx("Unknown size 0x%02X for this SegmentType", wLength),"","",_ERROR);
+    }
+    
+    AddEntry(2, "bSegmentType", bSegmentType, 2, segment_type, 0);
+    AddFieldBreak();
+    
+    return segment_size;
+}
+
+CLUSTER_DESCRIPTION_sub(descriptor_start_offset, segment_type)
+{
+    segment_size = 5;
+    
+    if ((in.DataLength - descriptor_start_offset) < segment_size)
+    {
+        AddStringToDlg("No enough data for this SEGMENT",FormatEx("Length required %d bytes, Actual Length %d bytes", segment_size, in.DataLength - descriptor_start_offset), OutputUnknownData(in.DataLength - descriptor_start_offset, 0));
+        return 0;
+    }
+    
+    wLength       = GetDataWord(descriptor_start_offset);
+    bSegmentType  = GetDataByte(descriptor_start_offset + 2);
+    
+    if(wLength == segment_size)
+    {
+        AddEntry(0, "wLength", wLength, 4, "Length of the this Segment, in bytes.", 0);
+        AddFieldBreak();
+    }
+    else
+    {
+        AddStringToDlg(FormatEx("Unknown size 0x%02X for this SegmentType", wLength),"","",_ERROR);
+    }
+    
+    AddEntry(2, "bSegmentType", bSegmentType, 2, segment_type, 0);
+    AddFieldBreak();
+    
+    return segment_size;
+}
+
+CHANNEL_INFORMATION_sub(descriptor_start_offset, segment_type)
+{
+    segment_size = 6;
+    
+    if ((in.DataLength - descriptor_start_offset) < segment_size)
+    {
+        AddStringToDlg("No enough data for this SEGMENT",FormatEx("Length required %d bytes, Actual Length %d bytes", segment_size, in.DataLength - descriptor_start_offset), OutputUnknownData(in.DataLength - descriptor_start_offset, 0));
+        return 0;
+    }
+    
+    wLength         = GetDataWord(descriptor_start_offset);
+    bSegmentType    = GetDataByte(descriptor_start_offset + 2);
+    bChPurpose      = GetDataByte(descriptor_start_offset + 3);
+    bChRelationship = GetDataByte(descriptor_start_offset + 4);
+    bChGroupID      = GetDataByte(descriptor_start_offset + 5);
+    
+    if(wLength == segment_size)
+    {
+        AddEntry(0, "wLength", wLength, 4, "Length of the this Segment, in bytes.", 0);
+        AddFieldBreak();
+    }
+    else
+    {
+        AddStringToDlg(FormatEx("Unknown size 0x%02X for this SegmentType", wLength),"","",_ERROR);
+    }
+    
+    AddEntry(2, "bSegmentType", bSegmentType, 2, segment_type, 0);
+    AddFieldBreak();
+    
+    purpose_row = Find(ChannelPurposeDefinitionsTable, bChPurpose);
+    
+    AddEntry(3, "bChPurpose", bChPurpose, 2, FormatEx("Intended purpose of the channel: %s", purpose_row[1]), 0);
+    AddFieldBreak();
+    
+    relation_row = Find(AudioChannelRelationship, bChRelationship);
+    
+    AddEntry(4, "bChRelationship", bChRelationship, 2, FormatEx("Describes the relationship of this channel with the other channels: %s", relation_row[1]), 0);
+    AddFieldBreak();
+    
+    AddEntry(5, "bChGroupID", bChGroupID, 2, "ID used to group channels together.", 0);
+    AddFieldBreak();
+    
+    return segment_size;
+}
+
+CHANNEL_AMBISONIC_sub(descriptor_start_offset, segment_type)
+{
+    segment_size = 7;
+    
+    if ((in.DataLength - descriptor_start_offset) < segment_size)
+    {
+        AddStringToDlg("No enough data for this SEGMENT",FormatEx("Length required %d bytes, Actual Length %d bytes", segment_size, in.DataLength - descriptor_start_offset), OutputUnknownData(in.DataLength - descriptor_start_offset, 0));
+        return 0;
+    }
+    
+    wLength         = GetDataWord(descriptor_start_offset);
+    bSegmentType    = GetDataByte(descriptor_start_offset + 2);
+    bCompOrdering   = GetDataByte(descriptor_start_offset + 3);
+    bACN            = GetDataByte(descriptor_start_offset + 4);
+    bAmbNorm        = GetDataByte(descriptor_start_offset + 5);
+    bChGroupID      = GetDataByte(descriptor_start_offset + 6);
+    
+    if(wLength == segment_size)
+    {
+        AddEntry(0, "wLength", wLength, 4, "Length of the this Segment, in bytes.", 0);
+        AddFieldBreak();
+    }
+    else
+    {
+        AddStringToDlg(FormatEx("Unknown size 0x%02X for this SegmentType", wLength),"","",_ERROR);
+    }
+    
+    AddEntry(2, "bSegmentType", bSegmentType, 2, segment_type, 0);
+    AddFieldBreak();
+    
+    ordering_row = Find(AmbisonicComponentOrderingTable, bCompOrdering);
+    
+    AddEntry(3, "bCompOrdering", bCompOrdering, 2, FormatEx("The Component Ordering convention for the Ambisonic Spherical Harmonics: %s", ordering_row[1]), 0);
+    AddFieldBreak();
+
+    AddEntry(4, "bACN", bACN, 2, "Ambisonic Channel Number.", 0);
+    AddFieldBreak();
+    
+    norm_row = Find(AmbisonicNormalizationTypesTable, bAmbNorm);
+    
+    AddEntry(5, "bAmbNorm", bAmbNorm, 2, FormatEx("Applied channel normalization: %s", norm_row[1]), 0);
+    AddFieldBreak();
+    
+    AddEntry(6, "bChGroupID", bChGroupID, 2, "ID used to group channels together.", 0);
+    AddFieldBreak();
+    
+    return segment_size;
+}
+
+CHANNEL_DESCRIPTION_sub(descriptor_start_offset, segment_type)
+{
+    segment_size = 5;
+    
+    if ((in.DataLength - descriptor_start_offset) < segment_size)
+    {
+        AddStringToDlg("No enough data for this SEGMENT",FormatEx("Length required %d bytes, Actual Length %d bytes", segment_size, in.DataLength - descriptor_start_offset), OutputUnknownData(in.DataLength - descriptor_start_offset, 0));
+        return 0;
+    }
+    
+    wLength       = GetDataWord(descriptor_start_offset);
+    bSegmentType  = GetDataByte(descriptor_start_offset + 2);
+    wChDescrStr   = GetDataWord(descriptor_start_offset + 3);
+    
+    if(wLength == segment_size)
+    {
+        AddEntry(0, "wLength", wLength, 4, "Length of this Segment, in bytes.", 0);
+        AddFieldBreak();
+    }
+    else
+    {
+        AddStringToDlg(FormatEx("Unknown size 0x%02X for this SegmentType", wLength),"","",_ERROR);
+    }
+    
+    AddEntry(2, "bSegmentType", bSegmentType, 2, segment_type, 0);
+    AddFieldBreak();
+    
+    AddEntry(3, "wChDescrStr", wChDescrStr, 4, "ID of a String descriptor that further describes the channel.", 0);
+    AddFieldBreak();
+        
+    return segment_size;
+}
+
+SEGMENT_VENDOR_DEFINED_sub(descriptor_start_offset, segment_type)
+{   
+    if ((in.DataLength - descriptor_start_offset) < 3)
+    {
+        AddStringToDlg("No enough data for this SEGMENT",FormatEx("Length required %d bytes, Actual Length %d bytes", segment_size, in.DataLength - descriptor_start_offset), OutputUnknownData(in.DataLength - descriptor_start_offset, 0));
+        return 0;
+    }
+    
+    wLength        = GetDataWord(descriptor_start_offset);
+    bSegmentType   = GetDataByte(descriptor_start_offset + 2);
+    aVendorDefined = GetDataByteArray(descriptor_start_offset + 3);
+    
+    AddEntry(0, "wLength", wLength, 4, "Length of the this Segment, in bytes.", 0);
+    AddFieldBreak();
+    
+    AddEntry(2, "bSegmentType", bSegmentType, 2, segment_type, 0);
+    AddFieldBreak();
+    
+    AddEntry(3, "VendorDefined", aVendorDefined, (wLength - 3) * 2, "Vendor-defined extension of the Segment.", 0);
+    AddFieldBreak();
+    
+    return wLength;
+}
+
+TE_INSERTION_CONTROL_sub(validBit, cellColor, validate_func, tooltip_func)
+{
+    FieldColor = cellColor;
+    
+    if (wLength > in.DataLength - 8)
+        wLength = in.DataLength - 8;
+
+    decoded = 0;
+
+    if (bRequest == 0x01) # only valid with CUR
+    {
+        if(wLength >= 1)
+        {
+            bSize = NextNBits_(8);
+            AddPayLoadCell("bSize", Format("0x%02X", bSize), "Indicates the number of bytes in the bmConInserted bitmap.");
+            decoded = 1;
+            
+            if(wLength >= (bSize + 1))
+            {
+                AddPayLoadCell("bmConInserted", Format("Size = 0x%02X", bSize), "Each set bit represents a currently inserted connector.");
+                ShowDataBlock(bSize);
+                decoded = bSize + 1;
+            }
+            else
+                AddNoEnoughDataCell();
+        }
+        else
+            AddNoEnoughDataCell();
+    }
+    
+    return decoded;
+}
+
+GRAPHIC_EQUALIZER_CONTROL_v3_sub(validBit, cellColor, validate_func, tooltip_func)
+{
+    if (wLength > in.DataLength - 8)
+        wLength = in.DataLength - 8;
+    FieldColor = cellColor;
+
+    if (bRequest == 0x01) # CUR
+    {
+        if (wLength >= 4)
+        {
+            bmBandsPresent = NextNBits_(32);
+            AddPayLoadCell("bmBandsPresent", Format("0x%08X", bmBandsPresent), "A bit set indicates the band is present:\nD0: Band 14\nB1: Band 15\n...\nD29:Band 43\nD30: Reserved\n...");
+            for (i = 4; i < wLength ; i ++)
+            {
+                bBand = NextNBits_(8);
+                if (bBand > 0x7F)
+                {
+                    bBand = bBand | 0xFFFFFF00; # make 2's comp for dword value
+                }
+                toolTip = Format("Settings for Band Control 0x%02X: ",bBase) + Format("%d * 0.25 dB", bBase);
+                VS = "ADT_bBand";
+                AddBlockPLCell(Format("bBand %d",i-4), Format("0x%02X", bBand), toolTip);
+            }
+            return 4;
+        }
+        else
+        {
+            return 0;
+        }
+    }
+    else if (bRequest == 0x02) #RANGE
+    {
+        if (wLength >= 2)
+        {
+            wNumSubRanges = NextDataWord_();
+            AddPayLoadCell("wNumSubRanges", Format("%d", wNumSubRanges), "The number of subranges of the Graphic Equalizer Control.");
+        }
+        else
+        {
+            AddNoEnoughDataCell();
+            return 0;
+        }
+        isEnoughData = 0;
+        if (wLength < 2 + wNumSubRanges * 3)
+            wNumSubRanges = (wLength - 2) / 3;
+        else
+            isEnoughtData = 1;
+        for(i = 0; i < wNumSubRanges; i++)
+        {
+            bMin = NextNBits_(8);
+            if (bMin > 0x7F)
+            {
+                bMin = bMin | 0xFFFFFF00; # make 2's comp for dword value
+            }
+            toolTip = Format("Settings for Graphic Equalizer Control 0x%02X: ",bMin) + Format("%d * 0.25 dB", bMin);
+            VS = "ADT_bMIN";
+            AddBlockPLCell(Format("bMin %d",i + 1), Format("0x%02X", bMin), toolTip);
+
+            bMax = NextNBits_(8);
+            if (bMax > 0x7F)
+            {
+                bMax = bMax | 0xFFFFFF00; # make 2's comp for dword value
+            }
+            toolTip = Format("Settings for Graphic Equalizer Control 0x%02X: ",bMax) + Format("%d * 0.25 dB", bMax);
+            VS = "ADT_bMAX";
+            AddBlockPLCell(Format("bMax %d",i + 1), Format("0x%02X", bMax), toolTip);
+
+            bRes = NextNBits_(8);
+            if (bRes > 0x7F)
+            {
+                bRes = bRes | 0xFFFFFF00; # make 2's comp for dword value
+            }
+            toolTip = Format("Settings for Graphic Equalizer Control 0x%02X: ",bRes) + Format("%d * 0.25 dB", bRes);
+            VS = "ADT_bRES";
+            AddBlockPLCell(Format("bRes %d",i + 1), Format("0x%02X", bRes), toolTip);
+        }
+        if (isEnoughData == 0)
+            AddNoEnoughDataCell();
+        return 2 + wNumSubRanges * 3;
+    }
+    else
+        return 0;
+}
+
+AS_VAL_ALT_SETTINGS_CONTROL_v3_sub (validBit, cellColor, validate_func, tooltip_func)
+{
+    if (wLength > in.DataLength - 8)
+        wLength = in.DataLength - 8;
+    FieldColor = cellColor;
+    if (bRequest == 0x01) # CUR
+    {
+        if (wLength >= 1)
+        {
+            bControlSize = NextNBits_(8);
+            AddPayLoadCell("bControlSize", Format("%d", bControlSize), "Indicates the number of bytes in the bmValidAltSetting bit map");
+        }
+        else
+        {
+            AddNoEnoughDataCell();
+            return 0;
+        }
+        if (wLenth >= 1 + bControlSize)
+        {
+            ShowDataBlock (bControlSize);
+            return 1 + bControlSize;
+        }
+        else
+        {
+            AddNoEnoughDataCell();
+            return 1;
+        }
+    }
+    else
+        return 0;
+}
+
+AudioLayout1(validBit, cellColor, func_valid, func_tooltip)
+{
+    if (wLength > in.DataLength - 8)
+        wLength = in.DataLength - 8;
+
+    FieldColor = cellColor;
+    validCur   =  validBit >> 2;
+    validRange = (validBit & 0b010) >> 1;
+    validINTEN =  validBit & 0b001; # INTEN is just valid in Layout1
+
+    if (bRequest == 0x01 && validCur == 1) # CUR
+    {
+        if (wLength >= 1)
+        {
+            bCur  = NextNBits_(8);
+            Error = null;
+            
+            if (func_valid != null)
+            {
+                correct = Call (func_valid, [ bCur ]);
+                if (correct == 0)
+                    Error == _ERROR;
+            }
+
+            if (func_tooltip == null)
+                value_string = Format("0x%02X", bCur);
+            else
+                value_string = Call(func_tooltip, [bCur]);
+
+            AddPayLoadCell("bCUR", value_string , "The setting for the CUR attribute of the addressed Control.", Error);
+            return 1;
+        }
+        else
+        {
+            AddNoEnoughDataCell();
+            return 0;
+        }
+    }
+    else if (bRequest == 0x02 && validRange == 1) # RANGE
+    {
+        if (wLength >= 2)
+        {
+            wNumSubRanges = NextDataWord_();
+            AddPayLoadCell("wNumSubRanges", Format("%d", wNumSubRanges), "The number of subranges of the addressed Control.");
+        }
+        else
+        {
+            AddNoEnoughDataCell();
+            return 0;
+        }
+
+        isEnoughData = 0;
+        if (wLength <  2 + 3 * wNumSubRanges)
+            wNumSubRanges = (wLength - 2) / 3;
+        else
+            isEnoughData = 1;
+
+        for (i = 0; i< wNumSubRanges; i++)
+        {
+            bMIN = NextNBits_(8);
+            Error = null;
+            if (func_valid != null)
+            {
+                correct = Call (func_valid, [ bMIN ]);
+                if (correct == 0)
+                    Error == _ERROR;
+            }
+
+            if (func_tooltip == null)
+                value_string = Format("0x%02X", bMIN);
+            else
+                value_string = Call(func_tooltip, [bMIN]);
+            VS = "ADT_bMIN";
+            AddBlockPLCell(Format("bMIN(%d)", i+1), value_string, Format("The setting for the MIN attribute of the %d subrange of the addressed Control", i + 1), Error);
+
+            bMAX = NextNBits_(8);
+            Error = null;
+            if (func_valid != null)
+            {
+                correct = Call (func_valid, [ bMAX ]);
+                if (correct == 0)
+                    Error == _ERROR;
+            }
+
+            if (func_tooltip == null)
+                value_string = Format("0x%02X", bMAX);
+            else
+                value_string = Call(func_tooltip, [bMAX]);
+
+            VS = "ADT_bMAX";
+            AddBlockPLCell(Format("bMAX(%d)", i+1), value_string, Format("The setting for the MAX attribute of the %d subrange of the addressed Control", i + 1), Error);
+
+            bRES = NextNBits_(8);
+            Error = null;
+
+            if (func_valid != null)
+            {
+                correct = Call (func_valid, [ bRES ]);
+                if (correct == 0)
+                    Error == _ERROR;
+            }
+
+            if (func_tooltip == null)
+                value_string = Format("0x%02X", bRES);
+            else
+                value_string = Call(func_tooltip, [bRES]);
+            VS = "ADT_bRES";
+            AddBlockPLCell(Format("bRES(%d)", i+1), value_string, Format("The setting for the RES attribute of the %d subrange of the addressed Control", i + 1), Error);
+        }
+
+        if (isEnoughData == 0)
+            AddNoEnoughDataCell();
+        return 2 + 3 * wNumSubRanges;
+    }
+    if (bRequest == 0x04 && validINTEN == 1) # INTEN
+    {
+        if (wLength >= 1)
+        {
+            bINTEN  = NextNBits_(8);
+            Error = null;
+            
+            if (bINTEN != 0 && bINTEN != 1)
+                Error == _ERROR;
+
+            if (func_tooltip == null)
+                value_string = Format("0x%02X", bINTEN);
+            else
+                value_string = Call(func_tooltip, [bINTEN]);
+
+            AddPayLoadCell("bINTEN", value_string , "The setting for the INTEN attribute of the addressed Control.", Error);
+            return 1;
+        }
+        else
+        {
+            AddNoEnoughDataCell();
+            return 0;
+        }
+    }
+    else
+        return 0;
+}
+
+
+AudioLayout2(validBit, cellColor, func_valid, func_tooltip)
+{
+    validCur   =  validBit >> 2;
+    validRange = (validBit & 0b010) >> 1;
+
+    if (wLength > in.DataLength - 8)
+        wLength = in.DataLength - 8;
+    FieldColor = cellColor;
+
+    if (bRequest == 0x01 && validCur == 1) # CUR
+    {
+        if (wLength >= 2)
+        {
+            wCur = NextDataWord_();
+            Error = null;
+            if (func_valid != null)
+            {
+                correct = Call (func_valid, [ wCur ]);
+                if (correct == 0)
+                    Error == _ERROR;
+            }
+
+            if (func_tooltip == null)
+                value_string = Format("0x%04X", wCur);
+            else
+                value_string = Call(func_tooltip, [wCur]);
+
+            AddPayLoadCell("wCUR", value_string , "The setting for the CUR attribute of the addressed Control.", Error);
+            return 2;
+        }
+        else
+        {
+            AddNoEnoughDataCell();
+            return 0;
+        }
+    }
+    else if (bRequest == 0x02 && validRange == 1) # RANGE
+    {
+        if (wLength >= 2)
+        {
+            wNumSubRanges = NextDataWord_();
+            AddPayLoadCell("wNumSubRanges", Format("%d", wNumSubRanges), "The number of subranges of the addressed Control.");
+        }
+        else
+        {
+            AddNoEnoughDataCell();
+            return 0;
+        }
+
+        isEnoughData = 0;
+        if (wLength <  2 + 3 * wNumSubRanges)
+            wNumSubRanges = (wLength - 2) / 3;
+        else
+            isEnoughData = 1;
+
+        for (i = 0; i< wNumSubRanges; i++)
+        {
+            wMIN = NextDataWord_();
+            Error = null;
+            if (func_valid != null)
+            {
+                correct = Call (func_valid, [ wMIN ]);
+                if (correct == 0)
+                    Error == _ERROR;
+            }
+
+            if (func_tooltip == null)
+                value_string = Format("0x%04X", wMIN);
+            else
+                value_string = Call(func_tooltip, [wMIN]);
+            VS = "ADT_wMIN";
+            AddBlockPLCell(Format("wMIN(%d)", i+1), value_string, Format("The setting for the MIN attribute of the %d subrange of the addressed Control", i + 1), Error);
+
+            wMAX = NextDataWord_();
+            Error = null;
+            if (func_valid != null)
+            {
+                correct = Call (func_valid, [ wMAX ]);
+                if (correct == 0)
+                    Error == _ERROR;
+            }
+
+            if (func_tooltip == null)
+                value_string = Format("0x%04X", wMAX);
+            else
+                value_string = Call(func_tooltip, [wMAX]);
+
+            VS = "ADT_wMAX";
+            AddBlockPLCell(Format("wMAX(%d)", i+1), value_string, Format("The setting for the MAX attribute of the %d subrange of the addressed Control", i + 1), Error);
+
+            wRES = NextDataWord_();
+            Error = null;
+
+            if (func_valid != null)
+            {
+                correct = Call (func_valid, [ wRES ]);
+                if (correct == 0)
+                    Error == _ERROR;
+            }
+
+            if (func_tooltip == null)
+                value_string = Format("0x%04X", wRES);
+            else
+                value_string = Call(func_tooltip, [wRES]);
+
+            VS = "ADT_wRES";
+            AddBlockPLCell(Format("wRES(%d)", i+1), value_string, Format("The setting for the RES attribute of the %d subrange of the addressed Control", i + 1), Error);
+        }
+
+        if (isEnoughData == 0)
+            AddNoEnoughDataCell();
+        return 2 + ( 3 * 2 * wNumSubRanges );
+
+    }
+    else
+        return 0;
+}
+
+
+AudioLayout3(validBit, cellColor, func_valid, func_tooltip)
+{
+    validCur   =  validBit >> 2;
+    validRange = (validBit & 0b010) >> 1;
+
+    if (wLength > in.DataLength - 8)
+        wLength = in.DataLength - 8;
+    FieldColor = cellColor;
+
+    if (bRequest == 0x01 && validCur == 1) # CUR
+    {
+        if (wLength >= 4)
+        {
+            dCur = NextDataDWord_();
+            Error = null;
+            if (func_valid != null)
+            {
+                correct = Call (func_valid, [ dCur ]);
+                if (correct == 0)
+                    Error == _ERROR;
+            }
+
+            if (func_tooltip == null)
+                value_string = Format("0x%08X", dCur);
+            else
+                value_string = Call(func_tooltip, [dCur]);
+
+            AddPayLoadCell("dCUR", value_string , "The setting for the CUR attribute of the addressed Control.", Error);
+            return 4;
+        }
+        else
+        {
+            AddNoEnoughDataCell();
+            return 0;
+        }
+
+    }
+    else if (bRequest == 0x02 && validRange == 1) # RANGE
+    {
+        if (wLength >= 2)
+        {
+            wNumSubRanges = NextDataWord_();
+            AddPayLoadCell("wNumSubRanges", Format("%d", wNumSubRanges), "The number of subranges of the addressed Control.");
+        }
+        else
+        {
+            AddNoEnoughDataCell();
+            return 0;
+        }
+
+        isEnoughData = 0;
+        if (wLength <  2 + 3 * wNumSubRanges)
+            wNumSubRanges = (wLength - 2) / 3;
+        else
+            isEnoughData = 1;
+
+        for (i = 0; i< wNumSubRanges; i++)
+        {
+            dMIN = NextDataDWord_();
+            Error = null;
+            if (func_valid != null)
+            {
+                correct = Call (func_valid, [ dMIN ]);
+                if (correct == 0)
+                    Error == _ERROR;
+            }
+
+            if (func_tooltip == null)
+                value_string = Format("0x%08X", dMIN);
+            else
+                value_string = Call(func_tooltip, [dMIN]);
+
+            VS = "ADT_dMIN";
+            AddBlockPLCell(Format("dMIN(%d)", i+1), value_string, Format("The setting for the MIN attribute of the %d subrange of the addressed Control", i + 1), Error);
+
+            dMAX = NextDataDWord_();
+            Error = null;
+            if (func_valid != null)
+            {
+                correct = Call (func_valid, [ dMAX ]);
+                if (correct == 0)
+                    Error == _ERROR;
+            }
+
+            if (func_tooltip == null)
+                value_string = Format("0x%08X", dMAX);
+            else
+                value_string = Call(func_tooltip, [dMAX]);
+            VS = "ADT_dMAX";
+            AddBlockPLCell(Format("dMAX(%d)", i+1), value_string, Format("The setting for the MAX attribute of the %d subrange of the addressed Control", i + 1), Error);
+
+            dRES = NextDataDWord_();
+            Error = null;
+            if (func_valid != null)
+            {
+                correct = Call (func_valid, [ dRES ]);
+                if (correct == 0)
+                    Error == _ERROR;
+            }
+
+            if (func_tooltip == null)
+                value_string = Format("0x%08X", dRES);
+            else
+                value_string = Call(func_tooltip, [dRES]);
+
+            VS = "ADT_dRES";
+            AddBlockPLCell(Format("dRES(%d)", i+1), value_string, Format("The setting for the RES attribute of the %d subrange of the addressed Control", i + 1), Error);
+        }
+
+        if (isEnoughData == 0)
+            AddNoEnoughDataCell();
+
+        return 2 + ( 3 * 4 * wNumSubRanges );
+    }
+    else
+        return 0;
+}
+
+####################################################################################
+#                       USBTracer specific caption cell                            #
+####################################################################################
+
+AddSpecCaptionCell(caption, text, tooltip, FieldColor, addparam, addparam1, addparam2 )
+{
+    AddCell(caption, text, tooltip, FieldColor, _USBBULK_HEADER, addparam, addparam1, addparam2 );
+    return 1;
+}

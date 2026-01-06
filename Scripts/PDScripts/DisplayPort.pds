@@ -1,0 +1,341 @@
+%include "CATCScriptAPI.inc"
+
+#Most important constant is the "PDDecoderVendorID". It defines which VDM messages with this PDDecoderVendorID will be processed here.
+#without PDDecoderVendorID constant or variable, the script is not accepted as a PD VDM decoding script.
+const PDDecoderVendorID = 0xFF01;
+
+#Internal constants.
+const DP_STATUS_COLOR = RGB(137,117,209);
+const DP_CONFIG_COLOR = RGB(183,135,226);
+const DP_CAP_COLOR    = RGB(62,133,239);
+
+# "SVIDSpecificCommands" list helps UsbSuite decoder to find out and use desired command names and colors instead of its general ones for SVID Specific commands.
+set SVIDSpecificCommands =
+[
+    [0x10, "DP Status",    DP_STATUS_COLOR],
+    [0x11, "DP Configure", DP_CONFIG_COLOR]
+];
+
+#The rest of this script are internal stuff,
+#except ProcessPacket(), ProcessTransaction() and ProcessTransfer() functions that will be called to have desired cells in those layers of UsbSuite Packet view.
+
+######################################
+# Some syntactic sugar for Getting bits of data for decoding
+set CurrentDecodingField  = null;
+set CurrentDecodingOffset = 0;
+GetFieldBits( field, start_offset, bit_count )
+{
+    CurrentDecodingField  = field;
+    res = GetRangeBits(start_offset, start_offset + bit_count-1,field);
+    CurrentDecodingOffset = start_offset + bit_count;
+    return res;
+}
+NextFieldBits( bit_count )
+{
+    res = GetRangeBits(CurrentDecodingOffset, CurrentDecodingOffset + bit_count-1, CurrentDecodingField);
+    CurrentDecodingOffset += bit_count;
+    return res;
+}
+NextFieldBit()
+{
+    res = GetBit( CurrentDecodingOffset, CurrentDecodingField );
+    ++CurrentDecodingOffset;
+    return res;
+}
+######################################
+
+set PortCapStr =
+[
+    [ "Undefined",       "Reserved Value" ],
+    [ "UFP_D",           "UFP_D-capable" ],
+    [ "DFP_D",           "DFP_D-capable" ],
+    [ "DFP_D and UFP_D", "Both DFP_D and UFP_D-capable" ]
+];
+
+set SignalingSuppStr =
+[
+    ["None",            "Supports no Signaling for Transport of DisplayPort Protocol"],
+    ["DP v1.3",         "Supports DP v1.3 signaling rates and electrical specification"],
+    ["USB G2",          "Supports USB Gen 2 signaling rate and electrical specification"],
+    ["DP v1.3, USB G2", "Supports DP v1.3 and USB Gen 2 signaling rates and electrical specification"]
+];
+
+set ReceptStr = 
+[
+    ["Plug", "DisplayPort interface is presented on a USB Type-C Plug"],
+    ["Receptacle", "DisplayPort interface is presented on a USB Type-C Receptacle"]
+];
+
+set UsbR2ReqStr =
+[
+    ["Maybe Required", "USB r2.0 signaling may be required on A6 – A7 or B6 – B7 while in DisplayPort Configuration"],
+    ["Not Required", "USB r2.0 signaling is not required on A6 – A7 or B6 – B7 while in DisplayPort Configuration"]
+];
+
+GetPinAssignmentStr( pin_bitmap )
+{
+    res = "";
+    if( pin_bitmap == 0 ){
+        res = "None";
+    } else {
+        if( pin_bitmap & 0x1 )
+            res += "A ";
+        if( pin_bitmap & 0x2 )
+            res += "B ";
+        if( pin_bitmap & 0x4 )
+            res += "C ";
+        if( pin_bitmap & 0x8 )
+            res += "D ";
+        if( pin_bitmap & 0x10 )
+            res += "E ";
+        if( pin_bitmap & 0x20 )
+            res += "F ";
+    }
+    return res;
+}
+
+DiscoverModes()
+{
+    AddCaption( "DP Cap", DP_CAP_COLOR ); 
+    
+    tmp = GetFieldBits( in.OBJ_1, 0, 2 );
+    AddCell( "Port Cap", PortCapStr[tmp][0], PortCapStr[tmp][1], DP_CAP_COLOR );
+    
+    tmp = NextFieldBits( 4 );
+    AddCell( "Sig Supp", SignalingSuppStr[tmp][0], SignalingSuppStr[tmp][1], DP_CAP_COLOR );
+    
+    tmp = NextFieldBit();
+    AddCell( "Recep Ind", ReceptStr[tmp][0], ReceptStr[tmp][1], DP_CAP_COLOR );
+    
+    tmp = NextFieldBit();
+    AddCell( "USB r2.0", UsbR2ReqStr[tmp][0], UsbR2ReqStr[tmp][1], DP_CAP_COLOR );
+    
+    assignments_str = GetPinAssignmentStr( NextFieldBits( 8 ) );
+    AddCell( "DFP_D Pins", assignments_str, Format("DFP_D Supported Pin Assignments: %s", assignments_str), DP_CAP_COLOR );
+    
+    assignments_str = GetPinAssignmentStr( NextFieldBits( 8 ) );    
+    AddCell( "UFP_D Pins", assignments_str, Format("UFP_D Supported Pin Assignments: %s", assignments_str), DP_CAP_COLOR );
+    
+    AddCell( "Rsvd", Format("0x%X", NextFieldBits( 8 )), "", DP_CAP_COLOR );
+}
+
+Attention()
+{
+    DPStatus();
+}
+
+set ConnectedStr =
+[
+    ["None",          "Neither DFP_D nor UFP_D is connected, or Adaptor is disabled"],
+    ["DFP_D",         "DFP_D is connected"],
+    ["UFP_D",         "UFP_D is connected"],
+    ["DFP_D & UFP_D", "Both DFP_D and UFP_D are connected"]
+];
+
+set PowerLowStr =
+[
+    ["Normal",    "Adaptor is functioning normally or is disabled"],
+    ["Low Power", "Adaptor has detected low power and disabled DisplayPort support"]
+];
+
+set PortFuncStr =
+[
+    ["Disabled", "Adaptor DisplayPort functionality is disabled"],
+    ["Enabled",  "Adaptor DisplayPort functionality is enabled and operational"]
+];
+
+set MultiFuncStr =
+[
+    ["No Preference", "No preference for Multi-function"],
+    ["Preferred",     "Multi-function is preferred"]
+];
+
+set UsbConfReqStr =
+[
+    ["No",  "Maintain current configuration"],
+    ["Yes", "Request switch to USB Configuration (if in DisplayPort Configuration)"]
+];
+
+set ExitDPModeReqStr =
+[
+    ["No",  "Maintain current mode"],
+    ["Yes", "Request exit from DisplayPort Mode (if in DisplayPort Mode)"]
+];
+
+set HPDStateStr =
+[
+    ["Low",  "HPD_Low"],
+    ["High", "HPD_High"]
+];
+
+set IRQHpdStr =
+[
+    ["No",  "No IRQ_HPD since last status message"],
+    ["Yes", "IRQ_HPD"]
+];
+
+DPStatus()
+{
+    AddCaption( "DP Status", DP_STATUS_COLOR );
+    
+    tmp = GetFieldBits( in.OBJ_1, 0, 2 );
+    AddCell( "Conn", ConnectedStr[tmp][0], ConnectedStr[tmp][1], DP_STATUS_COLOR );
+    
+    tmp = NextFieldBit();
+    AddCell( "Pow Low", PowerLowStr[tmp][0], PowerLowStr[tmp][1], DP_STATUS_COLOR );
+    
+    tmp = NextFieldBit();
+    AddCell( "Adaptor Func", PortFuncStr[tmp][0], PortFuncStr[tmp][1], DP_STATUS_COLOR );
+    
+    tmp = NextFieldBit();
+    AddCell( "Multi-Func", MultiFuncStr[tmp][0], MultiFuncStr[tmp][1], DP_STATUS_COLOR );
+    
+    tmp = NextFieldBit();
+    AddCell( "USB Config", UsbConfReqStr[tmp][0], UsbConfReqStr[tmp][1], DP_STATUS_COLOR );
+    
+    tmp = NextFieldBit();
+    AddCell( "Exit DP", ExitDPModeReqStr[tmp][0], ExitDPModeReqStr[tmp][1], DP_STATUS_COLOR );
+    
+    tmp = NextFieldBit();
+    AddCell( "HPD State", HPDStateStr[tmp][0], HPDStateStr[tmp][1], DP_STATUS_COLOR );
+    
+    tmp = NextFieldBit();
+    AddCell( "IRQ_HPD", IRQHpdStr[tmp][0], IRQHpdStr[tmp][1], DP_STATUS_COLOR );
+    
+    AddCell( "Rsvd", Format( "0x%X", NextFieldBits( 23 ) ), "Reserved", DP_STATUS_COLOR );
+}
+
+set SetConfigurationForStr =
+[
+    ["USB",            "Set configuration for USB"],
+    ["UFP_U as DFP_D", "Set configuration for UFP_U as DFP_D"],
+    ["UFP_U as UFP_D", "Set configuration for UFP_U as UFP_D"],
+    ["Undefined",      "Reserved Value"]
+];
+
+set SetSignallingStr =
+[
+    ["Unknown",   "Signaling unspecified (used only when Select Configuration field is set for USB Configuration)"],
+    ["DP v1.3",   "Select DP v1.3 signaling rates and electrical settings"],
+    ["USB G2",    "Select Gen 2 signaling rates and electrical specifications"],
+    ["Undefined", "Reserved Value"]
+];
+
+set ConfigUFP_U =
+[
+    [0xFF, "Undefined", "Reserved Value"],
+    [0x0,  "De-select", "De-select pin assignment"],
+    [0x1,  "A", "Select pin Assignment A"],
+    [0x2,  "B", "Select pin Assignment B"],
+    [0x4,  "C", "Select pin Assignment C"],
+    [0x8,  "D", "Select pin Assignment D"],
+    [0x10, "E", "Select pin Assignment E"],
+    [0x20, "F", "Select pin Assignment F"]
+];
+
+DPConfigure()
+{
+    AddCaption( "DP Configure", DP_CONFIG_COLOR );
+    
+    tmp = GetFieldBits( in.OBJ_1, 0, 2 );
+    AddCell( "Set Config", SetConfigurationForStr[tmp][0], SetConfigurationForStr[tmp][1], DP_CONFIG_COLOR );
+    
+    tmp = NextFieldBits( 4 );
+    AddCell( "Set Sig", SetSignallingStr[tmp][0], SetSignallingStr[tmp][1], DP_CONFIG_COLOR );
+    
+    AddCell( "Rsvd 1", Format( "0x%X", NextFieldBits( 2 ) ), "Reserved", DP_CONFIG_COLOR );
+    
+    _row = Find( ConfigUFP_U, NextFieldBits( 8 ) );
+    AddCell( "Config UFP_U", _row[1], _row[2], DP_CONFIG_COLOR );
+    
+    AddCell( "Rsvd 2", Format( "0x%X", NextFieldBits( 16 ) ), "Reserved", DP_CONFIG_COLOR );    
+}
+
+AddCaption( txt, color )
+{
+    AddCell( txt, "", "", color, _MONOFIELD );
+}
+
+
+const CMD_TYPE_INIT = 0;
+const CMD_TYPE_ACK  = 1;
+const CMD_TYPE_NONE = 0xF;
+#Command, DecoderFunction, AcceptableCommandTypes
+set CommandDecoder = Map (
+[
+    [0xFF, null,            CMD_TYPE_NONE, CMD_TYPE_NONE],
+    [0x3,  "DiscoverModes", CMD_TYPE_ACK,  CMD_TYPE_NONE],
+    [0x6,  "Attention",     CMD_TYPE_INIT, CMD_TYPE_NONE],
+    [0x10, "DPStatus",      CMD_TYPE_INIT, CMD_TYPE_ACK],
+    [0x11, "DPConfigure",   CMD_TYPE_INIT, CMD_TYPE_NONE]
+
+] );
+
+####################### ProcessPacket ########################################
+# ProcessPacket() function is called when decoding a Packet
+ProcessPacket()
+{
+    if( in.VendorId == PDDecoderVendorID && in.IsStructured )
+    {
+        _row = Find( CommandDecoder, in.Command);
+        if( _row[0] != 0xFF && IsValidCommandType( _row ) )
+        {
+            AddSeparator();
+            Call( _row[1] );
+            return Complete();
+        }
+        else
+        {
+            AddCell( "NOT FOUND", in.Command );
+        }
+    }
+    return Reject();
+}
+
+IsValidCommandType( cmd_decoder_row )
+{
+    return ( cmd_decoder_row[2] == in.CommandType || cmd_decoder_row[3] == in.CommandType );
+}
+
+####################### ProcessTransaction ########################################
+# ProcessTransaction() function is called while Transaction decoding to allow user to have desired cells in Transaction layer.
+#
+# Note: A not implemented ProcessX() function is like one that is implemented and Rejects the decoding.
+# It simply does not do anything and leave UsbSuite to do its internal general decodings, if any.
+#ProcessTransaction()
+#{
+#    return Reject();
+#}
+
+####################### ProcessTransfer ########################################
+# ProcessTransfer() function is called in case of a Transfer decoding to allow user to have desired cells in transfer layer.
+ProcessTransfer()
+{
+    if( in.Init_VendorId == PDDecoderVendorID && in.Init_IsStructured )
+    {
+        if( in.Init_Command == 0x10 ) #DP Status
+        {
+            tmp = GetFieldBits( in.Init_OBJ_1, 7, 1 );
+            AddCell( "HPD State", HPDStateStr[tmp][0], HPDStateStr[tmp][1], DP_STATUS_COLOR );
+            
+            tmp = NextFieldBit();
+            AddCell( "IRQ_HPD", IRQHpdStr[tmp][0], IRQHpdStr[tmp][1], DP_STATUS_COLOR );
+            
+            return Complete();
+        }
+        else if( in.Resp_Command == 0x3 ) #DiscoverModes 
+        {
+            AddSeparator();
+            AddCaption( "DP Cap", DP_CAP_COLOR ); 
+            
+            tmp = GetFieldBits( in.Resp_OBJ_1, 0, 2 );
+            AddCell( "Port Cap", PortCapStr[tmp][0], PortCapStr[tmp][1], DP_CAP_COLOR );
+            
+            tmp = NextFieldBits( 4 );
+            AddCell( "Sig Supp", SignalingSuppStr[tmp][0], SignalingSuppStr[tmp][1], DP_CAP_COLOR );
+            
+            return Complete();
+        }
+    }
+    return Reject();#Rejecting helps UsbSuite's internal decoder to decode this Transfer like others, if we have nothing to add to it, it's better to leave it as is.
+}

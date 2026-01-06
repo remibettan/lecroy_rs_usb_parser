@@ -1,0 +1,314 @@
+#*******************************************************************************
+#
+#  FILENAME: ICCDBulkOut.dec
+#
+#  Copyright (c) 2005, LeCroy - All Rights Reserved
+#
+#  DESCRIPTION
+#    This is the Bulk-OUT Endpoint Message Decode file for SmartCard ICCDs 
+#      (ICC Devices). 
+#    This file is prepared as per the Specification Revision 1.1.
+#    This file is prepared as per the Integrated Circuit(s) Cards Devices 
+#      Specification for the SmartCard Class.
+#
+#  REVISION HISTORY
+#    01/07/2007    
+#
+#*******************************************************************************  
+
+%include "UsbCommon.inc"
+%include "CATCScriptAPI.inc"
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block 
+#
+#----  Output
+# out.Decoded   - Amount of Data that has been decoded
+# out.State
+# out.Data
+# out.DataLength
+#
+
+const Tabular_Def_Table = Map( 
+[   
+    #-----------------------------------------------------------------------------------------------------
+    #       id                     ,      colId                          , 		containerCellId
+    #-----------------------------------------------------------------------------------------------------
+    [ CELL_SMART_CARD_MESSAGE_TYPE , TABULAR_SCRIPT_COLUMN_ID_SUBTYPE   , TABULAR_SCRIPT_CONTAINER_CELL_ID_NONE ],
+    [ CELL_SMART_CARD_SEQ          , TABULAR_SCRIPT_COLUMN_ID_NONE      , TABULAR_SCRIPT_CONTAINER_CELL_ID_MISC ]
+] );
+
+set ModuleType  = "DataBlock Decoder";           #?_?
+set LevelName   = "ICCD Bulk Out Messages";      #?_?
+set LevelColor  = 0x898989;                      #?_?
+
+set OutputType      = "ICCD Bulk Out Message";
+set UsbDecodeType   = "Endpoint";
+set UsbEndpId = 17;                 # Just a unique value for each endpoint of the same Class/Vendor/Product 
+                                    # to distinguish them                                  
+set UsbClassCode    = 0x0B;         # Smart Card (ICCD)
+set UsbEndpType     = "Bulk";
+set UsbEndpDir      = "Out";
+set UsbScriptDecodeType  = 2;       # Combined decoding for Cells and Text decoding 
+set UsbMaxXferSize  = 0x7FFFFFFF;   # Trying largest possible positive value  
+set UsbMaxPktSize   = 512;          # Will automatically be reduced to 64 if branch is Full Speed 
+set UsbMaxXferDecodeSize  = 0xFF;   # Max bytes that we will be decoding. User can up this if desired.
+
+set dwLength    = 0;            #Declaring global variables
+set slotNumber  = 0;
+set seqNumber   = 0;
+
+# User can select the colors for the fields he chooses
+set ErrorColor            = 0x0000FF;
+set wDecodeCellColor      = 0x898989; 
+set ICCDColor             = 0xA45A8A;
+set RequestDataFieldColor = 0x302A2A;
+set GreyColor             = 0x888888;
+set PINDataColor          = 0xF07000-500;  #0xF1FC3A 0xEB43BE 0x3A8CD1
+
+set ICCD_CaptionColor     = 0x7FFFFF;    #Caption Cell (Expansion Indicator)     #9B4A13 - 7700500;  
+
+set RestoreBitCurrentFieldOffset = 0;    #Temp Variables to store a restore value
+set RestoreBitCurrentFieldLength = 0;
+
+#Bulk out messages
+set BulkOUTMesgTypeTable =[
+    [ 0xFF, "PC_to_RDR_NoParams",      "UNKNOWN",       "UNKNOWN Bulk OUT Message Type"],
+    [ 0x62, "PC_to_RDR_IccPowerOn",    "IccPowerOn",    "PC_to_RDR_IccPowerOn(62h)\nExpected Response Msg: RDR_to_PC_DataBlock\nAbortable=Yes"],
+    [ 0x63, "PC_to_RDR_NoParams",      "IccPowerOff",   "PC_to_RDR_IccPowerOff(63h)\nExpected Response Msg:RDR_to_PC_SlotStatus\nAbortable=No"],
+    [ 0x6F, "PC_to_RDR_XfrBlock",      "XfrBlock",      "PC_to_RDR_XfrBlock(6Fh)\nExpected Response Msg: RDR_to_PC_DataBlock\nAbortable=Yes"]
+];
+
+ProcessData()
+{
+  CommonDecoderInit();        # Initialization of SRP common global variables [found in CATCScriptAPI.inc]
+ 
+  SetCellColor(ICCD_CaptionColor);
+  AddCaptionCell("SmartCard","ICCD","This data payload represents a Smart-Card ICCD Bulk-OUT message.",_MONOCOLOR);  # Will allow for the expansion of certain fields
+  RestoreCellColor();
+  AddSeparator();
+  
+  FullyDecoded = 1;            
+  out.Decoded = 0;            # Nothing has been decoded yet
+  
+  if (in.DataLength >9 )
+  {
+    messagetype = NextNBits_(8);
+    mesgM = Find(BulkOUTMesgTypeTable , messagetype );
+
+    AddShortDataHeader(mesgM[2]);    
+    FieldColor = ICCDColor;
+    if(mesgM[0] == 0xFF){
+      FieldColor = WarningColor;
+      mesgM[3] += Format("(0x%02X)\nDecoding ABORTED, see 'Data' for raw bytes.",messagetype);
+    }
+    if(SimpleShowItem())
+      AddPayLoadCell("MessageType", mesgM[2], "Header offset Byte 0. \n" + " bMessageType = " + mesgM[3], FieldColor, [_TABULARCELL, CELL_SMART_CARD_MESSAGE_TYPE]);
+    else
+      AddCell(mesgM[2],"","Header offset Byte 0. \n" + " bMessageType = " + mesgM[3],FieldColor,_MONOFIELD, [_TABULARCELL, CELL_SMART_CARD_MESSAGE_TYPE]);
+
+    if (mesgM[0] != 0xFF) 
+    {
+      dwLength= NextDataDWord_();
+      if(dwLength != in.DataLength - 10)
+      {
+        SetCellColor(WarningColor);
+        AddPayLoadCell( "MsgLen", dwLength, Format("!!!ERROR!!!\ndwLength DOES NOT MATCH length\nof data found in PayLoad!\nWill attempt to decode...\n\nHeader offset Bytes 1-4.\n dwLength = 0x%08X",dwLength),_ERROR);
+        RestoreCellColor();
+      }
+      else if(SimpleShowItem())
+        AddPayLoadCell( "MsgLen", dwLength, Format("Header offset Bytes 1-4.\n dwLength = 0x%08X",dwLength));
+
+      slotNumber = NextNBits_(8);
+
+      if(slotNumber==0x00)
+      {
+        SetCellColor(GreyColor);
+        if(SimpleShowItem())
+          AddPayLoadCell( "Slot#", slotNumber, Format("Header offset Byte 5.\n bSlot = 0x%02X.\n\nUSB-ICC requires a single slot.",slotNumber),_MONOCOLOR);
+        RestoreCellColor();      
+      }
+      else
+      {
+        SetCellColor(WarningColor);        
+        AddPayLoadCell( "Slot#", slotNumber, Format("!!! WARNING !!!\nExpected 00h, found 0x%02X.\nNot relevant, fixed to 00h for legacy reason.\nHeader offset Byte 5.\n bSlot = 0x%02X.\n\nUSB-ICC requires a single slot.",slotNumber,slotNumber),_ERROR);
+        RestoreCellColor();
+      }
+      
+      seqNumber= NextNBits_(8);
+      if(SimpleShowItem())
+        AddPayLoadCell( "Seq#", seqNumber, Format("Header offset Byte 6.\n bSeq = 0x%02X\nThe host can use the sequence number in\na response message to verify that a\nparticular response is the one expected\nin reply to a particular command.",seqNumber), FieldColor, [_TABULARCELL, CELL_SMART_CARD_SEQ, "TEXT_CAPTION"]);
+      else
+        AddCell(Format("Seq: %d",seqNumber),"",Format("Header offset Byte 6.\n bSeq = 0x%02X\nThe host can use the sequence number in\na response message to verify that a\nparticular response is the one expected\nin reply to a particular command.",seqNumber),FieldColor+5000000,_MONOFIELD);
+
+      prm1=NextNBits_(8);   #Parameter 1
+      prm2=NextNBits_(8);   #Parameter 2
+      prm3=NextNBits_(8);   #Parameter 3
+
+      AddSeparator();
+      out.Decoded=10;
+      
+      decodedmore=Call(mesgM[1],[prm1,prm2,prm3,dwLength]) + 10;
+    }
+    else
+      decodedmore = 1;
+    
+    out.Decoded=decodedmore;
+    ShowDataBlockReOrder(in.DataLength-decodedmore);
+    out.Data = in.Data;
+    out.DataLength = in.DataLength;
+    out.State = "Complete";
+    return Complete();  
+  } 
+  else {
+    if (in.DataLength > 0)
+    {
+        str = "0x";
+        str2= "Byte Data:";
+        for(i = 0; i < in.DataLength; i++)
+        {
+            tmp = Format("%02X", NextNBits_(8));
+            str += tmp;
+            str2 += " " + tmp;
+        } 
+        #IncFieldOffset( in.DataLength * 8);
+        FieldColor = RED;
+        AddPayLoadCell("PayLoad Too Short", str, Format("***ERROR*** \nExpecting at least 10 bytes. \nFound only %d bytes...\n\n" + str2,in.DataLength ), _ERROR);
+        out.Decoded = in.DataLength;
+    }
+    else
+    {
+        FieldColor = WarningColor;
+        AddPayLoadCell("EMPTY PAYLOAD", "**EMPTY**", "No Data!",_ERROR);
+    }
+    AddSeparator();
+    return Complete();
+  }
+}
+
+PC_to_RDR_IccPowerOn(prm1,prm2,prm3,dwLength)
+{
+# PC_to_RDR_IccPowerOn --> ResponseMessage=RDR_to_PC_DataBlock
+
+  SetFieldOffsetLen_ICCD( 64, 8 );
+  
+  if (prm1!=0x01) 
+  {
+    SetCellColor(WarningColor);
+    AddPayLoadCell( "R", prm1, Format("!!! WARNING !!! \n Expected 01h; Found 0x%02X\n\n",prm1) + "Msg Header offset Byte 7.\n " + Format("bReserved = 0x%02X.",prm1),_ERROR);
+    RestoreCellColor();
+  }
+  else 
+    AddPayLoadCell( "R", Format("0x%02X",prm1), "Msg Header offset Byte 7.\n " + Format("bReserved = 0x%02X.",prm1));
+  
+  RestoreFieldOffsetLen_ICCD();
+  IsReserved(prm2,8);
+  IsReserved(prm3,9);
+  CheckICCDMsgLen();
+  return 0;
+}
+
+PC_to_RDR_XfrBlock(prm1,prm2,prm3,dwLength)
+{
+# PC_to_RDR_XfrBlock 6Fh --> ResponseMessage= RDR_to_PC_DataBlock\n abortable=Yes
+
+  wLvl= prm2 + (256*prm3);  #wLvl is a word consisting of prm2 (LowByte) and prm3 (HighByte)
+  tttxt="\n\nUse changes depending on the exchange\nlevel reported by ICCD in the functional \ndescriptor in dwFeatures:\n• character level, size of expected data \n  to be returned by the bulk-IN endpoint.";          
+  tttxt=tttxt + "\n• Short APDU level = 00000h\n• Extended APDU level, indicates if APDU\n  begins or ends in this command :\n";  
+  tttxt=tttxt + "\n   0000h the APDU command begins and\n    ends with this command.";            
+  tttxt=tttxt + "\n   0001h the APDU command begins with\n    this command, and continues in next\n    PC_to_RDR_XfrBlock.";                
+  tttxt=tttxt + "\n   0002h this abData field continues\n    an APDU command and ends the APDU\n    command";                          
+  tttxt=tttxt + "\n   0003h the abData field continues\n    an APDU command and another block\n    is to follow";                      
+  tttxt=tttxt + "\n   0010h empty abData field,\n    continuation of APDU response\n    is expected in the next\n    RDR_to_PC_DataBlock";
+
+  SetFieldOffsetLen_ICCD( 64, 8 );
+  if(prm1!=0){
+    SetCellColor(WarningColor);    
+    AddPayLoadCell( "R", prm1, Format("!!! WARNING !!! \n Expected 00h; Found 0x%02X\n\n",prm1) + "Msg Header offset Byte 7.\n " + Format("bReserved = 0x%02X.",prm1),_ERROR);
+    RestoreCellColor();
+  }
+  else
+    AddPayLoadCell( "R", Format("0x%02X",prm1), Format("Msg Header offset Byte 7.\n bReserved =0x%02X",prm1));
+  
+  RestoreFieldOffsetLen_ICCD();
+  
+  SetFieldOffsetLen_ICCD( 80, 16 );
+  AddPayLoadCell( "LevelParameter",Format("0x%04X",wLvl), Format("Msg Header offset Byte 8.\n wLevelParameter = 0x%04X",wLvl) + tttxt);
+  RestoreFieldOffsetLen_ICCD();
+  
+  CheckICCDMsgLen();
+  return 0;
+}
+
+PC_to_RDR_NoParams(prm1,prm2,prm3,dwLength)
+{
+# for those groups with 3 reserved fields (IccPowerOff)
+  IsReserved(prm1,7);
+  IsReserved(prm2,8);
+  IsReserved(prm3,9);
+  CheckICCDMsgLen();
+  return 0;
+}
+
+IsReserved(bits,offset)
+{
+  tempstr = Format("Header offset Byte %d.",offset);
+  SetFieldOffsetLen_ICCD( offset*8+8, 8 );
+  
+  if (bits==0) 
+  {
+    SetCellColor(GreyColor);
+    if(SimpleShowItem())
+      AddPayLoadCell( "R", bits, tempstr + Format("\n Reserved: 0x%02X",bits));
+    RestoreCellColor();
+  } 
+  else 
+  {
+    SetCellColor(WarningColor);
+    AddPayLoadCell( "R", bits, Format("!!! WARNING !!! \nRESERVED - Found Value: 0x%02X\n",bits) + tempstr,_ERROR);
+    RestoreCellColor();
+  }
+
+  RestoreFieldOffsetLen_ICCD();
+}
+
+CheckICCDMsgLen()
+{
+  if(dwLength != (in.DataLength - out.Decoded))
+    AddCell("ERROR","Data Discrepancy",Format("ERROR\nDifference of %d Bytes Found!\n [(Data in PayLoad - Header) - dwLength]",((in.DataLength-out.Decoded)-dwLength)),RED,_ERROR);
+}  
+
+# Helper Functions
+
+SetFieldOffsetLen_ICCD( offset, len )
+{
+    RestoreBitCurrentFieldOffset = BitCurrentFieldOffset;
+    RestoreBitCurrentFieldLength = BitCurrentFieldLength;
+    BitCurrentFieldOffset = offset;
+    BitCurrentFieldLength = len;
+}
+
+RestoreFieldOffsetLen_ICCD()
+{
+    BitCurrentFieldOffset = RestoreBitCurrentFieldOffset;
+    BitCurrentFieldLength = RestoreBitCurrentFieldLength;
+}  
+
+GetByteStrFld_ICCD( len_in_bytes )
+{
+    tmp = "0x";        
+    for(i = 0; i < len_in_bytes; i++) 
+        tmp += Format("%02X", NextNBits_(8));    
+    return tmp;
+}
+
+####################################################################################
+#                       USBTracer specific caption cell                            #
+####################################################################################
+
+AddSpecCaptionCell(caption, text, tooltip, FieldColor, addparam, addparam1, addparam2 )
+{   
+    AddCell(caption, text, tooltip, FieldColor, _USBBULK_HEADER, addparam, addparam1, addparam2 );        
+    return 1;        
+}

@@ -1,0 +1,354 @@
+#
+#  Copyright (c) 1998 - 2009, LeCroy Corp. PSG. - All Rights Reserved
+#
+#   zUsb3_Example.vse
+#
+#   Verification script
+#
+#   Brief Description: 
+#   A generic example of processing for USB3 packets.
+#
+
+
+######################################################################################################
+#                                         Module info                                                #
+######################################################################################################
+#       Filling of this block is necessary for proper verification script operation...               #
+######################################################################################################
+#
+# Specify here the brief description for your verification script.
+# This name will be shown in the verification script dialog.
+#
+set DecoderDesc = "Link utilisation analysis";
+
+######################################################################################################
+
+#
+# include main Verification Script Engine definitions
+#
+%include  "VSTools.inc"
+
+
+######################################################################################
+#                            Global Variables and Constants                          #
+######################################################################################
+
+const MAX_NUMBER_OF_EVENTS = 1000000;
+set   EventCount = 0;
+set startTime= Time(0);
+set endTime= Time(0);
+set firstIndex=0;
+set currentUSB3TXTime = Time(0);
+set currentUSB3RXTime = Time(0);
+set currentUSB2Time =   Time(0);
+set txIdleTime = Time(0);
+set rxIdleTime = Time(0);
+set USB2IdleTime = Time(0);
+
+set txIdleTime = Time(0);
+set rxIdleTime = Time(0);
+set USB2IdleTime = Time(0);
+# num pkts,total time, payloadbytes 
+set txHPStats = [0,Time(0),0];
+set txDPStats = [0,Time(0),0];
+set txLCStats = [0,Time(0)];
+set txLMPStats = [0,Time(0)];
+set txOtherStats = [0,Time(0)];
+
+set rxHPStats = [0,Time(0),0];
+set rxDPStats = [0,Time(0),0];
+set rxLCStats = [0,Time(0)];
+set rxLMPStats = [0,Time(0)];
+set rxOtherStats = [0,Time(0)];
+
+#
+OnStartScript()
+{  
+    EventCount = 0;    
+    #SendAllChannels();
+    SendChannel( _USB3_TX );         # sends trace events for USB3 channel only   
+    SendChannel( _USB3_RX );         # sends trace events for USB3 channel only   
+    SendLevelOnly ( _PKT );        # sends trace events of PACKET level only        
+    SendAllTraceEvents();
+    ScriptForDisplayOnly();
+   
+
+	startTime= Time(0);
+	firstIndex=0;
+	currentUSB3TXTime = Time(0);
+	currentUSB3RXTime = Time(0);
+	currentUSB2Time =   Time(0);
+	txIdleTime = Time(0);
+	rxIdleTime = Time(0);
+	USB2IdleTime = Time(0);
+
+	txIdleTime = Time(0);
+	rxIdleTime = Time(0);
+	USB2IdleTime = Time(0);
+# num pkts,total time, payloadbytes 
+	txHPStats = [0,Time(0),0];
+	txDPStats = [0,Time(0),0];
+	txLCStats = [0,Time(0)];
+	txLMPStats = [0,Time(0)];
+
+	rxHPStats = [0,Time(0),0];
+	rxDPStats = [0,Time(0),0];
+	rxLCStats = [0,Time(0)];
+ 	rxLMPStats = [0,Time(0)];
+   
+}
+
+
+######################################################################################
+#   ProcessEvent()                                                                   #
+######################################################################################
+#                                                                                    #
+# It is a main script function called by the application when the next waited event  #
+# occured in the evaluated trace.                                                    #
+#                                                                                    #
+######################################################################################
+#
+ProcessEvent()
+{      
+if (firstIndex == 0) {
+    firstIndex=in.Index;
+	startTime = in.Time;
+	currentUSB3TXTime = in.Time;
+	currentUSB3RXTime = in.Time;
+	currentUSB2Time =   in.Time;
+}  
+ endTime = in.Time;
+    if (in.Channel == _USB3_TX) {
+		#idle time since last command on this channel;
+		curIdleTime = SubtractTime(in.Time,currentUSB3TXTime);
+		txIdleTime = AddTime(txIdleTime,curIdleTime);
+		
+		currentTime=currentUSB3TXTime;
+		currentUSB3TXTime = AddTime(in.Time,in.Duration);
+		
+		
+		
+		
+		if( in.TraceEvent == _USB3_LINK_CMD )  
+        {
+	          txLCStats[0]++;
+    	      tmpT = AddTime(txLCStats[1],in.Duration);
+		      txLCStats[1]=tmpT;
+		    #ReportText(FormatEx("Total TX Link Commands=%d total duration=%s",txLCStats[0],txLCStats[1])));
+			#ReportText( FormatEx( "{%d\t(%s) } (PacketSize=%d) (PacketDuration=%s) (%s idle time since last cmd)\n",in.Index, GetUsb3LnkCmdDesc( in.LnkCmd ,in.RawPacketLength,in.Duration,SubtractTime(in.Time,currentTime)) ));
+        } else if( in.TraceEvent == _USB3_LMP_PKT )
+        {
+ 	          txLMPStats[0]++;
+    	      tmpT = AddTime(txLMPStats[1],in.Duration);
+		      txLMPStats[1]=tmpT;
+		    #ReportText(FormatEx("Total TX LMP Commands=%d total duration=%s",txLMPStats[0],txLMPStats[1])));
+			#ReportText( FormatEx( "{%d\tLMP(%s) } (PacketSize=%d) (PacketDuration=%s) (%s idle time since last cmd)\n",in.Index, GetUsb3LmpSubTypeDesc( in.SubType ,in.RawPacketLength,in.Duration,SubtractTime(in.Time,currentTime)) ));
+                            
+        } else if( ( in.TraceEvent == _USB3_TP_PKT ) ) #&& ( in.SubType == TP_ACK ) 
+        {
+            # Example of using decoded packet information for TPs.
+ 	          txHPStats[0]++;
+    	      tmpT = AddTime(txHPStats[1],in.Duration);
+		      txHPStats[1]=tmpT;
+			  txHPStats[2]+=in.PayloadLength;
+		    #ReportText(FormatEx("Total TX TP/HP Commands=%d total duration=%s",txHPStats[0],txHPStats[1])));
+			#ReportText( FormatEx( "{%d\tTP(%s) } (PacketSize=%d) (PacketDuration=%s) (%s idle time since last cmd)\n",in.Index, GetUsb3TpSubTypeDesc( in.SubType ,in.RawPacketLength,in.Duration,SubtractTime(in.Time,currentTime)) ));
+             
+		} else if( in.TraceEvent == _USB3_DP_PKT ) 
+        {
+            # Example of using decoded packet information for TPs.
+ 	          txDPStats[0]++;
+    	      tmpT = AddTime(txDPStats[1],in.Duration);
+		      txDPStats[1]=tmpT;
+			  txDPStats[2]+=in.PayloadLength;
+		    #ReportText(FormatEx("Total TX DP Commands=%d total duration=%s",txHPStats[0],txDPStats[1])));
+			#ReportText( FormatEx( "{%d\tDP(%s) } (PacketSize=%d) (PacketDuration=%s) (%s idle time since last cmd)\n",in.Index, GetUsb3TpSubTypeDesc( in.SubType ,in.RawPacketLength,in.Duration,SubtractTime(in.Time,currentTime)) ));
+             
+		} else {
+			# all other packets not pulled out above
+			txOtherStats[0]++;
+    	    tmpT = AddTime(txOtherStats[1],in.Duration);
+		    txOtherStats[1]=tmpT;
+
+		}
+	
+		
+	} else  if (in.Channel == _USB3_RX) {
+				#idle time since last command on this channel;
+		curIdleTime = SubtractTime(in.Time,currentUSB3RXTime);
+		rxIdleTime = AddTime(rxIdleTime,curIdleTime);
+
+		currentTime=currentUSB3RXTime;
+		currentUSB3RXTime = AddTime(in.Time,in.Duration);
+		
+		
+		if( in.TraceEvent == _USB3_LINK_CMD )  
+        {
+	          rxLCStats[0]++;
+    	      tmpT = AddTime(rxLCStats[1],in.Duration);
+		      rxLCStats[1]=tmpT;
+		    #ReportText(FormatEx("Total rx Link Commands=%d total duration=%s",rxLCStats[0],rxLCStats[1])));
+			#ReportText( FormatEx( "{%d\t(%s) } (PacketSize=%d) (PacketDuration=%s) (%s idle time since last cmd)\n",in.Index, GetUsb3LnkCmdDesc( in.LnkCmd ,in.RawPacketLength,in.Duration,SubtractTime(in.Time,currentTime)) ));
+        } else if( in.TraceEvent == _USB3_LMP_PKT )
+        {
+ 	          rxLMPStats[0]++;
+    	      tmpT = AddTime(rxLMPStats[1],in.Duration);
+		      rxLMPStats[1]=tmpT;
+		    # ReportText(FormatEx("Total rx LMP Commands=%d total duration=%s",rxLMPStats[0],rxLMPStats[1])));
+			# ReportText( FormatEx( "{%d\tLMP(%s) } (PacketSize=%d) (PacketDuration=%s) (%s idle time since last cmd)\n",in.Index, GetUsb3LmpSubTypeDesc( in.SubType ,in.RawPacketLength,in.Duration,SubtractTime(in.Time,currentTime)) ));
+                            
+        } else if( ( in.TraceEvent == _USB3_TP_PKT ) ) #&& ( in.SubType == TP_ACK ) 
+        {
+            # Example of using decoded packet information for TPs.
+ 	          rxHPStats[0]++;
+    	      tmpT = AddTime(rxHPStats[1],in.Duration);
+		      rxHPStats[1]=tmpT;
+			  rxHPStats[2]+=in.PayloadLength;
+		    #ReportText(FormatEx("Total rx TP/HP Commands=%d total duration=%s",rxHPStats[0],rxHPStats[1])));
+			#ReportText( FormatEx( "{%d\tTP(%s) } (PacketSize=%d) (PacketDuration=%s) (%s idle time since last cmd)\n",in.Index, GetUsb3TpSubTypeDesc( in.SubType ,in.RawPacketLength,in.Duration,SubtractTime(in.Time,currentTime)) ));
+             
+		} else if( in.TraceEvent == _USB3_DP_PKT ) 
+        {
+            # Example of using decoded packet information for TPs.
+ 	          rxDPStats[0]++;
+    	      tmpT = AddTime(rxDPStats[1],in.Duration);
+		      rxDPStats[1]=tmpT;
+			  rxDPStats[2]+=in.PayloadLength;
+		    #ReportText(FormatEx("Total rx DP Commands=%d total duration=%s",rxHPStats[0],rxDPStats[1])));
+			#ReportText( FormatEx( "{%d\tDP(%s) } (PacketSize=%d) (PacketDuration=%s) (%s idle time since last cmd)\n",in.Index, GetUsb3TpSubTypeDesc( in.SubType ,in.RawPacketLength,in.Duration,SubtractTime(in.Time,currentTime)) ));
+             
+		} else {
+			# all other packets not pulled out above
+			rxOtherStats[0]++;
+    	    tmpT = AddTime(rxOtherStats[1],in.Duration);
+		    rxOtherStats[1]=tmpT;
+
+		}
+		
+	} else {
+	
+	ReportText(FormatEx("unknown channel %d",in.Channel));
+	}
+       
+        EventCount++;
+    
+    
+    return Complete();
+}
+
+	
+
+######################################################################################
+#   OnFinishScript()                                                                 #
+######################################################################################
+#                                                                                    #
+# It is a main script function called by the application when the script completed   #
+# running. Specify in this function some resetting procedures for a successive run   #
+# of this script.                                                                    #
+#                                                                                    #
+######################################################################################
+#
+OnFinishScript()
+{
+ReportText(FormatEx("Total idle Time in TX Link = %s ", txIdleTime));
+	
+	totalTraceTime=SubtractTime(endTime,startTime);
+	# txLCbw = FindBW(totalTraceTime,txLCStats[1]);
+	# rxLCbw = FindBW(totalTraceTime,rxLCStats[1]);
+	# txrxLCbw = FindBW(totalTraceTime,AddTime(txLCStats[1],rxLCStats[1]));
+	
+	# txHPbw = FindBW(totalTraceTime,txHPStats[1]);
+	# rxHPbw = FindBW(totalTraceTime,rxHPStats[1]);
+	# txrxHPbw = FindBW(totalTraceTime,AddTime(txHPStats[1],rxHPStats[1]));
+	
+	# txDPbw = FindBW(totalTraceTime,txDPStats[1]);
+	# rxDPbw = FindBW(totalTraceTime,rxDPStats[1]);
+	# txrxDPbw = FindBW(totalTraceTime,AddTime(txDPStats[1],rxDPStats[1]));
+	
+	# txOtherbw = FindBW(totalTraceTime,txOtherStats[1]);
+	# rxOtherbw = FindBW(totalTraceTime,rxOtherStats[1]);
+	# txrxOtherbw = FindBW(totalTraceTime,AddTime(txOtherStats[1],rxOtherStats[1]));
+	
+	#cant find % yet so just put total times for now
+	txLCbw = TimeToText(txLCStats[1]);
+	rxLCbw = TimeToText(rxLCStats[1]);
+	txrxLCbw = TimeToText(AddTime(txLCStats[1],rxLCStats[1]));
+	
+	txHPbw = TimeToText(txHPStats[1]);
+	rxHPbw = TimeToText(rxHPStats[1]);
+	txrxHPbw = TimeToText(AddTime(txHPStats[1],rxHPStats[1]));
+	
+	txDPbw = TimeToText(txDPStats[1]);
+	rxDPbw = TimeToText(rxDPStats[1]);
+	txrxDPbw = TimeToText(AddTime(txDPStats[1],rxDPStats[1]));
+	
+	txOtherbw = TimeToText(txOtherStats[1]);
+	rxOtherbw = TimeToText(rxOtherStats[1]);
+	txrxOtherbw = TimeToText(AddTime(txOtherStats[1],rxOtherStats[1]));
+	
+	txIdlebw= TimeToText(txIdleTime);
+	rxIdlebw= TimeToText(rxIdleTime);
+	txrxIdlebw= TimeToText(AddTime(txIdleTime,rxIdleTime));
+	
+	
+	ReportText("item	|TX  	|RX  	|Aggregate(TX+RX)");
+	ReportText(FormatEx("Link CMds	| %d/%s	| %d/%s	| %d/%s	|", txLCStats[0],txLCbw, rxLCStats[0],rxLCbw, txLCStats[0]+rxLCStats[0],txrxLCbw));
+	ReportText(FormatEx("HPs    		| %d/%s	| %d/%s	| %d/%s	|", txHPStats[0],txHPbw, rxHPStats[0],rxHPbw, txHPStats[0]+rxHPStats[0],txrxHPbw));
+	ReportText(FormatEx("DPs    		| %d/%s	| %d/%s	| %d/%s	|", txDPStats[0],txDPbw, rxDPStats[0],rxDPbw, txDPStats[0]+rxDPStats[0],txrxDPbw));
+	ReportText(FormatEx("other CMds	| %d/%s	| %d/%s	| %d/%s	|", txOtherStats[0],txOtherbw, rxOtherStats[0],rxOtherbw, txOtherStats[0]+rxOtherStats[0],txrxOtherbw));
+	ReportText(FormatEx("idle BW   		| %s	| %s	| %s	|", txIdlebw, rxIdlebw, txrxIdlebw));
+	
+	HTMLFile=OpenFile(GetTraceName(1) + "_LinkUtilisationReport.html");
+	 WriteString( HTMLFile, "<html><head><title>Link Utilisation Report</title></head><body>" ); 
+	 WriteString( HTMLFile,GetTraceName(1) + "<br>");
+	 WriteString( HTMLFile, "<table border=2>");
+
+	 WriteString( HTMLFile, "<tr><td>item</td><td>TX</td><td>RX</td><td>Aggregate(TX+RX)</td></tr>");
+	 WriteString( HTMLFile, "<tr><td style='background-color:#FFA500;'>Bandwidth</td><td style='background-color:#FFA500;'>#Pkts / %BW</td><td style='background-color:#FFA500;'>#Pkts / %BW</td><td style='background-color:#FFA500;'>#Pkts / %BW</td></tr>");
+	 WriteString( HTMLFile, FormatEx("<tr><td>Link Commands</td><td>%d / %s</td><td>%d / %s</td><td>%d / %s</td></tr>",txLCStats[0],txLCbw, rxLCStats[0],rxLCbw, txLCStats[0]+rxLCStats[0],txrxLCbw));
+	 WriteString( HTMLFile, FormatEx("<tr><td>HPs</td><td>%d / %s</td><td>%d / %s</td><td>%d / %s</td></tr>",txHPStats[0],txHPbw, rxHPStats[0],rxHPbw, txHPStats[0]+rxHPStats[0],txrxHPbw));
+	 WriteString( HTMLFile, FormatEx("<tr><td>DPs</td><td>%d / %s</td><td>%d / %s</td><td>%d / %s</td></tr>",txDPStats[0],txDPbw, rxDPStats[0],rxDPbw, txDPStats[0]+rxDPStats[0],txrxDPbw));
+	 WriteString( HTMLFile, FormatEx("<tr><td>OtherPkts</td><td>%d / %s</td><td>%d / %s</td><td>%d / %s</td></tr>",txOtherStats[0],txOtherbw, rxOtherStats[0],rxOtherbw, txOtherStats[0]+rxOtherStats[0],txrxOtherbw));
+	 WriteString( HTMLFile, FormatEx("<tr><td>Idle</td><td> %s</td><td> %s</td><td>%s</td></tr>",txIdlebw, rxIdlebw, txrxIdlebw));
+	 
+	 WriteString( HTMLFile, "</table>");
+	 WriteString( HTMLFile, FormatEx("<br> Total trace time = %s ", TimeToText(totalTraceTime)));
+	 
+	WriteString( HTMLFile, "</body></html>" );
+	ShowInBrowser(HTMLFile);
+   CloseFile( HTMLFile );
+    return 0;
+}
+
+
+
+######################################################################################
+######################################################################################
+######################################################################################
+FindBW(totalTime,refTime)
+{
+# routine to try and work around the limitation of dividing time!!!
+
+  # t1=TimeToText(timeSum[1])+0;
+  # t2=TimeToText(totalTime[1])+0;
+  # i=(t1*1000)/t2;
+  # pc1=i/10;
+  # pc2=i-(pc1*10);
+  timeSum = refTime;
+  pi=0;
+  pc1=0;
+  pc2=0;
+  # while (IsGreaterTime(totalTime,timeSum)) {
+	# pi++;
+	# timeSum = AddTime( timeSum ,refTime);
+  # }
+  # pc1=1000/pi;
+ 
+  
+#ReportText(FormatEx("TTime=%s,   %d    %d", TimeToText(totalTime),totalTime[0],totalTime[1])); 
+#ReportText(FormatEx("RTime=%s,   %d    %d", TimeToText(refTime),refTime[0],refTime[1]));
+#ReportText(FormatEx("%d   %d   %d",pi,pc1,pc2));
+   #return pc1;
+   return "?%";
+}
+######################################################################################

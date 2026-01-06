@@ -1,0 +1,155 @@
+#
+#  Copyright (c) 2001, Computer Access Technology Corp. - All Rights Reserved
+#
+#  HubClassStatusEndpoint.dec
+#
+#  Hub Class Status Endpoint Decoder
+#
+
+%include "DecoderTools.inc"    #include usefull decoder functions
+%include "UsbCommon.inc"
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block 
+#
+#----  Output
+# out.Decoded   - amount of data has been decoded
+#
+
+const Tabular_Def_Table = Map( 
+[   
+    #-----------------------------------------------------------------------------------------------------
+    #       id                  ,      colId                          , 		containerCellId
+    #-----------------------------------------------------------------------------------------------------
+    [ CELL_HUB_CHANGE_ENDPOINT  , TABULAR_SCRIPT_COLUMN_ID_SUBTYPE   , TABULAR_SCRIPT_CONTAINER_CELL_ID_NONE ]
+    
+] );
+
+set ModuleType  = "DataBlock Decoder";
+set OutputType  = "Hub Class Status Change Endp";
+set UsbDecodeType = "Endpoint";
+set UsbEndpId = 3; # just a unique value for each endpoint of the same Class/Vendor/Product to distinguish them
+set UsbClassCode = 0x9;
+set UsbEndpType = "Interrupt";
+set UsbEndpDir = "In";
+set UsbMaxXferSize = 2;   
+set UsbScriptDecodeType = 1; # explicit text decoding processing
+
+
+#
+# Parsing entry point
+#
+
+
+
+# User can select the colors for the fields he chooses
+set StatusChangeCellColor    = 0x640A0A; 
+
+
+const ErrorColor = 0x0000FF;
+
+
+
+set HubStatusChangeTable =
+[
+                   [  0x00, "Multiple Ports Changed (this is not printed!)" ],
+                   [  0x01, "Hub change detected" ],
+                   [  0x02, "Port 1 change detected" ],
+                   [  0x04, "Port 2 change detected" ],
+                   [  0x08, "Port 3 change detected" ],
+                   [  0x10, "Port 4 change detected" ],
+                   [  0x20, "Port 5 change detected" ], 
+                   [  0x40, "Port 6 change detected" ],
+                   [  0x80, "Port 7 change detected" ]
+ ];
+ 
+set HubStatusChangeBitmapTable =
+[
+                   [  0, "Hub change detected   " ],
+                   [  1, "Port 1 change detected" ],
+                   [  2, "Port 2 change detected" ],
+                   [  3, "Port 3 change detected" ],
+                   [  4, "Port 4 change detected" ],
+                   [  5, "Port 5 change detected" ],
+                   [  6, "Port 6 change detected" ], 
+                   [  7, "Port 7 change detected" ]
+ ];
+
+ProcessData()
+{
+    HubStatus = GetDataByte(0);
+
+    _row = Find(HubStatusChangeTable, HubStatus);
+    
+    
+    AddSeparator();
+    if (HubStatus == 0)
+    {
+        AddCell("Hub Status Change Endpoint", "No Hub change detected"   ,  
+            ToBitDecode( HubStatusChangeBitmapTable, HubStatus, "", "Hub Status Change bits (Byte 0):\n"), 
+            StatusChangeCellColor, [_TABULARCELL, CELL_HUB_CHANGE_ENDPOINT]);
+    }
+    else  if (_row[0] != 0)   
+    {
+        # Found an entry, only 1 port changed (1 bit was set)
+        AddCell("Hub Status Change Endpoint", _row[1],  
+            ToBitDecode( HubStatusChangeBitmapTable, HubStatus, "", "Hub Status Change bits (Byte 0):\n"), 
+            StatusChangeCellColor, [_TABULARCELL, CELL_HUB_CHANGE_ENDPOINT]);
+    }
+    else
+    {
+        # More than one port changed...
+        AddCell("Hub Status Change Endpoint", "Ports: "+ ToBitString(HubStatus, 8), 
+            ToBitDecode(HubStatusChangeBitmapTable, HubStatus, "", "Hub Status Change bits (Byte 0):\n" ), 
+            StatusChangeCellColor, [_TABULARCELL, CELL_HUB_CHANGE_ENDPOINT]);
+    }
+
+    AddSeparator();
+
+############ for Debug purposes
+#    GetNBits(in.Data, 0, 0);
+#    ShowDataBlock(in.DataLength);
+############
+    out.Decoded = 1;
+    return Complete();
+}
+
+
+DataDecode()
+{
+    NewLineMode = 1;
+    InitText();
+    
+    length = in.DataLength;
+    hub_status = GetDataByte(0);
+    
+    AddDataHeader(OutputType, length);
+    
+    AddEntry( 0, "Hub Status", hub_status, 2, "Change Detected:", 0);
+    for (i=0; i<8; i++)
+    {
+        str = Format("Bit %d: ", i);
+        if ( i == 0)
+        {
+            str += "Hub    ";
+        }
+        else
+        {
+            str += Format("Port %d ",i);
+        }
+        if ((hub_status >> i) & 0x1)
+        {
+            str += "Changed";
+        }
+        else
+        {
+            str += "No Change";
+        }
+        AddDescriptionOnly( str );
+    }
+    AddFieldBreak();
+     
+    UsbDataDecodeStr = GetFinalText();
+        
+}

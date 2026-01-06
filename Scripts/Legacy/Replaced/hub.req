@@ -1,0 +1,334 @@
+;*******************************************************************************
+;*
+;*  FILENAME: hub.req
+;*
+;*  Copyright (C) 1999 Computer Access Technology Corporation
+;*
+;*  DESCRIPTION
+;*    This is the request file for USB Hub device class.
+;*    This file is prepared as per the Specification Revision 1.0.
+;*
+;*  REVISION HISTORY
+;*            File Created -mp-
+;*    27MAY99 Added description for the requests -ag-
+;*    April00 Added decoding for Status Change Endpoint -mp-
+;*
+;*******************************************************************************
+
+;*******************************************************************************
+; Specify the name for this set of requests as GroupName. This name is listed 
+; under Decode Vendor/Class Request menu depending on the GroupType specified 
+; and the Type field of the request you are trying to decode. 
+;*******************************************************************************
+GroupName=Hub Class
+GroupType=Class
+ClassCode=0x09
+
+AllRequests={
+0x00=GET_STATUS
+0x01=CLEAR_FEATURE
+0x02=GET_STATE
+0x03=SET_FEATURE
+0x04=Reserved
+0x05=Reserved
+0x06=GET_HUB_DESCRIPTOR
+0x07=SET_DESCRIPTOR
+}
+
+;*******************************************************************************
+; GET_STATUS    : This request returns the current hub status and the states 
+;                 that have changed since the previous acknowledgement
+; bmRequestType : 0xA0
+; bRequest      : 0x00
+; wValue        : 0x0000
+; wIndex        : 0x0000
+; wLength       : 0x04
+; Data          : Hub Status and Change Indicators
+;*******************************************************************************
+; start GET_STATUS
+Request(0x00)={
+
+   wIndex={    
+      Depends(bmRequestType)={
+            0xA0={
+                WordValue={
+                   0x0000=0 (Hub Status)
+                }
+            }
+            0xA3={
+                FormatValue=For Port # %i
+            }
+      }
+   }
+
+   Data={    
+      Depends(bmRequestType)={
+            0xA0={
+               Length=4
+               Bytes(0,1)={
+                  Endian=Little
+                  Name=Hub Status bits
+                  Bitmap={
+                     0=Local Power Source
+                     1=Over-current Indicator
+                  }
+               } 
+               Bytes(2,3)={
+                  Endian=Little
+                  Name=Hub Change bits
+                  Bitmap={
+                     0=C_HUB_LOCAL_POWER
+                     1=C_HUB_OVER_CURRENT
+                  }
+               }               
+            }
+
+            0xA3={
+               Length=4
+               Bytes(0,1)={
+                  Endian=Little
+                  Name=Port Status bits
+                  Bitmap={
+                     0=PORT_CONNECTION
+                     1=PORT_ENABLE
+                     2=PORT_SUSPEND
+                     3=PORT_OVER_CURRENT
+                     4=PORT_RESET
+                     8=PORT_POWER
+                     9=PORT_LOW_SPEED 
+                    10=PORT_HIGH_SPEED
+                    11=PORT_TEST
+                    12=PORT_INDICATOR_CTRL
+                  }
+               } 
+
+               Bytes(2,3)={
+                  Endian=Little
+                  Name=Port Change bits
+                  Bitmap={
+                     0=C_PORT_CONNECTION
+                     1=C_PORT_ENABLE
+                     2=C_PORT_SUSPEND
+                     3=C_PORT_OVER_CURRENT
+                     4=C_PORT_RESET
+                  }
+                  
+               }
+
+            }
+      }
+   }
+
+}
+; end GET_STATUS
+
+;*******************************************************************************
+; CLEAR_FEATURE : This request resets a value reported in the port status
+; bmRequestType : 0x23
+; bRequest      : 0x01
+; wValue        : Feature Selector
+; wIndex        : Port
+; wLength       : 0x00
+; Data          : None
+;*******************************************************************************
+; start CLEAR_FEATURE
+Request(0x01)={
+
+   wValue={    
+      Depends(bmRequestType)={
+            0x20={
+                WordValue={
+                   0x0000=C_HUB_LOCAL_POWER
+                   0x0001=C_HUB_OVER_CURRENT
+                }
+            }
+            0x23={
+                WordValue={
+                   0x0001=PORT_ENABLE
+                   0x0002=PORT_SUSPEND
+                   0x0003=PORT_OVER_CURRENT (Should not clear this feature!)
+                   0x0004=PORT_RESET (Should not clear this feature!)
+                   0x0008=PORT_POWER
+                   0x0009=PORT_LOW_SPEED (Should not clear this feature!)
+                   0x0010=C_PORT_CONNECTION
+                   0x0011=C_PORT_ENABLE
+                   0x0012=C_PORT_SUSPEND
+                   0x0013=C_PORT_OVER_CURRENT
+                   0x0014=C_PORT_RESET
+                }
+            }
+      }
+   }
+
+   wIndex={
+      Depends(bmRequestType)={       
+            0x23={
+                FormatValue=Port # %i
+            }
+      }
+        
+   }
+
+}
+; end CLEAR_FEATURE
+
+;*******************************************************************************
+; GET_BUS_STATE : This is an optional per port diagnostic request that returns 
+;                 the state value
+; bmRequestType : 0xA3
+; bRequest      : 0x02
+; wValue        : 0x0000
+; wIndex        : Port
+; wLength       : 0x01
+; Data          : Per-Port Bus State
+;*******************************************************************************
+; start GET_BUS_STATE
+Request(0x02)={
+
+   wIndex={     
+      FormatValue=For Port # %i
+   }      
+
+   Data={
+      Length=1
+      Bytes(0,0)={
+          Name=Bus State
+          Bitmap={
+             0=Value of the D- signal
+             1=Value 0f the D+ signal
+          }
+      }
+   }
+
+}
+; end GET_BUS_STATE
+
+;*******************************************************************************
+; GET_DESCRIPTOR: This request returns the hub descriptor
+; bmRequestType : 0xA0
+; bRequest      : 0x06
+; wValue        : Desriptor Type and Descriptor Index
+; wIndex        : 0x0000
+; wLength       : Descriptor Length
+; Data          : Descriptor
+;*******************************************************************************
+; start GET_DESCRIPTOR
+Request(0x06)={
+
+  wValue={
+     WordValue={
+        0x2900=HUB type, Index 0
+        0x0000=HUB type, Index 0
+     }     
+  }
+
+  Data={    
+    Length=?
+    Descriptors=TRUE      
+  }
+
+}
+; end GET_DESCRIPTOR
+
+;*******************************************************************************
+; SET_FEATURE   : This request sets a value reported in the hub status
+; bmRequestType : 0x20
+; bRequest      : 0x03
+; wValue        : Feature Selector
+; wIndex        : 0x0000
+; wLength       : 0x00
+; Data          : None
+;*******************************************************************************
+; start SET_FEATURE
+Request(0x03)={
+
+   wValue={    
+      Depends(bmRequestType)={
+            0x20={
+                WordValue={
+                   0x0000=C_HUB_LOCAL_POWER
+                   0x0001=C_HUB_OVER_CURRENT
+                }
+            }
+            0x23={
+                WordValue={
+                   0x0001=PORT_ENABLE (Should not set this feature!)
+                   0x0002=PORT_SUSPEND
+                   0x0003=PORT_OVER_CURRENT (Should not set this feature!)
+                   0x0004=PORT_RESET
+                   0x0008=PORT_POWER
+                   0x0009=PORT_LOW_SPEED (Should not set this feature!)
+                   0x0010=C_PORT_CONNECTION
+                   0x0011=C_PORT_ENABLE
+                   0x0012=C_PORT_SUSPEND
+                   0x0013=C_PORT_OVER_CURRENT
+                   0x0014=C_PORT_RESET
+                }
+            }
+      }
+   }
+
+   wIndex={
+      Depends(bmRequestType)={       
+            0x23={
+                FormatValue=Port # %i
+            }
+      }
+        
+   }
+
+}
+; end SET_FEATURE
+
+
+**********************************************************************
+ The following construct is used to define the decoding for hub's
+ Status Change interrupt endpoint. You can use it as a sample for
+ describing decoding for your endpoint vendor-specific data.
+**********************************************************************
+
+EndpointData={
+
+   ; Global definitions
+   Caption=Hub Status Change Endpoint
+
+   EndpointType=Interrupt
+   EndpointDirection=IN
+   MaxPacketSize=2
+   MaxTransferSize=2   
+  
+   ;*** Field Definitions start here ********
+   Data={
+ 
+     Length=?
+
+     Bytes(0,0)={
+         Name=Hub & Port Status Change Bitmap
+         Color(10,10,100)
+         WordValue={
+           0x01=  Hub change detected
+           0x02=  Port 1 change detected
+           0x04=  Port 2 change detected
+           0x08=  Port 3 change detected
+           0x10=  Port 4 change detected
+           0x20=  Port 5 change detected
+           0x40=  Port 6 change detected
+           0x80=  Port 7 change detected
+         }           
+
+         ; In case there are changes on more than one port, this
+         ; bitmap dedcoding is going to be used
+         Bitmap={
+           0=Hub change detected
+           1=Port 1 change detected
+           2=Port 2 change detected
+           3=Port 3 change detected
+           4=Port 4 change detected
+           5=Port 5 change detected
+           6=Port 6 change detected
+           7=Port 7 change detected
+         }
+     }
+
+   }
+}

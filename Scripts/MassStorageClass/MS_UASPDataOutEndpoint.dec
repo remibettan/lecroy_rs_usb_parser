@@ -1,0 +1,28 @@
+#
+#  Copyright (c) 2010, LeCroy - All Rights Reserved
+#
+#  MS_UASPDataOutEndpoint.dec
+#
+#  Mass Storage Class UASP Protocol Data Out Endpoint Decoder
+#
+#  
+#
+
+%include "MS_UASPOutEndpoint.inc"
+
+
+#------------------------  Common Globals -----------------------------------
+
+set OutputType    = "Mass Strg UASP Data Out Endp";
+set UsbEndpId     = 41; # just a unique value for each endpoint of the same Class/Vendor/Product to distinguish them
+set UsbUASPipeId  = 4;
+
+#
+# Parsing entry point
+#
+
+ProcessData()
+{
+	process_as_data = 1;
+	ProcessUASOutData(process_as_data);   
+}

@@ -1,0 +1,24 @@
+
+#
+#  ATAPI MMC4 (MultiMedia Commands 4) Class In Endpoint Decoder
+#
+
+%include "ATAPI_MMC4_Endp.inc"
+
+#------------------------  Common Globals -----------------------------------
+set OutputType    = "ATAPI MMC4 In Endp";
+set UsbClassCode  = 0x08; # Mass Storage Class
+set UsbSubClass   = 0x02; # ATAPI
+set UsbProtocol   = 0x50; # Bulk-Only
+set UsbEndpDir    = "In";
+set UsbEndpId     = 1; # just a unique value for each endpoint of the same Class/Vendor/Product to distinguish them
+set UsbMainSpec   = 0x0; # 0x0 value shows it is not main spec among all ATAPI spec(MMC, SPC, SSC)
+#-------------------------------------------------------------------------------
+
+
+
+#~~~~ Parsing entry point ~~~~
+ProcessData()
+{
+	return ProcessData_ATAPI("MMC4", "MultiMedia Commands 4");
+}

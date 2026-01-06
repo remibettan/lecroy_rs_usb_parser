@@ -1,0 +1,178 @@
+#
+#  Copyright (c) 2010, LeCroy Corp. - All Rights Reserved
+#
+#  USBTMC_BulkOutEndpoint.dec
+#
+#  USB test and Measurement Bulk-Only Protocol Out Endpoint Decoder 
+#
+# V1.0 - MGD
+
+%include "CATCScriptAPI.inc"
+%include "UsbCommon.inc"
+
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block 
+#
+#----  Output
+# out.Decoded   - amount of data has been decoded
+#
+
+
+#------------------------  Common Globals -----------------------------------
+
+set OutputType    = "USBTMC Bulk Out Endp_USB488";
+set UsbDecodeType = "Endpoint";
+set UsbEndpId     = 6; # just a unique value for each endpoint of the same Class/Vendor/Product to distinguish them
+set UsbClassCode  = 0xFE; #USBTMC
+set UsbSubClass     = 0x03; #USBTMC
+set UsbProtocol     = 0x01; #USBTMC USB488
+set UsbEndpType   = "Bulk";
+set UsbEndpDir    = "Out";
+set UsbMaxXferSize = 0x7FFFFFFF;  #try largest possible positive value  
+set UsbMaxXferDecodeSize   = 36;  # Max bytes that we will be decoding  
+set UsbMaxPktSize          = 512;   
+set UsbScriptDecodeType    = 2; # Combined decoding for Cells and Text decoding
+
+set UsbXferCompleteClue = 4;     # this Xfer ends if Bulk In seen during decoding  
+
+# User can select the colors for the fields he chooses
+
+
+#-------------------------------------------------------------------------------
+set Dblock_size=0;
+set usbtmc_colour = 0xAE2800;
+
+#############################################################################
+#                               View Settings                               #
+#############################################################################
+#
+#    In this section user can set up which fields are to be shown and 
+#    which are to be hidden in expanded and collapsed states.
+#    Zero-value everywhere means that fields will not be shown,
+#    otherwise means opposite.
+#
+
+# -----------------------  Separate Field View Settings ---------------------
+# The FIRST value in list-variables defines if the field is to be shown or
+# hidden in COLLAPSED state. 
+# 0 - means the field is to be shown.
+# 1 - means the field is to be hidden.
+# 
+# The SECOND value in list-variables defines if the field is to be shown or
+# hidden in EXPANDED state. 
+# 0 - means the field is to be shown.
+# 1 - means the field is to be hidden.
+#
+# i.e.  const RPD_Field = [0, 1]; - means that field 'Field' will be hidden
+# in collapsed state and will be shown in expanded state. 
+#
+
+#           [collapsed, expanded]   
+ const SOB_CDB    = [0, 1];
+#-----------------------------------------------------------------------------
+
+set MsgOutID_Table = [
+[128,"TRIGGER","Trigger"]
+];
+
+#
+# Parsing entry point
+#
+ParseBulkOutHeader()
+{
+    InitType2Decoder();
+
+    MSGID = GetNBits(in.Data, 0, 8); # reset pointers    
+    bTag = NextNBits(8);
+    bTagInverse = NextNBits(8);
+    rsvd= NextNBits(8);
+
+    SetCellColor(usbtmc_colour);
+    AddCaptionCell("TMC","Class","In order to view comments in text field, user must expand this caption cell",usbtmc_colour,_MONOCOLOR);  # will allow for the expansion of certain fields
+
+    Msg_ID = Find(MsgOutID_Table,MSGID);
+    AddCell("MsgID", Msg_ID[1],Msg_ID[2],usbtmc_colour);
+    
+    if(SimpleShowItem())
+    {
+        if (bTag>0) {
+            if( !IsExpanded()) AddCell("bTag",Format("0x%02X",bTag),Format("Transfer idendifier bTag decimal value=%d",bTag),usbtmc_colour,_COLLAPSED);
+        } else {
+            AddCell("bTag",Format("0x%02X",bTag),Format("ERROR: bTag cannot be 0\nTransfer idendifier bTag decimal value=%d",bTag),usbtmc_colour,_ERROR, _EXPANEDED);
+
+        }
+        if (bTagInverse+bTag == 0x00FF ) {
+            if( !IsExpanded()) AddCell("bTagI ",Format("0x%04X",bTagInverse ),Format("Transfer idendifier bTagInverse decimal value=%d",bTagInverse ),usbtmc_colour);
+        } else {
+            AddCell("bTagI",Format("0x%04X",bTagInverse ),Format("ERROR: bTagInverse should be inverse of bTag\nTransfer idendifier bTagInverse  decimal value=%d",bTagInverse ),usbtmc_colour,_ERROR);
+
+        }
+
+        Dblock_size=0;
+           
+        if (Msg_ID[1] != "Rsvd") {
+              #all headers have a length for now if not reserved.
+
+               #branch to additional decoding if not reserved.
+            Call(  Msg_ID[1] );
+          
+     
+          #now do padding bytes
+            paddingdata="";
+            
+            for(padding = in.DataLength - Dblock_size - 12;padding>0;padding--) {
+                 paddingdata=paddingdata+Format("%02X ");
+            }
+            if (paddingdata!="") AddCell("Alignment",paddingdata,"Additional padding bytes to align to Dword boundary",usbtmc_colour);
+        }    
+
+
+           #check alignment
+        b9=in.DataLength/4;
+        b10=in.DataLength - (b9*4);
+        if (b10!=0) AddCell("WARNING","incomplete",Format("Transefer alignment boundary\nmissing padding of %d bytes",b10),0xFFAAAA,_WARNING);
+    }
+    out.Decoded = in.DataLength;  
+}
+
+ProcessData()
+{
+    ParseBulkOutHeader();
+
+    return Complete();
+}
+
+TRIGGER()
+{
+    tSizelo= NextNBits(8) +(256*NextNBits(8));
+    tSizehi= NextNBits(8) +(256* NextNBits(8));
+    
+    b4=NextNBits(8);
+    b5=NextNBits(8);
+    b6=NextNBits(8);
+    b7=NextNBits(8);
+    b8=NextNBits(8);
+    b9=NextNBits(8);
+    b10=NextNBits(8);
+    b11=NextNBits(8);
+    if (b4 !=0 ) AddCell("Rsrvd4",Format("0x%02X",b4),"Reserved Byte#4 must be zero!",usbtmc_colour,_ERROR);
+    if (b5 !=0 ) AddCell("Rsrvd5",Format("0x%02X",b5),"Reserved Byte#5 must be zero!",usbtmc_colour,_ERROR);
+    if (b6 !=0 ) AddCell("Rsrvd6",Format("0x%02X",b6),"Reserved Byte#6 must be zero!",usbtmc_colour,_ERROR);
+    if (b7 !=0 ) AddCell("Rsrvd7",Format("0x%02X",b7),"Reserved Byte#7 must be zero!",usbtmc_colour,_ERROR);
+    if (b8 !=0 ) AddCell("Rsrvd8",Format("0x%02X",b8),"Reserved Byte#8 must be zero!",usbtmc_colour,_ERROR);
+    if (b9 !=0 ) AddCell("Rsrvd9",Format("0x%02X",b9),"Reserved Byte#9 must be zero!",usbtmc_colour,_ERROR);
+    if (b10 !=0 ) AddCell("Rsrvd10",Format("0x%02X",b10),"Reserved Byte#10 must be zero!",usbtmc_colour,_ERROR);
+    if (b11 !=0 ) AddCell("Rsrvd11",Format("0x%02X",b11),"Reserved Byte#11 must be zero!",usbtmc_colour,_ERROR);
+}
+
+####################################################################################
+#                       USBTracer specific caption cell                            #
+####################################################################################
+
+AddSpecCaptionCell(caption, text, tooltip, FieldColor, addparam, addparam1, addparam2 )
+{   
+    AddCell(caption, text, tooltip, FieldColor, _USBBULK_HEADER, addparam, addparam1, addparam2 );        
+    return 1;        
+}

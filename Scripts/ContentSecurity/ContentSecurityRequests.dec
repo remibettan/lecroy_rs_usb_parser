@@ -1,0 +1,549 @@
+#*******************************************************************************
+#
+#  FILENAME: ContentSecurityRequest.dec
+#
+#  Copyright (c) 2008, LeCroy - All Rights Reserved
+#
+#  DESCRIPTION
+#    This is the request file for Content Security Devices.
+#    This file is prepared as per the Specification Revision 1.0.
+#    This file is prepared as per the Content Security Device Specification.
+#
+#  REVISION HISTORY
+#    03/01/2008 Created. - RK and JC
+#
+#*******************************************************************************
+
+%include "CATCScriptAPI.inc"             #.inc files that are included
+%include "UsbCommon.inc"
+
+
+ #----  Input
+ # in.Data       - Data_block to decode
+ # in.DataLength - Length of Data_block
+
+ #----  Output
+ # out.Decoded   - amount of data has been decoded
+
+const Tabular_Def_Table = Map( 
+[   
+    #-----------------------------------------------------------------------------------------------------
+    #       id            ,      colId                          , 		containerCellId
+    #-----------------------------------------------------------------------------------------------------
+    [ CELL_REQUEST        , TABULAR_SCRIPT_COLUMN_ID_SUBTYPE   , TABULAR_SCRIPT_CONTAINER_CELL_ID_NONE ],
+    [ CELL_WVALUE         , TABULAR_SCRIPT_COLUMN_ID_NONE      , TABULAR_SCRIPT_CONTAINER_CELL_ID_MISC ]
+    
+] );
+
+#############################################################################
+#                               View Settings                               #
+#############################################################################
+#
+#    In this section user can set up which fields are to be shown and
+#    which are to be hidden in expanded and collapsed states.
+#    Zero-value everywhere means that fields will not be shown,
+#    otherwise means opposite.
+#
+#
+# ----------------------- All Field View Settings ---------------------------
+#   These settings have priority above separate field View Settings in
+#   expanded state ONLY.
+#   In order separate field View Settings to work properly
+#   BOTH All Field View Settings should be set to 0.
+#
+#   Due to the fact that ViewAll-setting and HideAll-setting are
+#   exceptive propositions - ViewAll has been set a higher priority.
+# ---------------------------------------------------------------------------
+
+const CSDC_ViewAll = 0;
+const CSDC_HideAll = 0;
+
+# ---------------------------------------------------------------------------
+
+
+# -----------------------  Separate Field View Settings ---------------------
+# The FIRST value in list-variables defines if the field is to be shown or
+# hidden in COLLAPSED state.
+# 0 - means the field is to be shown.
+# 1 - means the field is to be hidden.
+#
+# The SECOND value in list-variables defines if the field is to be shown or
+# hidden in EXPANDED state.
+# 0 - means the field is to be shown.
+# 1 - means the field is to be hidden.
+#
+# i.e.  const RPD_Field = [0, 1]# - means that field 'Field' will be hidden
+# in collapsed state and will be shown in expanded state.
+#
+
+#                                 [collapsed, expanded]
+const CSDC_bmRequestType                = [1, 1];
+const CSDC_wValue                       = [1, 1];
+const CSDC_wIndex                       = [1, 1];
+const CSDC_wLength                      = [1, 1];
+
+#-----------------------------------------------------------------------------
+
+set OutputType      = "Content Security Requests";
+set UsbDecodeType   = "Request";
+set UsbReqType      = "Class";
+set UsbClassCode    = 0x0D;     # Class code for Content Security Devices
+set UsbScriptDecodeType = 1;    # Combined decoding for Cells and Text decoding
+set UsbProtocol     = 1;        # this is used for seperation from different Smart Card Class requests
+
+set bReqType  = 0;              #Declaring global variables
+set bRequest  = 0;
+set wValue    = 0;
+set wIndex    = 0;
+set wLength   = 0;
+set wData     = 0;
+
+set AttributeString  = "";      #Holds Text Data
+
+#Colors for Requests (Currently all same color, can be changed if desired)
+
+set CSDC_GetChannelSettingsReqColor = 0x85CC9A;    #Request 0x01
+set CSDC_SetChannelSettingsReqColor = 0x85CC9A;    #Request 0x02
+set CSDC_ReservedReqColor           = 0x85CC9A;    #Request 0x03 - 0x7F
+set CSDC_CaptionColor               = 0x875476;
+
+set FullyDecoded = 1;  # Variable that will determine if request has been fully decoded
+
+set RestoreBitCurrentFieldOffset = 0;        #Temp Variables to store a restore value
+set RestoreBitCurrentFieldLength = 0;
+
+ProcessData()
+{
+
+    CommonDecoderInit();        # Initialization of SRP common global variables [found in CATCScriptAPI.inc]
+
+    UnitDecoderInit("CSDC");    # This function must be called before starting unit decoding. [found in CATCScriptAPI.inc]
+                                # It performes necessary initialization routine for "unit" decoder.
+                                # Unit has its own prefix, view settings and may have its own color.
+
+    SetCellColor(CSDC_CaptionColor);
+    AddCaptionCell("Content Security","Class","This data payload represents a Content\nSecurity Device Request.",_MONOCOLOR);  # Will allow for the expansion of certain fields
+
+    RestoreCellColor();
+    AddSeparator();
+
+    FullyDecoded = 1;
+    out.Decoded = 0;            # Nothing has been decoded yet
+
+    if (in.DataLength < 8)      # Checking for Illegal Payload
+    {
+        if(!AddSpecPLCellMonoNoDlg("Error", "Illegal Payload", "Nothing is being decoded", __ERROR))
+            AddErrorMonoCell("Error", "Illegal Payload", "Nothing is being decoded");      #[found in CATCScriptAPI.inc]
+
+        return Complete();
+    }
+
+    GetNBits(in.Data, 0, 0);        #Initialize pointer/counter for NextNBits_()
+
+    bReqType = NextNBits_(8);       #0-7
+    bRequest = NextNBits_(8);       #8-15
+    wValue   = NextDataWord_();     #16-31
+    wIndex   = NextDataWord_();     #32-47
+    wLength  = NextDataWord_();     #48-63
+
+    out.Decoded = 8;                # "Decoded" 8 bytes
+
+    _row = Find(CSDCRequestTable, bRequest);  # will determine which request is being used
+
+    AddShortDataHeader(_row[1]);
+
+    if (_row[0] == 0x00 )
+    {
+        bRequestString = "";
+        if(bRequest == 0)
+            bRequestString = _row[1];
+        else if( ( bRequest > 2 ) && ( bRequest < 80 ) )
+            bRequestString = "RESERVED";
+        else
+            bRequestString = "CSM_DEFINED";
+
+        AddSeparator();
+        AddDecodedTextHeader();  # header for the text decoding
+        SetFieldOffsetLen(8,8);
+        FieldColor = bRequestColor;
+        AddPayLoadCell( "bmRequestType", Format( "0x%02X", bReqType ), Format( "Bitmap with decimal value of %d", bReqType ) + "\n\nCharacteristics of Request:\n   D7      Data xfer direction\n\t   0 = Host to Device\n\t   1=Device to host\n\n   D6..5   Type\n\t   0 = Standard\n\t   1 = Class\n\t   2 = Vendor\n\t   3 = Reserved\n\n   D4..0   Recipient\n\t   0 = Device\n\t   1 = Interface\n\t   2 = Endpoint\n\t   3 = Other\n\t   4..31 = Reserved\n" );
+        SetFieldOffsetLen(16,8);
+        FieldColor = bRequestColor;
+        AddPayLoadCell( "bRequest", bRequestString, Format( "bRequest HexVal: 0x%04X", bRequest ) , FieldColor, [_TABULARCELL, CELL_REQUEST]);
+        SetFieldOffsetLen(32,16);
+        FieldColor = wValueColor;
+        AddPayLoadCell( "wValue", wValue, "" , FieldColor, [_TABULARCELL, CELL_WVALUE, "TEXT_CAPTION"]);
+        SetFieldOffsetLen(48,16);
+        FieldColor = wIndexColor;
+        AddPayLoadCell( "wIndex", wIndex, "" );
+        SetFieldOffsetLen(64,16);
+        FieldColor = wLengthColor;
+        AddPayLoadCell( "wLength", wLength, "" );
+
+        datLength = in.DataLength - out.Decoded;        #This value should be the same as wLength (but in case wLength or rawdata is corrupted, we're using this value);
+
+        if(datLength != wLength)
+        {
+            SetCellColor(RED);
+            AddPayLoadCell( "WARNING", "Data Discrepancy", FormatEx( "Data discrepancy found between wLength (%d) and actual data length (%d).", wLength, datLength ), _ERROR );
+            AddShortDataHeader( FormatEx( "!!!WARNING!!! Data discrepancy found between wLength (%d) and actual data length (%d).", wLength, datLength ) );
+            RestoreCellColor();
+            FullyDecoded = 0;
+        }
+
+        AddSeparator();
+
+        if( ( in.DataLength - out.Decoded )!= 0 )
+            ShowDataBlockReOrder(in.DataLength-out.Decoded);
+    }
+    else
+    {
+        AttributeString = _row[1];
+
+        AddSeparator();                         # Adding Separator between what will be decoded and what is already visible
+        Call ( _row[1], [ in.DataLength ] );    # will call function for the specified request
+        if( FullyDecoded == 1  )                # if the request is fully decoded
+        {
+            out.Decoded = in.DataLength;
+        }
+        else if( FullyDecoded == 0 )
+        {
+           #Currently not doing anything, The last commented line for this statement was original, but
+           #wasn't working, however, don't need it since out.Decoded is kept track of throughout this script.
+           #The next commented line can be uncommented to show all undecoded data as a 'Data' block.
+           #ShowDataBlock(in.DataLength-out.Decoded);
+           # out.Decoded = BitCurrentFieldOffset/8;
+           ShowDataBlockReOrder(in.DataLength-out.Decoded);
+        }
+        #AddPayLoadCell("FullyDecoded",FormatEx("%d -- BCFO %d -- Dec %d -- Len %d -- R1 %d -- R2 %d -- inFLG %d",FullyDecoded,BitCurrentFieldOffset,out.Decoded,in.DataLength,RestoreBitCurrentFieldOffset,RestoreBitCurrentFieldLength,in.PrepareFldsForDlg),"");
+    }
+
+    AddSeparator();
+
+    ############ for Debug purposes#########
+    # GetNBits(in.Data, 0, 0);             #
+    # ShowDataBlock(in.DataLength);        #
+    ########################################
+
+    return Complete();
+}
+
+# Add Request Decoding by Application [request table in Dialog View]
+DecodeRequestToText()
+{
+    return DecodeRequestToTextCommon( CSDCRequestTable );
+}
+
+# Request List/Table for CSDC
+set CSDCRequestTable =
+[
+    [ 0x00, "UNDEFINED" ],
+    [ 0x01, "GET_CHANNEL_SETTINGS" ],
+    [ 0x02, "SET_CHANNEL_SETTINGS" ]
+];
+
+GET_CHANNEL_SETTINGS()
+{
+    FieldColor = CSDC_GetChannelSettingsReqColor;   #Set the Cell Color for Cells
+
+    if( bReqType != 0xA1 )                          # != 10100001B  ---- Verifying correct bmRequestType for Request and adding Cell
+    {
+        SetCellColor(WarningColor);
+        SetFieldOffsetLen_CSDC( 8, 8 );
+        AddPayLoadCell( "bmRequestType", Format( "0x%02X", bReqType ), FormatEx( "!!!WARNING!!!\nFor a GET_CHANNEL_SETTINGS Request, bmRequestType should only\nbe 0xA1 (10100001B), but it is 0x%02X (%sB).", bReqType, ToBitString( bReqType, 8 ) ), _ERROR );
+        RestoreFieldOffsetLen_CSDC();
+        RestoreCellColor();
+    }
+    else if( SimpleShowItem() )
+        AddReqTypeCell_CSDC();
+
+    AddRequestCell_CSDC( AttributeString );         #Adding Request Cell
+
+    if( wValue == 0 )
+    {
+        if( SimpleShowItem() )
+            AddWValueCell_CSDC();                   #Adding Value Cell
+    }
+    else
+    {
+        str_wValue = FormatEx("!!!WARNING!!!\nExpected wValue = 0x0000, Found 0x%04X.",wValue);
+        SetCellColor(WarningColor);
+        AddWValueCell_CSDC("", str_wValue, 1 );     #Adding Value Cell
+        RestoreCellColor();
+    }
+
+    AddWIndexCell_CSDC();                           #Adding Index Cell
+
+    GetChannelSettingsDataReady = 1;
+
+    if( wLength != 0x0002 )
+    {
+        SetCellColor(WarningColor);
+        SetFieldOffsetLen_CSDC( 64, 16 );
+
+        if( wLength < 2 )
+        {
+            AddPayLoadCell( "wLength*", Format( "%u", wLength ), FormatEx( "!!!WARNING!!!\nA GET_CHANNEL_SETTINGS Request is expected to have 2 bytes\nof data, wLength is only %d.", wLength ) , _ERROR );
+            GetChannelSettingsDataReady = 0;
+        }
+        else
+            AddPayLoadCell( "wLength*", Format( "%u", wLength ), FormatEx( "!!!WARNING!!!\nExpect only 2 bytes for a GET_CHANNEL_SETTINGS Request.\nwLength is %d.", wLength ), _ERROR );
+
+        RestoreFieldOffsetLen_CSDC();
+        RestoreCellColor();
+        out.Decoded = 8;
+    }
+    else if( SimpleShowItem() )                 #If expanded, adding wLength Cell
+    {
+        AddWLengthCell_CSDC( "Data Length" );
+    }
+
+    datLength = in.DataLength - out.Decoded;    #This value should be the same as wLength (but in case wLength or rawdata is corrupted, we're using this value);
+
+    if(datLength != wLength)
+    {
+        SetCellColor(RED);
+        AddPayLoadCell( "WARNING", "Data Discrepancy", FormatEx( "Data discrepancy found between wLength (%d) and actual data length (%d).\nNOTE: 2 bytes are expected for the GET_CHANNEL_SETTINGS Request.", wLength, datLength ), _ERROR );
+        AddShortDataHeader( FormatEx( "!!!WARNING!!! Data discrepancy found between wLength (%d) and actual data length (%d).\nNOTE: 2 bytes are expected for the GET_CHANNEL_SETTINGS Request.", wLength, datLength ) );
+        RestoreCellColor();
+        FullyDecoded = 0;
+
+        if( datLength > 1 )
+            GetChannelSettingsDataReady = 1;
+        else
+            GetChannelSettingsDataReady = 0;
+    }
+
+    AddSeparator();
+
+    if(!GetChannelSettingsDataReady)
+    {
+        AddCell( "Data", "NOT ENOUGH DATA", "***ERROR***\nThere is not enough data!", RED, 1 );
+        FullyDecoded = 0;
+    }
+    else
+    {
+        wData = NextDataWord_();               #64-79
+
+        AddWDataCell_CSDC(wData, "");
+        out.Decoded = 10;
+    }
+}
+
+SET_CHANNEL_SETTINGS()
+{
+    FieldColor = CSDC_SetChannelSettingsReqColor;   #Set the Cell Color for Cells
+
+    if(bReqType != 0x21)                            # != 00100001B  ---- Verifying correct bmRequestType for Request and adding Cell
+    {
+        SetCellColor(RED);
+        SetFieldOffsetLen_CSDC( 8, 8 );
+        AddPayLoadCell("bmRequestType",Format( "0x%02X", bReqType ), FormatEx( "!!!WARNING!!!\nFor a SET_CHANNEL_SETTINGS Request, bmRequestType should only\nbe 0x21 (00100001B), but it is 0x%02X (%sB).", bReqType, ToBitString( bReqType, 8 ) ), _ERROR );
+        RestoreFieldOffsetLen_CSDC();
+        RestoreCellColor();
+    }
+    else if( SimpleShowItem() )
+        AddReqTypeCell_CSDC();
+
+    AddRequestCell_CSDC( AttributeString );         #Adding Request Cell
+    str_wValue = "HByte: 0 Reserved.<br>&nbsp&nbspLByte: Index to CSM descriptor for CSM currently running on channel.<br>";
+
+    hbwValue = (wValue>>8) & 0xFF;
+    lbwValue = wValue & 0xFF;
+
+    if( SimpleShowItem() || (hbwValue!=0) )     #Adding Value Cell
+    {
+        if( hbwValue != 0 )
+        {
+            SetCellColor( WarningColor );
+            SetFieldOffsetLen_CSDC( 24, 8 );
+            AddPayLoadCell("RESERVED", Format( "0x%02X", hbwValue ), FormatEx( "!!!WARNING!!! - RESERVED, must be zero.\n(High Byte of wValue) = 0x%02X\twValue = 0x%04X", hbwValue, wValue ), _ERROR );
+            RestoreFieldOffsetLen_CSDC();
+            RestoreCellColor();
+            SetCellColor( wValueColor );
+        }
+        else
+        {
+            SetCellColor( wValueColor );
+            SetFieldOffsetLen_CSDC( 24, 8 );
+            AddPayLoadCell("RESERVED", Format( "0x%02X", hbwValue ), FormatEx( "RESERVED (High Byte of wValue) = 0x%02X\twValue = 0x%04X", hbwValue, wValue ) );
+            RestoreFieldOffsetLen_CSDC();
+        }
+
+        SetFieldOffsetLen_CSDC( 32, 8 );
+        AddPayLoadCell("CSM Index", Format( "0x%02X", lbwValue ), FormatEx( "Current Content Security Method Index (Low Byte of wValue) = 0x%02X\twValue = 0x%04X", lbwValue, wValue ) );
+        RestoreFieldOffsetLen_CSDC();
+        RestoreCellColor();
+    }
+    else
+    {
+        AddCell( "wValue", Format( "0x%04X", wValue ), FormatEx( "wValue = 0x%04X\n\tRESERVED ( High Byte of wValue ) = 0x%02X\n\tCurrent Content Security Method Index ( Low Byte of wValue ) = 0x%02X\t", wValue, hbwValue, lbwValue ) 
+                                        , FieldColor, [_TABULARCELL, CELL_WVALUE, "TEXT_CAPTION"]);
+    }
+
+    AddWIndexCell_CSDC();                           #Adding Index Cell
+
+    if( wLength != 0x0000 )
+    {
+        SetCellColor(WarningColor);
+        SetFieldOffsetLen_CSDC( 64, 16 );
+        AddPayLoadCell( "wLength*", Format( "%u", wLength ), "!!!WARNING!!! NO DATA EXPECTED. SET_CHANNEL_SETTINGS Request should not\nhave any data. The Data is not being decoded.\nSee 'Data' for raw bytes." );
+        RestoreFieldOffsetLen_CSDC();
+        RestoreCellColor();
+        FullyDecoded = 0;
+    }
+    else if( SimpleShowItem() )                     #If expanded, adding wLength Cell
+        AddWLengthCell_CSDC( "Data Length" );
+
+    out.Decoded = 8;
+
+    datLength = in.DataLength - out.Decoded;        #This value should be the same as wLength (but in case wLength or rawdata is corrupted, we're using this value);
+
+    if(datLength != wLength)
+    {
+        SetCellColor(RED);
+        AddPayLoadCell( "WARNING", "Data Discrepancy", FormatEx( "Data discrepancy found between wLength (%d) and actual data length (%d).\nNOTE: No Data is Expected for the SET_CHANNEL_SETTINGS Request.", wLength, datLength ), _ERROR );
+        AddShortDataHeader( FormatEx( "!!!WARNING!!! Data discrepancy found between wLength (%d) and actual data length (%d).\nNOTE: No Data is Expected for the SET_CHANNEL_SETTINGS Request.", wLength, datLength ) );
+        RestoreCellColor();
+        FullyDecoded = 0;
+    }
+
+    AddSeparator();
+}
+
+
+### These are general functions to decrease code length
+### (copied from UsbCommon.inc and removed FieldColor setting plus minor tweaking where necessary/desired)
+
+AddReqTypeCell_CSDC()
+{
+    SetFieldOffsetLen_CSDC( 8, 8 );
+    AddPayLoadCell( "bmRequestType", Format( "0x%02X", bReqType ), Format( "Bitmap with decimal value of %d", bReqType ) + "\n\nCharacteristics of Request:\n   D7      Data xfer direction\n\t   0 = Host to Device\n\t   1=Device to host\n\n   D6..5   Type\n\t   0 = Standard\n\t   1 = Class\n\t   2 = Vendor\n\t   3 = Reserved\n\n   D4..0   Recipient\n\t   0 = Device\n\t   1 = Interface\n\t   2 = Endpoint\n\t   3 = Other\n\t   4..31 = Reserved\n" );
+    RestoreFieldOffsetLen_CSDC();
+}
+
+AddRequestCell_CSDC( req_text )
+{
+    SetFieldOffsetLen_CSDC( 16, 8 );
+    AddPayLoadCell( "bRequest", req_text, Format( "bRequest HexVal: 0x%04X", bRequest ) , FieldColor, [_TABULARCELL, CELL_REQUEST]);
+    RestoreFieldOffsetLen_CSDC();
+}
+
+AddWValueCell_CSDC( val_text, val_tooltip, error )
+{
+    SetFieldOffsetLen_CSDC( 32, 16 );
+
+    if( val_text == null || val_text == "" )
+        val_text = Format( "0x%04X", wValue );
+
+    if(val_tooltip == null || val_tooltip == "")
+        val_tooltip = "wValue";
+
+    if(error != null)
+        AddPayLoadCell( "wValue*", val_text, val_tooltip, _ERROR , [_TABULARCELL, CELL_WVALUE, "TEXT_CAPTION"]);
+    else
+        AddPayLoadCell( "wValue", val_text, val_tooltip , FieldColor, [_TABULARCELL, CELL_WVALUE, "TEXT_CAPTION"]);
+
+    RestoreFieldOffsetLen_CSDC();
+}
+
+AddWIndexCell_CSDC( idx_text, idx_tooltip )
+{
+    hbwIndex = (wIndex>>8) & 0xFF;
+    lbwIndex = wIndex & 0xFF;
+
+    if( idx_text == null || idx_text == "" )
+        idx_text = Format( "0x%04X", wIndex );
+
+    if( idx_tooltip == null || idx_tooltip == "" )
+        idx_tooltip = FormatEx( "wIndex = 0x%04X\n\tChannel ID ( High Byte of wIndex ) = 0x%02X\n\tContent Security Interface ( Low Byte of wIndex ) = 0x%02X\t", wIndex, hbwIndex, lbwIndex );
+
+    SetCellColor( wIndexColor );
+
+    if( SimpleShowItem() )
+    {
+        SetFieldOffsetLen_CSDC( 24, 8 );
+        AddPayLoadCell("Channel ID", Format( "0x%02X", hbwIndex ), FormatEx( "Channel ID (High Byte of wIndex) = 0x%02X\twIndex = 0x%04X", hbwIndex, wIndex ) );
+        RestoreFieldOffsetLen_CSDC();
+
+        SetFieldOffsetLen_CSDC( 32, 8 );
+        AddPayLoadCell("CSI", Format( "0x%02X", lbwIndex ), FormatEx( "Content Security Interface (Low Byte of wIndex) = 0x%02X\twIndex = 0x%04X", lbwIndex, wIndex ) );
+        RestoreFieldOffsetLen_CSDC();
+    }
+    else
+    {
+        AddCell( "wIndex", idx_text , idx_tooltip );
+    }
+
+    RestoreCellColor();
+}
+
+AddWLengthCell_CSDC( len_tooltip )
+{
+    SetFieldOffsetLen_CSDC( 64, 16 );
+    AddPayLoadCell( "wLength", Format( "%u", wLength ), len_tooltip );
+    RestoreFieldOffsetLen_CSDC();
+}
+
+AddWDataCell_CSDC( wData, data_tooltip )
+{
+    hbwData = (wData>>8) & 0xFF;
+    lbwData = wData & 0xFF;
+
+    if(data_tooltip == null || data_tooltip == "")
+    {
+        data_tooltip  = FormatEx( "wData = 0x%04X\n\tReserved ( High Byte of wData ) = 0x%02X\n\tCurrent Content Security Method Index ( Low Byte of wData ) = 0x%02X\t", wData, hbwData, lbwData );
+    }
+
+
+    if( SimpleShowItem() || (hbwData!=0) )     #Adding wData Cell
+    {
+        if( hbwValue != 0 )
+        {
+            SetCellColor( WarningColor );
+            SetFieldOffsetLen_CSDC( 72, 8 );
+            AddPayLoadCell("RESERVED", Format( "0x%02X", hbwData ), FormatEx( "!!!WARNING!!! - RESERVED, must be zero.\n(High Byte of wData) = 0x%02X\twData = 0x%04X", hbwData, wData ), _ERROR );
+            RestoreFieldOffsetLen_CSDC();
+            RestoreCellColor();
+        }
+        else
+        {
+            SetFieldOffsetLen_CSDC( 72, 8 );
+            AddPayLoadCell("RESERVED", Format( "0x%02X", hbwData ), FormatEx( "RESERVED (High Byte of wData) = 0x%02X\twData = 0x%04X", hbwData, wData ) );
+            RestoreFieldOffsetLen_CSDC();
+        }
+
+        SetFieldOffsetLen_CSDC( 80, 8 );
+        AddPayLoadCell("CSM Index", Format( "0x%02X", lbwData ), FormatEx( "Current Content Security Method Index (Low Byte of wData) = 0x%02X\twData = 0x%04X", lbwData, wData ) );
+        RestoreFieldOffsetLen_CSDC();
+    }
+    else
+    {
+        AddCell( "wData", Format( "0x%04X", wData ), data_tooltip );
+    }
+}
+
+SetFieldOffsetLen_CSDC( offset, len )
+{
+    RestoreBitCurrentFieldOffset = BitCurrentFieldOffset;
+    RestoreBitCurrentFieldLength = BitCurrentFieldLength;
+    BitCurrentFieldOffset = offset;
+    BitCurrentFieldLength = len;
+}
+
+RestoreFieldOffsetLen_CSDC()
+{
+    BitCurrentFieldOffset = RestoreBitCurrentFieldOffset;
+    BitCurrentFieldLength = RestoreBitCurrentFieldLength;
+}
+
+
+####################################################################################
+#                       USBTracer specific caption cell                            #
+####################################################################################
+
+AddSpecCaptionCell(caption, text, tooltip, FieldColor, addparam, addparam1, addparam2 )
+{
+    AddCell(caption, text, tooltip, FieldColor, _USBBULK_HEADER, addparam, addparam1, addparam2 );
+    return 1;
+}

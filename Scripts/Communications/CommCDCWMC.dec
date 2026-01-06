@@ -1,0 +1,127 @@
+#*******************************************************************************
+#
+#  FILENAME: WMCRequests.dec
+#
+#  Copyright (c) 2013, LeCroy - All Rights Reserved
+#
+#  DESCRIPTION
+#    This file is prepared as per the USB Class Definitions for Communication Devices v1.1 subclass NCM
+#
+#  REVISION HISTORY
+#    30Jan13    Created
+#*******************************************************************************
+
+
+%include "CATCScriptAPI.inc"
+%include "UsbCommon.inc"
+%include "CDCRequests.inc" 
+%include "WMCRequests.inc" 
+
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block
+#
+#----  Output
+# out.Decoded   - amount of data has been decoded
+#
+
+const Tabular_Def_Table = Map(
+[
+    #-----------------------------------------------------------------------------------------------------
+    #       id            ,      colId                          , 		containerCellId
+    #-----------------------------------------------------------------------------------------------------
+    [ CELL_REQUEST        , TABULAR_SCRIPT_COLUMN_ID_SUBTYPE   , TABULAR_SCRIPT_CONTAINER_CELL_ID_NONE ],
+    [ CELL_WVALUE         , TABULAR_SCRIPT_COLUMN_ID_NONE      , TABULAR_SCRIPT_CONTAINER_CELL_ID_MISC ]
+
+] );
+
+#############################################################################
+#                               View Settings                               #
+#############################################################################
+#
+#    In this section user can set up which fields are to be shown and
+#    which are to be hidden in expanded and collapsed states.
+#    Zero-value everywhere means that fields will not be shown,
+#    otherwise means opposite.
+#
+
+
+# ----------------------- All Field View Settings ---------------------------
+#   These settings have priority above separate field View Settings in
+#   expanded state ONLY.
+#   In order separate field View Settings to work properly
+#   BOTH All Field View Settings should be set to 0.
+#
+#   Due to the fact that ViewAll-setting and HideAll-setting are
+#   exceptive propositions - ViewAll has been set a higher priority.
+# ---------------------------------------------------------------------------
+
+const WMC_ViewAll              = 0;
+const WMC_HideAll              = 0;
+
+#-----------------------------------------------------------------------------
+
+set OutputType      	= "WMC Class Requests";
+set UsbDecodeType   	= "Request";
+set UsbReqType      	= "Class";
+set UsbClassCode    	= 0x02;    # Communicationa and CDC control class
+set UsbSubClass 		= 0x0A;    # Mobile Direct Line Model Subclass  
+set UsbProtocol     	= 0x00;    # No class specific protocol
+set UsbScriptDecodeType = 1;       # Combined decoding for Cells and Text decoding
+
+#-----------------------------------------------------------------------------
+
+set WMC_CELL_COLOR = 0xF4B50B;
+
+ProcessData()
+{
+    CommonDecoderInit();
+    UnitDecoderInit("WMC");
+	SetCellColor(WMC_CELL_COLOR);
+	
+    FullyDecoded = 1;
+
+    out.Decoded = 0;
+
+    AddCaptionCell("WMC","Request","This data payload represents a WMC Class Request.",_MONOCOLOR);  # Will allow for the expansion of certain fields
+    AddSeparator();
+
+    if (in.DataLength < 8)
+    {
+        AddPLCellMonoNoDlg("Error", "Illegal Payload", "Nothing is being decoded", _ERROR);
+        AddShortDataHeader("<font color=RED>ILLEGAL (SHORT) PAYLOAD - Nothing is being decoded!</font>");
+        return Complete();
+    }
+
+    bmRequestType = NextNBits_(8);
+    bRequest = NextNBits_(8);
+
+	# will determine which WMC specific request is being used
+	_row = WMCRequestTypeTable[bRequest];  
+	if( _row == null )
+	{    
+		# will determine which CDC request is being used	
+		_row = Find(RequestTypeTable, bRequest);  
+	}
+	
+    AddShortDataHeader(_row[1]);
+    SetFieldOffsetLen(8,8);
+
+    if(SimpleShowItem())
+    {
+      SetCellColor(bRequestColor);
+      AddPayLoadCell("bmRequestType", Format("0x%02X", bmRequestType), "Request Type bitmap");
+      RestoreCellColor();
+    }
+
+    SetFieldOffsetLen(16,8);
+    AddRequestCell (_row[1]);
+
+	SetCellColor(WMC_CELL_COLOR);
+	
+	Call( _row[1] );
+
+    return Complete();
+}
+

@@ -1,0 +1,920 @@
+
+# Copyright (c) 2006, LeCroy Corp PSG. - All Rights Reserved
+
+#   AudioRequests.dec
+
+#   Vendor Request File for Audio 2.0 Decoder
+
+
+%include "CATCScriptAPI.inc"             #.inc files that are included
+%include "UsbCommon.inc"
+%include "Audio2.0CurrentEntityIdMap_EditMe.inc"
+%include "AudioCellColors.inc"
+%include "Audio2.0RequestsHelper.inc"
+%include "AudioTables.inc"
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block
+#
+#----  Output
+# out.Decoded   - amount of data has been decoded
+#
+
+const Tabular_Def_Table = Map(
+[
+    #----------------------------------------------------------------------------------------------------------------------
+    #       id                     ,      colId                          , 		containerCellId
+    #----------------------------------------------------------------------------------------------------------------------
+    [ CELL_REQUEST                 , TABULAR_SCRIPT_COLUMN_ID_SUBTYPE    , TABULAR_SCRIPT_CONTAINER_CELL_ID_NONE ],
+    [ CELL_WVALUE                  , TABULAR_SCRIPT_COLUMN_ID_NONE       , TABULAR_SCRIPT_CONTAINER_CELL_ID_MISC ],
+    [ CELL_AUDIO_CONTROL_SELECTOR  , TABULAR_SCRIPT_COLUMN_ID_NONE       , TABULAR_SCRIPT_CONTAINER_CELL_ID_MISC ]
+] );
+
+#############################################################################
+#                               View Settings                               #
+#############################################################################
+#
+#    In this section user can set up which fields are to be shown and
+#    which are to be hidden in expanded and collapsed states.
+#    Zero-value everywhere means that fields will not be shown,
+#    otherwise means opposite.
+#
+
+
+# ----------------------- All Field View Settings ---------------------------
+#   These settings have priority above separate field View Settings in
+#   expanded state ONLY.
+#   In order separate field View Settings to work properly
+#   BOTH All Field View Settings should be set to 0.
+#
+#   Due to the fact that ViewAll-setting and HideAll-setting are
+#   exceptive propositions - ViewAll has been set a higher priority.
+# ---------------------------------------------------------------------------
+
+const ADT_ViewAll              = 0;
+const ADT_HideAll              = 0;
+# ---------------------------------------------------------------------------
+
+
+# -----------------------  Separate Field View Settings ---------------------
+# The FIRST value in list-variables defines if the field is to be shown or
+# hidden in COLLAPSED state.
+# 0 - means the field is to be shown.
+# 1 - means the field is to be hidden.
+#
+# The SECOND value in list-variables defines if the field is to be shown or
+# hidden in EXPANDED state.
+# 0 - means the field is to be shown.
+# 1 - means the field is to be hidden.
+#
+# i.e.  const RPD_Field = [0, 1]# - means that field 'Field' will be hidden
+# in collapsed state and will be shown in expanded state.
+#
+
+
+
+
+#                       [collapsed, expanded]
+const ADT_bmRequestType       = [1, 1];
+const ADT_HiIndex             = [1, 1];
+const ADT_LoIndex             = [1, 1];
+const ADT_HiValue             = [1, 1];
+const ADT_LoValue             = [1, 1];
+const ADT_wValue              = [1, 1];
+const ADT_wLength             = [1, 1];
+const ADT_wIndex              = [1, 1];
+const ADT_wNumSubRanges       = [1, 1];
+const ADT_bCUR                = [1, 1];
+const ADT_bMIN                = [1, 1];
+const ADT_bMAX                = [1, 1];
+const ADT_bRES                = [1, 1];
+const ADT_wCUR                = [1, 1];
+const ADT_wMIN                = [1, 1];
+const ADT_wMAX                = [1, 1];
+const ADT_wRES                = [1, 1];
+const ADT_dCUR                = [1, 1];
+const ADT_dMIN                = [1, 1];
+const ADT_dMAX                = [1, 1];
+const ADT_dRES                = [1, 1];
+const ADT_bNrChannels         = [1, 1];
+const ADT_bmChannelConfig     = [1, 1];
+const ADT_iChannelNames       = [1, 1];
+const ADT_bmBandsPresent      = [1, 1];
+const ADT_bBand               = [1, 1];
+const ADT_bControlSize        = [1, 1];
+const ADT_bCUR_Lo             = [1, 1];
+const ADT_bCUR_Hi             = [1, 1];
+
+
+#-----------------------------------------------------------------------------
+
+
+set OutputType      = "Audio 2.0 Class Requests";
+set UsbDecodeType   = "Request";
+set UsbReqType      = "Class";
+set UsbClassCode    = 0x01;    # Class code for Audio
+set UsbScriptDecodeType = 1;   # Combined decoding for Cells and Text decoding
+set UsbProtocol     = 0x20;         # this is used to seperate the 1.0 from 2.0
+
+
+set bReqType = 0;     #Declaring global variables
+set bRequest = 0;
+set wValue   = 0;
+set wIndex   = 0;
+set wLength  = 0;
+set EntiyId  = 0;
+set AttributeString = "";
+set BaseColor = 0;
+set EntityString = "";
+
+
+
+set FullyDecoded = 1;  # Variable that will determine if request has been fully decoded
+ProcessData()
+{
+    CommonDecoderInit();
+
+    UnitDecoderInit("ADT");
+
+    SetCellColor(AudioCaptionColor);
+
+    AddCaptionCell("Audio","Class","In order to view comments in text field, user must expand this caption cell",_MONOCOLOR);  # will allow for the expansion of certain fields
+    RestoreCellColor();
+    AddSeparator();
+
+    FullyDecoded = 1;
+
+
+    out.Decoded = 0;
+
+    if (in.DataLength < 8)
+    {
+        AddPLCellMonoNoDlg("Error", "Illegal Payload", "Nothing is being decoded", __ERROR);
+        return Complete();
+    }
+
+    GetNBits( in.Data, 0, 0 );      #Initialize pointer/counter for NextNBits_()
+
+    bReqType = NextNBits_(8);
+    #AddPayLoadCell("bmRequestType", Format("0x%02X", bReqType), "Request Type bitmap");
+    bRequest = NextNBits_(8);
+    _row = Find(AudioCSRequesCodes_v2_Table, bRequest);  # will determine which request is being used
+    AddRequestCell (_row[1]);
+
+    if (bRequest == 0x01 || bRequest == 0x02) # CUR and RANGE
+    {
+        if (bReqType == 0x21 || bReqType == 0xA1) #Interface
+        {
+            data = PeekNBits_(32);
+            CN = data >> 24;
+            CS = (data & 0x00FF0000) >> 16;
+            Interface = (data & 0x0000FF00) >> 8;
+            EntityID = data & 0x000000FF;
+            EntityRow = Find(CurrentEntityIdMap, EntityID);
+            InternalRow = Find (AudioControlSelectors_v2_Table, EntityRow[2]);
+            if (InternalRow[2] != null)
+                controlRow = Find (InternalRow[2], CS);
+            else
+                controlRow = null;
+            FieldColor = wValueColor;
+            CN = NextNBits_(8);
+            if (controlRow != null && controlRow[1] == "MU_MIXER_CONTROL")
+            {
+                AddPayLoadCell("MCN", Format("0x%02X", CN), Format("The Mix Control Number (MCN) = %d", CN));
+            }
+            else
+            {
+                AddPayLoadCell("CN", Format("0x%02X", CN), Format("The Channel Number (CN) = %d", CN));
+            }
+
+            CS = NextNBits_(8);
+            if (EntityID == 0)
+                AddPayLoadCell("Control Selector", Format("0x%02X", CS), Format("Control Selector = %d", CS), FieldColor, [_TABULARCELL, CELL_AUDIO_CONTROL_SELECTOR, "TEXT_CAPTION"]);
+            else if (controlRow == null)
+                AddPayLoadCell("Control Selector", Format("0x%02X", CS), WARNING_SIGN + "We don't have the Entity ID information!", _WARNING, [_TABULARCELL, CELL_AUDIO_CONTROL_SELECTOR, "TEXT_CAPTION"]);
+            else
+                AddPayLoadCell("Control Selector", controlRow[1], Format("The Control Selector value is 0x%02X", CS), FieldColor, [_TABULARCELL, CELL_AUDIO_CONTROL_SELECTOR, "TEXT_CAPTION"]);
+
+            FieldColor = wIndexColor;
+            Interface = NextNBits_(8);
+            AddPayLoadCell("Interface", Format("0x%02X", Interface), Format("Interface %d", Interface));
+
+            EntityID = NextNBits_(8);
+            if (EntityID == 0)
+                AddPayLoadCell("Entity ID", "0", "This entity is addressing the interface itself");
+            else if (EntityRow[0] != 0xFF)
+                AddPayLoadCell("Entity ID", EntityRow[0] , Format("The Entity ID is 0x%02X", EntityID));
+            else
+                AddPayLoadCell("Entity ID", Format("0x%02X", EntityID), WARNING_SIGN + "Unknown EntityID, you might need to set up the Audio2.0CurrentEntityIdMap according to your descriptors",_WARNING);
+
+            FieldColor = wLengthColor;
+            wLength = NextDataWord_();
+            AddPayLoadCell("wLength", Format("%d", wLength), Format("Length of the payload = 0x%04X", wLength));
+            AddSeparator();
+            if (controlRow != null && controlRow[2]!= null)
+                decoded = Call(controlRow[2], [controlRow[3], controlRow[4], controlRow[5], controlRow[6]]);
+            else
+                decoded = 0;
+
+        }
+        else if (bReqType == 0x22 || bReqType == 0xA2) # Endpoint
+        {
+            lowByte  = NextNBits_(8);
+            FieldColor = wValueColor;
+            AddPayLoadCell("CN/MCN", Format("0x%02X", lowByte), Format("The logical channel %d of the cluster is to be influenced", lowByte));
+
+            highByte = NextNBits_(8);
+            func_row = Find(AudioEndpointControlSelectors_v2_Table, highByte);
+
+            AddPayLoadCell("CS", func_row[1], Format(" Control Selector = 0x%02X", highByte));
+
+            FieldColor = wIndexColor;
+            wIndex = NextDataWord_();
+            lowByte = wIndex & 0x00FF;
+			AddPayLoadCell("Endpoint", Format("0x%02X",lowByte), Format("Endpoint %d",lowByte));
+
+			FieldColor = wLengthColor;
+			wLength = NextDataWord_();
+            AddPayLoadCell("wLength", Format("%d", wLength), Format("Length of the payload = 0x%04X", wLength));
+            AddSeparator();
+            if (func_row[2] != null)
+                decoded = Call(func_row[2], [ func_row[3], func_row[4], func_row[5],func_row[6] ]);
+            else
+                decoded = 0;
+        }
+        else
+        {
+            wValue = NextDataWord_();
+            AddPayLoadCell("wValue", Format("0x%04X", wValue), Format("wValue = 0x%04X", wValue), FieldColor, [_TABULARCELL, CELL_WVALUE, "TEXT_CAPTION"]);
+            wIndex = NextDataWord_();
+            AddPayLoadCell("wIndex", Format("0x%04X", wIndex), Format("wIndex = 0x%04X", wIndex));
+            wLength = NextDataWord_();
+            AddPayLoadCell("wLength", Format("%d", wLength), Format("Length of the payload = 0x%04X", wLength));
+
+            decoded = 0;
+        }
+    }
+    else if (bRequest == 0x03 ) #MEN
+    {
+        AddWValueCell("", "Zero-based offset value that can be used to access only parts of the Entity's memory space");
+
+        if (bReqType == 0x21 || bReqType == 0xA1) #Interface
+        {
+            lowByte = NextNBits_(8);
+			AddPayLoadCell("Interface", Format("0x%02X",lowByte), Format("Interface %d",lowByte));
+
+            highByte = NextNBits_(8);
+            AddPayLoadCell("EntityId", Format("0x%02X", highByte), Format("Entity ID = %d", highByte));
+
+        }
+        else if (bReqType == 0x22 || bReqType == 0xA2) # Endpoint
+        {
+            wIndex = NextDataWord_();
+            lowByte = wIndex & 0x00FF;
+			AddPayLoadCell("Endpoint", Format("0x%02X",lowByte), Format("Endpoint %d",lowByte));
+        }
+        else
+        {
+            wIndex = NextDataWord_();
+			AddPayLoadCell("wIndex", Format("0x%04X", wIndex), Format("wIndex = 0x%04X", wIndex));
+	    }
+	    wLength = NextDataWord_();
+	    AddPayLoadCell("wLength", Format("%d", wLength), Format("Length of the payload = 0x%04X", wLength));
+	    decoded = 0;
+    }
+    else
+    {
+        # bRequest that's unknown, so we use standard stuff
+        wValue = NextDataWord_();
+        AddPayLoadCell("wValue", Format("0x%04X", wValue), Format("wValue = 0x%04X", wValue), FieldColor, [_TABULARCELL, CELL_WVALUE, "TEXT_CAPTION"]);
+        wIndex = NextDataWord_();
+        AddPayLoadCell("wIndex", Format("0x%04X", wIndex), Format("wIndex = 0x%04X", wIndex));
+        wLength = NextDataWord_();
+        AddPayLoadCell("wLength", Format("%d", wLength), Format("Length of the payload = 0x%04X", wLength));
+        decoded = 0;
+    }
+    out.Decoded = 8 + decoded;
+
+    ############ for Debug purposes#########
+    # GetNBits(in.Data, 0, 0);             #
+    # ShowDataBlock(in.DataLength);        #
+    ########################################
+
+    return Complete();
+}
+
+
+DecodeRequestToText()
+{
+    return DecodeRequestToTextCommon( AudioCSRequesCodes_v2_Table );
+}
+
+
+TE_CONNECTOR_CONTROL_v2_sub( cellColor, validate_func, tooltip_func)
+{
+    FieldColor = cellColor;
+    if (wLength > in.DataLength - 8)
+        wLength = in.DataLength - 8;
+    decoded = 0;
+    if (bRequest == 0x01) # only valid with CUR
+    {
+        if(wLength >= 1)
+        {
+            bNrChannels = NextNBits_(8);
+            AddPayLoadCell("bNrChannels", Format("0x%02X", bNrChannels), "Total number of physical channels that are currently inserted");
+            decoded = 1;
+        }
+        if(wLength >= 5)
+        {
+            bmChannelConfig = NextNBits_(32);
+            AddPayLoadCell("bmChannelConfig", Format("0x%08X", bmChannelConfig), ToBitDecode(AudioChannelConfigBitmap, bmChannelConfig));
+            decoded = 5;
+        }
+        if(wLength >= 6)
+        {
+            iChannelNames = NextNBits_(8);
+            AddPayLoadCell("iChannelNames", Format("0x%02X", iChannelNames), "Index of a string descriptor, describing the name of the first inseted channel with a non-predefined spatial location.");
+            decoded = 6;
+        }
+        else
+            AddNoEnoughDataCell();
+    }
+    return decoded;
+}
+
+
+CLUSTER_CONTROL_v2_sub(cellColor, validate_func, tooltip_func)
+{
+    FieldColor = cellColor;
+    if (wLength > in.DataLength - 8)
+        wLength = in.DataLength - 8;
+    if (bRequest == 0x01) # only valid with CUR
+    {
+        if (wLength >= 1)
+        {
+            bNrChannels = NextNBits_(8);
+            AddPayLoadCell("bNrChannels", Format("0x%02X", bNrChannels), "Number of logical output channels in the Entity's output audio channel cluster.");
+        }
+        if (wLength >= 5)
+        {
+            bmChannelConfig = NextNBits_(32);
+            AddPayLoadCell("bmChannelConfig", Format("0x%08X", bmChannelConfig), ToBitDecode(AudioChannelConfigBitmap, bmChannelConfig));
+        }
+        if (wLength >= 6)
+        {
+            iChannelNames = NextNBits_(8);
+            AddPayLoadCell("iChannelNames", Format("0x%02X", iChannelNames), "Index of a string descriptor, describing the name of the first logical channel.");
+        }
+        else
+            AddNoEnoughDataCell();
+    }
+    return 6;
+}
+
+GRAPHIC_EQUALIZER_CONTROL_v2_sub(cellColor, validate_func, tooltip_func)
+{
+    if (wLength > in.DataLength - 8)
+        wLength = in.DataLength - 8;
+    FieldColor = cellColor;
+
+    if (bRequest == 0x01) # CUR
+    {
+        if (wLength >= 4)
+        {
+            bmBandsPresent = NextNBits_(32);
+            AddPayLoadCell("bmBandsPresent", Format("0x%08X", bmBandsPresent), "A bit set indicates the band is present:\nD0: Band 14\nB1: Band 15\n...\nD29:Band 43\nD30: Reserved\n...");
+            for (i = 4; i < wLength ; i ++)
+            {
+                bBand = NextNBits_(8);
+                if (bBand > 0x7F)
+                {
+                    bBand = bBand | 0xFFFFFF00; # make 2's comp for dword value
+                }
+                toolTip = Format("Settings for Band Control 0x%02X: ",bBase) + Format("%d * 0.25 dB", bBase);
+                VS = "ADT_bBand";
+                AddBlockPLCell(Format("bBand %d",i-4), Format("0x%02X", bBand), toolTip);
+            }
+            return 4;
+        }
+        else
+        {
+            return 0;
+        }
+    }
+    else if (bRequest == 0x02) #RANGE
+    {
+        if (wLength >= 2)
+        {
+            wNumSubRanges = NextDataWord_();
+            AddPayLoadCell("wNumSubRanges", Format("%d", wNumSubRanges), "The number of subranges of the Graphic Equalizer Control.");
+        }
+        else
+        {
+            AddNoEnoughDataCell();
+            return 0;
+        }
+        isEnoughData = 0;
+        if (wLength < 2 + wNumSubRanges * 3)
+            wNumSubRanges = (wLength - 2) / 3;
+        else
+            isEnoughtData = 1;
+        for(i = 0; i < wNumSubRanges; i++)
+        {
+            bMin = NextNBits_(8);
+            if (bMin > 0x7F)
+            {
+                bMin = bMin | 0xFFFFFF00; # make 2's comp for dword value
+            }
+            toolTip = Format("Settings for Graphic Equalizer Control 0x%02X: ",bMin) + Format("%d * 0.25 dB", bMin);
+            VS = "ADT_bMIN";
+            AddBlockPLCell(Format("bMin %d",i + 1), Format("0x%02X", bMin), toolTip);
+
+            bMax = NextNBits_(8);
+            if (bMax > 0x7F)
+            {
+                bMax = bMax | 0xFFFFFF00; # make 2's comp for dword value
+            }
+            toolTip = Format("Settings for Graphic Equalizer Control 0x%02X: ",bMax) + Format("%d * 0.25 dB", bMax);
+            VS = "ADT_bMAX";
+            AddBlockPLCell(Format("bMax %d",i + 1), Format("0x%02X", bMax), toolTip);
+
+            bRes = NextNBits_(8);
+            if (bRes > 0x7F)
+            {
+                bRes = bRes | 0xFFFFFF00; # make 2's comp for dword value
+            }
+            toolTip = Format("Settings for Graphic Equalizer Control 0x%02X: ",bRes) + Format("%d * 0.25 dB", bRes);
+            VS = "ADT_bRES";
+            AddBlockPLCell(Format("bRes %d",i + 1), Format("0x%02X", bRes), toolTip);
+        }
+        if (isEnoughData == 0)
+            AddNoEnoughDataCell();
+        return 2 + wNumSubRanges * 3;
+    }
+    else
+        return 0;
+}
+
+AS_VAL_ALT_SETTINGS_CONTROL_v2_sub (cellColor, validate_func, tooltip_func)
+{
+    if (wLength > in.DataLength - 8)
+        wLength = in.DataLength - 8;
+    FieldColor = cellColor;
+    if (bRequest == 0x01) # CUR
+    {
+        if (wLength >= 1)
+        {
+            bControlSize = NextNBits_(8);
+            AddPayLoadCell("bControlSize", Format("%d", bControlSize), "Indicates the number of bytes in the bmValidAltSetting bit map");
+        }
+        else
+        {
+            AddNoEnoughDataCell();
+            return 0;
+        }
+        if (wLenth >= 1 + bControlSize)
+        {
+            ShowDataBlock (bControlSize);
+            return 1 + bControlSize;
+        }
+        else
+        {
+            AddNoEnoughDataCell();
+            return 1;
+        }
+    }
+    else
+        return 0;
+}
+
+HILO_SCALING_CONTROL_v2_sub (cellColor, validate_func, tooltip_func)
+{
+    if (wLength > in.DataLength - 8)
+        wLength = in.DataLength - 8;
+    FieldColor = cellColor;
+
+    if (bRequest == 0x01) # CUR
+    {
+        if (wLength >= 1)
+        {
+            bCur_Lo = NextNBits_(8);
+            AddPayLoadCell("bCUR_Lo", Format("0x%02X", bCur_Lo), "The setting for the CUR attribute of the low level Scaling Control.");
+        }
+        if (wLength >= 2)
+        {
+            bCur_Hi = NextNBits_(8);
+            AddPayLoadCell("bCUR_Hi", Format("0x%02X", bCur_Hi), "The setting for the CUR attribute of the high level Scaling Control.");
+            return 2;
+        }
+        else
+        {
+            AddNoEnoughDataCell();
+            return 0;
+        }
+
+    }
+    else if (bRequest == 0x02) # RANGE
+    {
+        if (wLength >= 2)
+        {
+            wNumSubRanges = NextDataWord_();
+            AddPayLoadCell("wNumSubRanges", Format("%d", wNumSubRanges), "The number of subranges of the High/Low Scaling Control.");
+        }
+        else
+        {
+            AddNoEnoughDataCell();
+            return 0;
+        }
+        isEnoughData = 0;
+        if (wLength <  2 + 3 * wNumSubRanges)
+            wNumSubRanges = (wLength - 2) / 3;
+        else
+            isEnoughData = 1;
+        for (i = 0; i< wNumSubRanges; i++)
+        {
+            bMIN = NextNBits_(8);
+            VS = "ADT_bMIN";
+            AddBlockPLCell(Format("bMIN(%d)", i+1), Format("0x%02X", bMIN), Format("The setting for the MIN attribute of the %d subrange of the High/Low Scaling Control", i + 1));
+
+            bMAX = NextNBits_(8);
+            VS = "ADT_bMAX";
+            AddBlockPLCell(Format("bMAX(%d)", i+1), Format("0x%02X", bMAX), Format("The setting for the MAX attribute of the %d subrange of the High/Low Scaling Control", i + 1));
+
+            bRES = NextNBits_(8);
+            VS = "ADT_bRES";
+            AddBlockPLCell(Format("bRES(%d)", i+1), Format("0x%02X", bRES), Format("The setting for the RES attribute of the %d subrange of the High/Low Scaling Control", i + 1));
+        }
+        if (isEnoughData == 0)
+            AddNoEnoughDataCell();
+        return 2 + 3 * wNumSubRanges;
+
+    }
+    else
+        return 0;
+}
+
+AudioLayout1(validBit, cellColor, func_valid, func_tooltip)
+{
+    if (wLength > in.DataLength - 8)
+        wLength = in.DataLength - 8;
+
+    FieldColor = cellColor;
+    validCur = validBit >> 1;
+    validRange = validBit & 0b01;
+
+    if (bRequest == 0x01 && validCur == 1) # CUR
+    {
+        if (wLength >= 1)
+        {
+            bCur = NextNBits_(8);
+            Error = null;
+            if (func_valid != null)
+            {
+                correct = Call (func_valid, [ bCur ]);
+                if (correct == 0)
+                    Error == _ERROR;
+            }
+
+            if (func_tooltip == null)
+                value_string = Format("0x%02X", bCur);
+            else
+                value_string = Call(func_tooltip, [bCur]);
+
+            AddPayLoadCell("bCUR", value_string , "The setting for the CUR attribute of the addressed Control.", Error);
+            return 1;
+        }
+        else
+        {
+            AddNoEnoughDataCell();
+            return 0;
+        }
+    }
+    else if (bRequest == 0x02 && validRange == 1) # RANGE
+    {
+        if (wLength >= 2)
+        {
+            wNumSubRanges = NextDataWord_();
+            AddPayLoadCell("wNumSubRanges", Format("%d", wNumSubRanges), "The number of subranges of the addressed Control.");
+        }
+        else
+        {
+            AddNoEnoughDataCell();
+            return 0;
+        }
+
+        isEnoughData = 0;
+        if (wLength <  2 + 3 * wNumSubRanges)
+            wNumSubRanges = (wLength - 2) / 3;
+        else
+            isEnoughData = 1;
+
+        for (i = 0; i< wNumSubRanges; i++)
+        {
+            bMIN = NextNBits_(8);
+            Error = null;
+            if (func_valid != null)
+            {
+                correct = Call (func_valid, [ bMIN ]);
+                if (correct == 0)
+                    Error == _ERROR;
+            }
+
+            if (func_tooltip == null)
+                value_string = Format("0x%02X", bMIN);
+            else
+                value_string = Call(func_tooltip, [bMIN]);
+            VS = "ADT_bMIN";
+            AddBlockPLCell(Format("bMIN(%d)", i+1), value_string, Format("The setting for the MIN attribute of the %d subrange of the addressed Control", i + 1), Error);
+
+            bMAX = NextNBits_(8);
+            Error = null;
+            if (func_valid != null)
+            {
+                correct = Call (func_valid, [ bMAX ]);
+                if (correct == 0)
+                    Error == _ERROR;
+            }
+
+            if (func_tooltip == null)
+                value_string = Format("0x%02X", bMAX);
+            else
+                value_string = Call(func_tooltip, [bMAX]);
+
+            VS = "ADT_bMAX";
+            AddBlockPLCell(Format("bMAX(%d)", i+1), value_string, Format("The setting for the MAX attribute of the %d subrange of the addressed Control", i + 1), Error);
+
+            bRES = NextNBits_(8);
+            Error = null;
+
+            if (func_valid != null)
+            {
+                correct = Call (func_valid, [ bRES ]);
+                if (correct == 0)
+                    Error == _ERROR;
+            }
+
+            if (func_tooltip == null)
+                value_string = Format("0x%02X", bRES);
+            else
+                value_string = Call(func_tooltip, [bRES]);
+            VS = "ADT_bRES";
+            AddBlockPLCell(Format("bRES(%d)", i+1), value_string, Format("The setting for the RES attribute of the %d subrange of the addressed Control", i + 1), Error);
+        }
+
+        if (isEnoughData == 0)
+            AddNoEnoughDataCell();
+        return 2 + 3 * wNumSubRanges;
+
+    }
+    else
+        return 0;
+}
+
+
+AudioLayout2(validBit, cellColor, func_valid, func_tooltip)
+{
+    validCur = validBit >> 1;
+    validRange = validBit & 0b01;
+
+    if (wLength > in.DataLength - 8)
+        wLength = in.DataLength - 8;
+    FieldColor = cellColor;
+
+    if (bRequest == 0x01 && validCur == 1) # CUR
+    {
+        if (wLength >= 2)
+        {
+            wCur = NextDataWord_();
+            Error = null;
+            if (func_valid != null)
+            {
+                correct = Call (func_valid, [ wCur ]);
+                if (correct == 0)
+                    Error == _ERROR;
+            }
+
+            if (func_tooltip == null)
+                value_string = Format("0x%04X", wCur);
+            else
+                value_string = Call(func_tooltip, [wCur]);
+
+            AddPayLoadCell("wCUR", value_string , "The setting for the CUR attribute of the addressed Control.", Error);
+            return 2;
+        }
+        else
+        {
+            AddNoEnoughDataCell();
+            return 0;
+        }
+    }
+    else if (bRequest == 0x02 && validRange == 1) # RANGE
+    {
+        if (wLength >= 2)
+        {
+            wNumSubRanges = NextDataWord_();
+            AddPayLoadCell("wNumSubRanges", Format("%d", wNumSubRanges), "The number of subranges of the addressed Control.");
+        }
+        else
+        {
+            AddNoEnoughDataCell();
+            return 0;
+        }
+
+        isEnoughData = 0;
+        if (wLength <  2 + 3 * wNumSubRanges)
+            wNumSubRanges = (wLength - 2) / 3;
+        else
+            isEnoughData = 1;
+
+        for (i = 0; i< wNumSubRanges; i++)
+        {
+            wMIN = NextDataWord_();
+            Error = null;
+            if (func_valid != null)
+            {
+                correct = Call (func_valid, [ wMIN ]);
+                if (correct == 0)
+                    Error == _ERROR;
+            }
+
+            if (func_tooltip == null)
+                value_string = Format("0x%04X", wMIN);
+            else
+                value_string = Call(func_tooltip, [wMIN]);
+            VS = "ADT_wMIN";
+            AddBlockPLCell(Format("wMIN(%d)", i+1), value_string, Format("The setting for the MIN attribute of the %d subrange of the addressed Control", i + 1), Error);
+
+            wMAX = NextDataWord_();
+            Error = null;
+            if (func_valid != null)
+            {
+                correct = Call (func_valid, [ wMAX ]);
+                if (correct == 0)
+                    Error == _ERROR;
+            }
+
+            if (func_tooltip == null)
+                value_string = Format("0x%04X", wMAX);
+            else
+                value_string = Call(func_tooltip, [wMAX]);
+
+            VS = "ADT_wMAX";
+            AddBlockPLCell(Format("wMAX(%d)", i+1), value_string, Format("The setting for the MAX attribute of the %d subrange of the addressed Control", i + 1), Error);
+
+            wRES = NextDataWord_();
+            Error = null;
+
+            if (func_valid != null)
+            {
+                correct = Call (func_valid, [ wRES ]);
+                if (correct == 0)
+                    Error == _ERROR;
+            }
+
+            if (func_tooltip == null)
+                value_string = Format("0x%04X", wRES);
+            else
+                value_string = Call(func_tooltip, [wRES]);
+
+            VS = "ADT_wRES";
+            AddBlockPLCell(Format("wRES(%d)", i+1), value_string, Format("The setting for the RES attribute of the %d subrange of the addressed Control", i + 1), Error);
+        }
+
+        if (isEnoughData == 0)
+            AddNoEnoughDataCell();
+        return 2 + ( 3 * 2 * wNumSubRanges );
+
+    }
+    else
+        return 0;
+}
+
+
+AudioLayout3(validBit, cellColor, func_valid, func_tooltip)
+{
+    validCur = validBit >> 1;
+    validRange = validBit & 0b01;
+
+    if (wLength > in.DataLength - 8)
+        wLength = in.DataLength - 8;
+    FieldColor = cellColor;
+
+    if (bRequest == 0x01 && validCur == 1) # CUR
+    {
+        if (wLength >= 4)
+        {
+            dCur = NextDataDWord_();
+            Error = null;
+            if (func_valid != null)
+            {
+                correct = Call (func_valid, [ dCur ]);
+                if (correct == 0)
+                    Error == _ERROR;
+            }
+
+            if (func_tooltip == null)
+                value_string = Format("0x%08X", dCur);
+            else
+                value_string = Call(func_tooltip, [dCur]);
+
+            AddPayLoadCell("dCUR", value_string , "The setting for the CUR attribute of the addressed Control.", Error);
+            return 4;
+        }
+        else
+        {
+            AddNoEnoughDataCell();
+            return 0;
+        }
+
+    }
+    else if (bRequest == 0x02 && validRange == 1) # RANGE
+    {
+        if (wLength >= 2)
+        {
+            wNumSubRanges = NextDataWord_();
+            AddPayLoadCell("wNumSubRanges", Format("%d", wNumSubRanges), "The number of subranges of the addressed Control.");
+        }
+        else
+        {
+            AddNoEnoughDataCell();
+            return 0;
+        }
+
+        isEnoughData = 0;
+        if (wLength <  2 + 3 * wNumSubRanges)
+            wNumSubRanges = (wLength - 2) / 3;
+        else
+            isEnoughData = 1;
+
+        for (i = 0; i< wNumSubRanges; i++)
+        {
+            dMIN = NextDataDWord_();
+            Error = null;
+            if (func_valid != null)
+            {
+                correct = Call (func_valid, [ dMIN ]);
+                if (correct == 0)
+                    Error == _ERROR;
+            }
+
+            if (func_tooltip == null)
+                value_string = Format("0x%08X", dMIN);
+            else
+                value_string = Call(func_tooltip, [dMIN]);
+
+            VS = "ADT_dMIN";
+            AddBlockPLCell(Format("dMIN(%d)", i+1), value_string, Format("The setting for the MIN attribute of the %d subrange of the addressed Control", i + 1), Error);
+
+            dMAX = NextDataDWord_();
+            Error = null;
+            if (func_valid != null)
+            {
+                correct = Call (func_valid, [ dMAX ]);
+                if (correct == 0)
+                    Error == _ERROR;
+            }
+
+            if (func_tooltip == null)
+                value_string = Format("0x%08X", dMAX);
+            else
+                value_string = Call(func_tooltip, [dMAX]);
+            VS = "ADT_dMAX";
+            AddBlockPLCell(Format("dMAX(%d)", i+1), value_string, Format("The setting for the MAX attribute of the %d subrange of the addressed Control", i + 1), Error);
+
+            dRES = NextDataDWord_();
+            Error = null;
+            if (func_valid != null)
+            {
+                correct = Call (func_valid, [ dRES ]);
+                if (correct == 0)
+                    Error == _ERROR;
+            }
+
+            if (func_tooltip == null)
+                value_string = Format("0x%08X", dRES);
+            else
+                value_string = Call(func_tooltip, [dRES]);
+
+            VS = "ADT_dRES";
+            AddBlockPLCell(Format("dRES(%d)", i+1), value_string, Format("The setting for the RES attribute of the %d subrange of the addressed Control", i + 1), Error);
+        }
+
+        if (isEnoughData == 0)
+            AddNoEnoughDataCell();
+
+        return 2 + ( 3 * 4 * wNumSubRanges );
+    }
+    else
+        return 0;
+}
+
+####################################################################################
+#                       USBTracer specific caption cell                            #
+####################################################################################
+
+AddSpecCaptionCell(caption, text, tooltip, FieldColor, addparam, addparam1, addparam2 )
+{
+    AddCell(caption, text, tooltip, FieldColor, _USBBULK_HEADER, addparam, addparam1, addparam2 );
+    return 1;
+}

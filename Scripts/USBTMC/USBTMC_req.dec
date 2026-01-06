@@ -1,0 +1,154 @@
+ 
+# Copyright (c) 2010, LeCroy Corp PSG. - All Rights Reserved
+ 
+#   TMC.dec
+
+#   Test and Measurement Class Decoder
+ 
+
+%include "CATCScriptAPI.inc"             #.inc files that are included
+%include "UsbCommon.inc" 
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block 
+#
+#----  Output
+# out.Decoded   - amount of data has been decoded
+#
+
+#############################################################################
+#                               View Settings                               #
+#############################################################################
+#
+#-----------------------------------------------------------------------------
+
+set usbtmc_colour = 0xAE2800;
+
+set OutputType      = "USB Test and Measurement";      
+set UsbDecodeType   = "Request";
+set UsbReqType      = "Class";
+set UsbClassCode    = 0xFE;    # Application Specific
+set UsbSubClass     = 0x03;    # USBTMC
+#set UsbProtocol     = 0x01;    # According to USB.Org defined codes
+set UsbScriptDecodeType = 1;   # Combined decoding for Cells and Text decoding 
+#set UsbSpecVersion 	= 0x0002;
+
+
+set bReqType = 0;     #Declaring global variables
+set bRequest = 0;
+set wValue   = 0;
+set wIndex   = 0;
+set wLength  = 0;
+set EntiyId  = 0;
+set AttributeString = "";
+set BaseColor = 0;
+set EntityString = "";
+set FullyDecoded = 1;  # Variable that will determine if request has been fully decoded
+
+set USBTMCBreqest = [
+[0x00, Reserved, Reserved, Reserved],
+[0x01, "INITIATE_ABORT_BULK_OUT","Required Aborts a Bulk-OUT transfer.",""],
+[0x02, "CHECK_ABORT_BULK_OUT_STATUS","Required Returns the status of the previously sent INITIATE_ABORT_BULK_OUT request.",""],
+[0x03, "INITIATE_ABORT_BULK_IN","Required Aborts a Bulk-IN transfer.",""],
+[0x04, "CHECK_ABORT_BULK_IN_STATUS","Required Returns the status of the previously sent INITIATE_ABORT_BULK_IN request.",""],
+[0x05, "INITIATE_CLEAR","Required Clears all previously sent pending and unprocessed Bulk-OUT USBTMC message content and clears all pending Bulk-IN transfers from the USBTMC interface.",""],
+[0x06, "CHECK_CLEAR_STATUS","Required Returns the status of the previously sent INITIATE_CLEAR request.",""],
+[0x07, "GET_CAPABILITIES","Required Returns attributes and capabilities of the USBTMC interface.",""],
+[64, "INDICATOR_PULSE","Optional A mechanism to turn on an activity indicator for identification purposes. The device indicates whether or not it supports this request in the GET_CAPABILITIES response packet.",""],
+#[8-63,"Reserved"," Reserved Reserved for use by the USBTMC specification.",""],
+#[65-127,"Reserved","Reserved Reserved for use by the USBTMC specification.",""],
+#[128-191,"Reserved","Reserved Reserved for use by USBTMC subclassspecifications.",""],
+[0xA0,"Reserved","Reserved Reserved for use by USBTMC subclassspecifications.",""],
+
+#[192-255,"Reserved","Reserved Reserved for use by the VISA specification. All USBTMC class-specific requests return data to the Host (bmRequestType direction = Device-to-host)",""],
+[0xff,"Rsvd","rsvd",""]
+];
+
+ProcessData()
+{
+    CommonDecoderInit();    
+    
+    UnitDecoderInit("TMC");
+    
+    SetCellColor(usbtmc_colour);
+    
+    AddCaptionCell("TMC","Class","In order to view comments in text field, user must expand this caption cell",_MONOCOLOR);  # will allow for the expansion of certain fields
+    RestoreCellColor();
+    AddSeparator();
+    
+    FullyDecoded = 1;
+    
+    
+    out.Decoded = 0;      
+
+    GetNBits( in.Data, 0, 0 );      #Initialize pointer/counter for NextNBits_()    
+    bReqType_Direction = NextNBits_(1);
+    bReqType_Type = NextNBits_(2);
+    bReqType_recipient = NextNBits_(5);
+
+    bReqType= bReqType_Direction*128 + bReqType_Type*32 + bReqType_recipient;
+
+    select  {
+         bReqType_recipient >= 4: rtext = "Reserved";
+         bReqType_recipient == 0: rtext = "Device";
+         bReqType_recipient == 1: rtext = "Interface";
+         bReqType_recipient == 2: rtext = "Endpoint";
+         bReqType_recipient == 3: rtext = "Other";
+    };
+    tttext="bReqType\nB0-4 Recipient       =" + bReqType_recipient + " - " + rtext;
+
+    select  {
+         bReqType_Type== 0: typetext = "Standard";
+         bReqType_Type== 1: typetext = "Class";
+         bReqType_Type== 2: typetext = "Vendor";
+         bReqType_Type== 3: typetext = "Reserved";
+    };
+    tttext=tttext + "\nB5-6 Type             =" + bReqType_Type + " - " + typetext;
+
+    select  {
+         bReqType_Direction == 0: {dtext = "Host-to-dev"; dtxt="H->D";}
+         bReqType_Direction == 1: {dtext = "Dev-to-Host"; dtxt="D->H";}
+
+    };
+    tttext=tttext + "\nB7 Data tfer direction=" + bReqType_Direction + " - " + dtext;
+
+    if (IsExpanded()) {
+      AddCell("D",dtxt,"Transfer Direction " + dtext,0xa0a0a0);
+      AddCell("Tp",typetext, typetext + " request type",0xB060B0);
+      AddCell("R",rtext, "Recipient is a " + rtext,0x000050);
+    }
+
+    AddPayLoadCell("bmRequestType", Format("0x%02X", bReqType), tttext);
+    bRequest = NextNBits_(8);
+          #AddPayLoadCell("bmRequest", Format("0x%02X", bRequest ), "Request Type bitmap");
+
+    _row = Find(USBTMCBreqest, bRequest);  # will determine which request is being used 
+    #AddPayLoadCell("bmRequest", Format("0x%02X", bRequest), "bmRequest");
+    
+    req_text = _row[1];
+    
+    if( bRequest == 0x00 || (bRequest >= 8 && bRequest <= 63) || bRequest >= 65)
+        req_text = "RESERVED";
+
+    AddRequestCell (req_text);   
+    
+    out.Decoded = 8 + decoded;
+    
+    ############ for Debug purposes#########
+    # GetNBits(in.Data, 0, 0);             #
+    # ShowDataBlock(in.DataLength);        #
+    ########################################       
+
+    return Complete();
+}
+
+####################################################################################
+#                       USBTracer specific caption cell                            #
+####################################################################################
+
+AddSpecCaptionCell(caption, text, tooltip, FieldColor, addparam, addparam1, addparam2 )
+{
+    AddCell(caption, text, tooltip, FieldColor, _USBBULK_HEADER, addparam, addparam1, addparam2 );
+    return 1;
+}

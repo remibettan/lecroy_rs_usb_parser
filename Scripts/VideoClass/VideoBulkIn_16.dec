@@ -1,0 +1,78 @@
+#
+#  Copyright (c) 2004, Computer Access Technology Corp. - All Rights Reserved
+#
+#  VideoBulkIn.dec
+#
+#  
+#  
+
+%include "CATCScriptAPI.inc"  
+%include "UsbCommon.inc" 
+%include "Video_Common_Custom.inc"
+%include "VideoTables.inc"       #has all the tables that are accessed in this file
+%include "VideoCellColors.inc"
+
+
+#----  Input
+# in.Data       - Data_block to decode  
+# in.DataLength - Length of Data_block  
+#
+#----  Output
+# out.Decoded   - amount of data has been decoded
+#
+
+
+set OutputType      = "Video Bulk In 16Byte Header";
+set UsbDecodeType = "Endpoint";
+set UsbEndpId = 7; # just a unique value for each endpoint of the same Class/Vendor/Product to distinguish them
+set UsbClassCode = 0x0E;
+set UsbEndpType = "Bulk";
+set UsbEndpDir = "In";
+set UsbMaxXferSize = 0xFFFFFF;
+set UsbMaxPktSize          = 1024; # will automatically be reduced to 64 if branch is Full Speed     
+set UsbMaxXferDecodeSize   = 16;  # Max bytes that we will be decoding   User can up this if he likes
+#set UsbXferCompleteClue    = 1; # Transfer not necessarily over when empty frame seen.  See USBCommon.inc for explanation.
+
+ 
+set UsbScriptDecodeType = 2; # Combined decoding for Cells and Text decoding 
+
+#
+# Parsing entry point
+#
+  
+
+
+# User can select the colors for the fields he chooses
+set wDecodeCellColor    = 0x494949; 
+
+
+set ContainerLength = 0;
+set ContainerType = 0;
+set Code = 0;
+set TransactionID = 0;
+set Payload = 0;
+set numOfParams = 0;
+
+
+
+set FullyDecoded = 1;
+
+ProcessData()
+{
+    DoProcessDataFirstPart();
+ 
+    CurrentPayloadColor = VideoBulkInColor;
+    DoVideoPayloadHeader();
+    
+    return Complete();
+
+}
+    
+    
+    
+
+Data()
+{ 
+
+}
+

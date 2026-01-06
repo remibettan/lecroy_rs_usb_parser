@@ -1,0 +1,895 @@
+#*******************************************************************************
+#
+#  FILENAME: ICCD_req_Ver.B.dec
+#
+#  Copyright (c) 2007, LeCroy - All Rights Reserved
+#
+#  DESCRIPTION
+#    This is the request file for SmartCard ICCDs (ICC Devices). 
+#    This file is prepared as per the Specification Revision 1.1.
+#    This file is prepared as per the Integrated Circuit(s) Cards Devices
+#      Specification for the SmartCard Class.
+#
+#  REVISION HISTORY
+#    01/12/2007
+#
+#*******************************************************************************   
+
+%include "CATCScriptAPI.inc"             #.inc files that are included
+%include "UsbCommon.inc" 
+
+
+ #----  Input
+ # in.Data       - Data_block to decode
+ # in.DataLength - Length of Data_block 
+ 
+ #----  Output
+ # out.Decoded   - amount of data has been decoded
+
+#############################################################################
+#                               View Settings                               #
+#############################################################################
+#
+#    In this section user can set up which fields are to be shown and 
+#    which are to be hidden in expanded and collapsed states.
+#    Zero-value everywhere means that fields will not be shown,
+#    otherwise means opposite.
+#
+#
+# ----------------------- All Field View Settings ---------------------------
+#   These settings have priority above separate field View Settings in
+#   expanded state ONLY.
+#   In order separate field View Settings to work properly
+#   BOTH All Field View Settings should be set to 0.
+#
+#   Due to the fact that ViewAll-setting and HideAll-setting are 
+#   exceptive propositions - ViewAll has been set a higher priority.
+# ---------------------------------------------------------------------------
+
+  const ICCD_ViewAll              = 0;
+  const ICCD_HideAll              = 0;
+
+# ---------------------------------------------------------------------------
+
+
+# -----------------------  Separate Field View Settings ---------------------
+# The FIRST value in list-variables defines if the field is to be shown or
+# hidden in COLLAPSED state. 
+# 0 - means the field is to be shown.
+# 1 - means the field is to be hidden.
+# 
+# The SECOND value in list-variables defines if the field is to be shown or
+# hidden in EXPANDED state. 
+# 0 - means the field is to be shown.
+# 1 - means the field is to be hidden.
+#
+# i.e.  const RPD_Field = [0, 1]# - means that field 'Field' will be hidden
+# in collapsed state and will be shown in expanded state. 
+#
+ 
+#                                 [collapsed, expanded]   
+const ICCD_bmRequestType                = [1, 1];
+const ICCD_wValue                       = [1, 1];
+const ICCD_wIndex                       = [1, 1];
+const ICCD_wLength                      = [1, 1];
+const ICCD_bErrorCode                   = [1, 1];        #No purpose currently, just declared
+const ICCD_bSeq                         = [1, 1];
+const ICCD_bSlot                        = [1, 1];
+
+
+#-----------------------------------------------------------------------------
+
+set OutputType      = "ICCD Ver. B Requests";      
+set UsbDecodeType   = "Request";
+set UsbReqType      = "Class";
+set UsbClassCode    = 0x0B;     # Class code for Smart Card
+set UsbScriptDecodeType = 1;    # Combined decoding for Cells and Text decoding 
+set UsbProtocol     = 2;        # this is used for seperation from different Smart Card Class requests
+
+set bReqType  = 0;              #Declaring global variables
+set bRequest  = 0;
+set wValue    = 0;
+set wIndex    = 0;
+set wLength   = 0;
+set bmCommandStatus = 0;
+
+set AttributeString  = "";       #Holds Text Data
+
+#Colors for Requests (Currently all same color, can be changed if desired)
+
+set ICCD_IccPowerOnReqColor   = 0x25C9FF;    #Request 0x62    
+set ICCD_IccPowerOffReqColor  = 0x25C9FF;    #Request 0x63    
+set ICCD_XfrBlockReqColor     = 0x25C9FF;    #Request 0x65
+set ICCD_DataBlockReqColor    = 0x25C9FF;    #Request 0x6F
+set ICCD_SlotStatusReqColor   = 0x25C9FF;    #Request 0x81
+set ICCD_CaptionColor         = 0x7FFFFF;    #Caption Cell (Expansion Indicator)     #9B4A13 - 7700500;
+set GreyColor                 = 0x888888;
+  
+
+set FullyDecoded = 1;  # Variable that will determine if request has been fully decoded
+
+set RestoreBitCurrentFieldOffset = 0;         #Temp Variables to store a restore value
+set RestoreBitCurrentFieldLength = 0;
+
+ProcessData()
+{   
+   
+    CommonDecoderInit();        # Initialization of SRP common global variables [found in CATCScriptAPI.inc]
+    
+    UnitDecoderInit("ICCD");    # This function must be called before starting unit decoding. [found in CATCScriptAPI.inc]
+                                # It performes necessary initialization routine for "unit" decoder.
+                                # Unit has its own prefix, view settings and may have its own color.
+       
+    SetCellColor(ICCD_CaptionColor);
+    AddCaptionCell("SmartCard","ICCD","This data payload represents a SmartCard ICCD Ver. B Request.",_MONOCOLOR);  # Will allow for the expansion of certain fields
+    RestoreCellColor();
+
+    AddSeparator();
+    
+    FullyDecoded = 1;            
+    out.Decoded = 0;            # Nothing has been decoded yet
+    
+    if (in.DataLength < 8)      # Checking for Illegal Payload
+    { 
+        if (!AddSpecPLCellMonoNoDlg("Error", "Illegal Payload", "Nothing is being decoded", __ERROR))  
+            AddErrorMonoCell("Error", "Illegal Payload", "Nothing is being decoded");      #[found in CATCScriptAPI.inc]
+        return Complete();
+    }
+    
+    GetNBits(in.Data, 0, 0);        #Initialize pointer/counter for NextNBits_()
+                                     
+    bReqType = NextNBits_(8);       #0-7
+    bRequest = NextNBits_(8);       #8-15
+    wValue   = NextDataWord_();     #16-31
+    wIndex   = NextDataWord_();     #32-47
+    wLength  = NextDataWord_();     #48-63
+    
+    out.Decoded = 8;            # "Decoded" 8 bytes
+    
+    _row = Find(ICCDRequestTable, bRequest);  # will determine which request is being used
+
+    AddShortDataHeader(_row[1]);    
+    if (_row[0] == 0)
+    {
+        AddSeparator();
+        AddDecodedTextHeader();  # header for the text decoding
+        SetFieldOffsetLen(8,8);  
+        FieldColor = bRequestColor;
+        AddPayLoadCell("bmRequestType",Format("0x%02X",bReqType),Format("Bitmap with decimal value of %d",bReqType) + "\n\nCharacteristics of Request:\n   D7      Data xfer direction\n\t   0 = Host to Device\n\t   1=Device to host\n\n   D6..5   Type\n\t   0 = Standard\n\t   1 = Class\n\t   2 = Vendor\n\t   3 = Reserved\n\n   D4..0   Recipient\n\t   0 = Device\n\t   1 = Interface\n\t   2 = Endpoint\n\t   3 = Other\n\t   4..31 = Reserved\n");
+        SetFieldOffsetLen(16,8);
+        FieldColor = bRequestColor;
+        AddPayLoadCell("bRequest", _row[1], Format("bRequest HexVal: 0x%04X", bRequest));
+        SetFieldOffsetLen(32,16);
+        FieldColor = wValueColor;
+        AddPayLoadCell("wValue", wValue, "");
+        SetFieldOffsetLen(48,16);
+        FieldColor = wIndexColor;
+        AddPayLoadCell("wIndex",wIndex,"");
+        SetFieldOffsetLen(64,16);
+        FieldColor = wLengthColor;
+        AddPayLoadCell("wLength",wLength,"");
+        
+        if((in.DataLength - out.Decoded)!=0)
+          ShowDataBlockReOrder(in.DataLength-out.Decoded);
+    }
+    if ( _row[0] != 0)
+    {
+        AttributeString = _row[1];
+        
+        AddSeparator();                       # Adding Separator between what will be decoded and what is already visible
+        Call ( _row[1], [ in.DataLength ] );  # will call function for the specified request
+        if(FullyDecoded == 1)                 # if the request is fully decoded
+        {
+            out.Decoded = in.DataLength;
+        }
+        else if(FullyDecoded == 0)
+        {
+           #Currently not doing anything, The last commented line for this statement was original, but 
+           #wasn't working, however, don't need it since out.Decoded is kept track of throughout this script.
+           #The next commented line can be uncommented to show all undecoded data as a 'Data' block.
+           #ShowDataBlock(in.DataLength-out.Decoded);
+           # out.Decoded = BitCurrentFieldOffset/8;        
+           ShowDataBlockReOrder(in.DataLength-out.Decoded);
+        }
+        #AddPayLoadCell("FullyDecoded",FormatEx("%d -- BCFO %d -- Dec %d -- Len %d -- R1 %d -- R2 %d -- inFLG %d",FullyDecoded,BitCurrentFieldOffset,out.Decoded,in.DataLength,RestoreBitCurrentFieldOffset,RestoreBitCurrentFieldLength,in.PrepareFldsForDlg),"");
+    }
+    
+    AddSeparator();
+
+    ############ for Debug purposes#########
+    # GetNBits(in.Data, 0, 0);             #
+    # ShowDataBlock(in.DataLength);        #
+    ########################################       
+
+    return Complete();
+}
+
+# Add Request Decoding by Application [request table in Dialog View]
+DecodeRequestToText()
+{
+    return DecodeRequestToTextCommon( ICCDRequestTable );    
+}
+
+# Request List/Table for ICCD
+set ICCDRequestTable =
+[
+  [ 0x00, "UNDEFINED" ],
+  [ 0x62, "ICC_POWER_ON"  ],
+  [ 0x63, "ICC_POWER_OFF"  ],
+  [ 0x65, "XFR_BLOCK"  ],
+  [ 0x6F, "DATA_BLOCK" ],
+  [ 0x81, "SLOT_STATUS" ]
+];
+
+ICC_POWER_ON()
+{
+  FieldColor = ICCD_IccPowerOnReqColor;
+  
+  if(bReqType != 0x21)                      # != 00100001B  ---- Verifying correct bmRequestType for Request and adding Cell
+  {    
+    SetCellColor(RED);
+    SetFieldOffsetLen_ICCD( 8, 8 );
+    AddPayLoadCell("RequestType",Format("*WARNING* 0x%02X",bReqType),FormatEx("WARNING: For ICC POWER ON Request,\nbmRequestType should only be 0x21 (00100001B), but it is 0x%02X. \n\nBitmap with decimal value of %d",bReqType,bReqType) + "\n\nCharacteristics of Request:\n   D7      Data xfer direction\n\t   0 = Host to Device\n\t   1=Device to host\n\n   D6..5   Type\n\t   0 = Standard\n\t   1 = Class\n\t   2 = Vendor\n\t   3 = Reserved\n\n   D4..0   Recipient\n\t   0 = Device\n\t   1 = Interface\n\t   2 = Endpoint\n\t   3 = Other\n\t   4..31 = Reserved\n");
+    RestoreFieldOffsetLen_ICCD();
+    RestoreCellColor();
+  }    
+  else if(SimpleShowItem( ))
+    AddReqTypeCell_ICCD();  
+      
+  AddRequestCell_ICCD( AttributeString );   #Adding Request Cell
+  
+  SetFieldOffsetLen_ICCD( 32, 16 );         #Adding/Decoding wValue  
+  bRFU = (wValue>>8)&0xFF;                  #High Byte
+  bReserved = wValue&0xFF;                  #Low Byte
+
+  if(bRFU!=0)
+  {
+    SetCellColor(RED);
+    AddPayLoadCell("RFU",Format("0x%02X",bRFU),FormatEx("WARNING: bRFU is RESERVED\n bRFU = 0x%02X\n High Byte of wValue (0x%04X)",bRFU,wValue));
+     RestoreCellColor();
+  }
+  else if(SimpleShowItem())
+    AddPayLoadCell("RFU",Format("0x%02X",bRFU),FormatEx("bRFU = 0x%02X.\nHigh Byte of wValue (0x%04X).",bRFU,wValue));
+  
+  if(bReserved!=0x01)
+  {
+    SetCellColor(RED);
+    AddPayLoadCell("R",Format("0x%02X",bReserved),FormatEx("WARNING: Expected 01h, Found 0x%02X\n bReserved = 0x%02X\n Low Byte of wValue (0x%04X)",bReserved,bReserved,wValue));
+     RestoreCellColor();
+  }
+  else if(SimpleShowItem())
+    AddPayLoadCell("R",Format("0x%02X",bReserved),FormatEx("bReserved = 0x%02X.\nLow Byte of wValue (0x%04X).",bReserved,wValue)); 
+    
+  RestoreFieldOffsetLen_ICCD();  
+    
+  AddWIndexCell_ICCD( "", "" );             #Adding wIndex Cell
+  
+  AddWLengthCell_ICCD( "Empty" , 0 );       #Adding wLength Cell
+  
+  out.Decoded = 8;
+  
+  DatLength = in.DataLength - out.Decoded;  #Using Actual Data Length rather than wLength in case data corrupted/discrepant
+  if(DatLength > 0){                        
+    FullyDecoded = 0;
+  }
+}
+
+ICC_POWER_OFF()
+{
+  FieldColor = ICCD_IccPowerOffReqColor;
+  
+  if(bReqType != 0x21)                      # != 00100001B  ---- Verifying correct bmRequestType for Request and adding Cell
+  {    
+    SetCellColor(RED);
+    SetFieldOffsetLen_ICCD( 8, 8 );
+    AddPayLoadCell("RequestType",Format("*WARNING* 0x%02X",bReqType),FormatEx("WARNING: For ICC POWER OFF Request,\nbmRequestType should only be 0x21 (00100001B), but it is 0x%02X. \n\nBitmap with decimal value of %d",bReqType,bReqType) + "\n\nCharacteristics of Request:\n   D7      Data xfer direction\n\t   0 = Host to Device\n\t   1=Device to host\n\n   D6..5   Type\n\t   0 = Standard\n\t   1 = Class\n\t   2 = Vendor\n\t   3 = Reserved\n\n   D4..0   Recipient\n\t   0 = Device\n\t   1 = Interface\n\t   2 = Endpoint\n\t   3 = Other\n\t   4..31 = Reserved\n");
+    RestoreFieldOffsetLen_ICCD();
+    RestoreCellColor();
+  }    
+  else
+    if(SimpleShowItem( ))
+      AddReqTypeCell_ICCD();  
+      
+  AddRequestCell_ICCD( AttributeString );   #Adding Request Cell
+  
+  AddWValueCell_ICCD("","");                #Adding wValue Cell  
+  
+  AddWIndexCell_ICCD( "", "" );             #Adding wIndex Cell
+  
+  AddWLengthCell_ICCD( "Empty", 0 );        #Adding wLength Cell
+  
+  out.Decoded = 8;
+  
+  DatLength = in.DataLength - out.Decoded;  #Using Actual Data Length rather than wLength in case data corrupted/discrepant
+  
+  if(DatLength > 0){                        
+    FullyDecoded = 0;
+  }
+}
+
+XFR_BLOCK()
+{
+  FieldColor = ICCD_XfrBlockReqColor;
+  
+  if(bReqType != 0x21)                      # != 00100001B  ---- Verifying correct bmRequestType for Request and adding Cell
+  {    
+    SetCellColor(RED);
+    SetFieldOffsetLen_ICCD( 8, 8 );
+    AddPayLoadCell("RequestType",Format("*WARNING* 0x%02X",bReqType),FormatEx("WARNING: For XFR BLOCK Request,\nbmRequestType should only be 0x21 (00100001B), but it is 0x%02X. \n\nBitmap with decimal value of %d",bReqType,bReqType) + "\n\nCharacteristics of Request:\n   D7      Data xfer direction\n\t   0 = Host to Device\n\t   1=Device to host\n\n   D6..5   Type\n\t   0 = Standard\n\t   1 = Class\n\t   2 = Vendor\n\t   3 = Reserved\n\n   D4..0   Recipient\n\t   0 = Device\n\t   1 = Interface\n\t   2 = Endpoint\n\t   3 = Other\n\t   4..31 = Reserved\n");
+    RestoreFieldOffsetLen_ICCD();
+    RestoreCellColor();
+  }    
+  else
+    if(SimpleShowItem())
+      AddReqTypeCell_ICCD();  
+      
+  AddRequestCell_ICCD( AttributeString );   #Adding Request Cell
+  
+  SetFieldOffsetLen_ICCD( 32, 16 );         #Adding/Decoding wValue  
+  bLevelParameter = (wValue>>8)&0xFF;       #High Byte
+  bRFU = wValue&0xFF;                       #Low Byte
+
+  tttxt="Designates position (first block, middle, last) of the\nsubsequently transmitted blocks of a command APDU:\n";  
+  tttxt=tttxt + "\n   00h the command APDU begins and\n    ends with this command.";            
+  tttxt=tttxt + "\n   01h the command APDU begins with\n    this command, and continues";                
+  tttxt=tttxt + "\n   02h the command APDU continues\n    and ends the command APDU";                          
+  tttxt=tttxt + "\n   03h the command APDU continues\n    and another block is to follow";                      
+  tttxt=tttxt + "\n   10h the data stage is empty,\n    continuation of response APDU\n    is expected in the next\n    DATA_BLOCK request";
+
+
+  AddPayLoadCell("LevelParameter",Format("0x%02X",bLevelParameter),Format("bLevelParameter = 0x%02X.\n",bLevelParameter) + tttxt); 
+  if(bRFU!=0)
+  {
+    SetCellColor(RED);
+    AddPayLoadCell("RFU",Format("0x%02X",bRFU),FormatEx("WARNING: bRFU is RESERVED\n bRFU = 0x%02X\n Low Byte of wValue (0x%04X)",bRFU,wValue));
+    RestoreCellColor();
+  }
+  else if(SimpleShowItem())
+    AddPayLoadCell("RFU",Format("0x%02X",bRFU),FormatEx("bRFU = 0x%02X.\nLow Byte of wValue (0x%04X).",bRFU,wValue));
+  
+  RestoreFieldOffsetLen_ICCD();  
+    
+  AddWIndexCell_ICCD( "", "" );              #Adding wIndex Cell
+  
+  AddWLengthCell_ICCD( "Length of data", 0-1 );   #Adding wLength Cell
+    
+  out.Decoded = 8;
+  
+  DatLength = in.DataLength - out.Decoded;  #Using Actual Data Length rather than wLength in case data corrupted/discrepant
+  if(DatLength > 0)
+    APDUdata = GetByteStrFld_ICCD( DatLength );
+  else
+    APDUdata = "EMPTY";
+  
+  BitCurrentFieldLength = DatLength * 8;    #CurrentOffset is correct, but field was read in single bytes, updating to total byte length
+
+  AddPayLoadCell("Command APDU",APDUdata,"Command --> Application Data Unit");
+  
+  out.Decoded += DatLength;
+}
+
+DATA_BLOCK()
+{
+  FieldColor = ICCD_DataBlockReqColor;
+  
+  if(bReqType != 0xA1)                      # != 10100001B  ---- Verifying correct bmRequestType for Request and adding Cell
+  {    
+    SetCellColor(RED);
+    SetFieldOffsetLen_ICCD( 8, 8 );
+    AddPayLoadCell("RequestType",Format("*WARNING* 0x%02X",bReqType),FormatEx("WARNING: For DATA BLOCK Request,\nbmRequestType should only be 0xA1 (10100001B), but it is 0x%02X. \n\nBitmap with decimal value of %d",bReqType,bReqType) + "\n\nCharacteristics of Request:\n   D7      Data xfer direction\n\t   0 = Host to Device\n\t   1=Device to host\n\n   D6..5   Type\n\t   0 = Standard\n\t   1 = Class\n\t   2 = Vendor\n\t   3 = Reserved\n\n   D4..0   Recipient\n\t   0 = Device\n\t   1 = Interface\n\t   2 = Endpoint\n\t   3 = Other\n\t   4..31 = Reserved\n");
+    RestoreFieldOffsetLen_ICCD();
+    RestoreCellColor();
+  }    
+  else
+    if(SimpleShowItem( ))
+      AddReqTypeCell_ICCD();  
+      
+  AddRequestCell_ICCD( AttributeString );   #Adding Request Cell
+  
+  AddWValueCell_ICCD("","");    
+  
+  AddWIndexCell_ICCD( "", "" );             #Adding wIndex Cell
+                                            #Adding wLength Cell
+  tmpColor = FieldColor;
+  wLength_txt = "Length of Data + 1.\n\nThis value should be >= 4. This allows the USB-ICC to\nreturn, at minimum, the complete status info.";
+  if(wLength< 4)
+  {
+    FieldColor = RED;
+    wLength_txt = Format("WARNING: Expected value >= 4, Found %u.\n\n",wLength) + wLength_txt;
+  }
+  
+  AddWLengthCell_ICCD( wLength_txt, 0-1 );  
+  FieldColor = tmpColor;
+  
+  out.Decoded = 8;
+  
+  DatLength = in.DataLength - out.Decoded;  #Using Actual Data Length rather than wLength in case data corrupted/discrepant
+  
+  APDUdata = 0;
+  tttxt = "";
+  err_txt = "";
+  bResponseType = 0;
+  if(DatLength > 0){
+    bResponseType = NextNBits_(8);
+    bResponseType_txt = Format("0x%02X",bResponseType);
+    tttxt = select{
+      bResponseType == 0x00 : "\nType of information:\n  00h: Data contains information\n   created by preceding request.\n\nFor extended response APDUs:\n  00h: the response APDU begins\n   and ends in this command.";
+      bResponseType == 0x40 : "\nType of information:\n  40h: Status information\n   (bStatus,bError and bReserved=00h).";
+      bResponseType == 0x80 : "\nType of information:\n  80h: Polling";
+      bResponseType == 0x01 : "\nFor extended response APDUs:\n  01h: the response APDU begins\n   with command and continues.";
+      bResponseType == 0x02 : "\nFor extended response APDUs:\n  02h: continues the response\n   APDU and ends it.";
+      bResponseType == 0x03 : "\nFor extended response APDUs:\n  03h: continues the response\n   APDU and another block will\n   follow.";
+      bResponseType == 0x10 : "\nFor extended response APDUs:\n  10h: EMPTY - continuation of the\n   command APDU expected in next\n   XFR_BLOCK.";
+      default               : "\nUNKNOWN";
+    };
+  }
+  else
+  {
+    SetCellColor(RED);
+    bResponseType_txt = "NO DATA!!!";  
+    err_txt = "ERROR: NO DATA - bReponseType not found...\n\n";
+    BitCurrentFieldLength = 0;
+  }
+
+  AddPayLoadCell("ResponseType",bResponseType_txt,err_txt + "bResponseType = " + bResponseType_txt + "." + tttxt);
+
+  if(DatLength > 1)
+  {
+    APDUdata = GetByteStrFld_ICCD( DatLength-1 );
+    BitCurrentFieldLength = (DatLength-1) * 8;    #CurrentOffset is correct, but field was read in single bytes, updating to total byte length
+  }
+  else
+  {
+    APDUdata = "EMPTY";
+    BitCurrentFieldLength = 0;
+  }
+  
+
+  AddPayLoadCell("Response",APDUdata,"Response <-- APDU/ATR/Status Info\n\nNote: wLength indicates max size of expected\ndata plus one byte for bResponseType...\nIf the length of the response APDU is > than\nindicated in wLength, then the USB-ICC will\nsignal chaining in bResponseType.");
+  
+  out.Decoded += DatLength;
+}
+
+SLOT_STATUS()
+{
+  FieldColor = ICCD_SlotStatusReqColor;
+  
+  if(bReqType != 0xA1)                      # != 10100001B  ---- Verifying correct bmRequestType for Request and adding Cell
+  {    
+    SetCellColor(RED);
+    SetFieldOffsetLen_ICCD( 8, 8 );
+    AddPayLoadCell("RequestType",Format("*WARNING* 0x%02X",bReqType),FormatEx("WARNING: For GET ICC STATUS Request,\nbmRequestType should only be 0xA1 (10100001B), but it is 0x%02X. \n\nBitmap with decimal value of %d",bReqType,bReqType) + "\n\nCharacteristics of Request:\n   D7      Data xfer direction\n\t   0 = Host to Device\n\t   1=Device to host\n\n   D6..5   Type\n\t   0 = Standard\n\t   1 = Class\n\t   2 = Vendor\n\t   3 = Reserved\n\n   D4..0   Recipient\n\t   0 = Device\n\t   1 = Interface\n\t   2 = Endpoint\n\t   3 = Other\n\t   4..31 = Reserved\n");
+    RestoreFieldOffsetLen_ICCD();
+    RestoreCellColor();
+  }    
+  else
+    if(SimpleShowItem( ))
+      AddReqTypeCell_ICCD();  
+      
+  AddRequestCell_ICCD( AttributeString );   #Adding Request Cell
+  
+  AddWValueCell_ICCD("","");    
+  
+  AddWIndexCell_ICCD("", "");               #Adding wIndex Cell
+  
+  AddWLengthCell_ICCD( "Status/Error Info Length", 3 );  #Adding wLength Cell
+  
+  out.Decoded = 8;
+  
+  DatLength = in.DataLength - out.Decoded;  #Using Actual Data Length rather than wLength in case data corrupted/discrepant
+  if(DatLength > 0)
+  {
+    bStatus = NextNBits_(8);
+    ShowStatus(bStatus);
+    out.Decoded++;
+  }
+  else
+  {
+    AddCell("Status","NO DATA!!!","ERROR: No Status Data...",RED);
+  }
+  
+  if(DatLength > 1)
+  {
+    bError = NextNBits_(8);
+    ShowErrorCode(bError);
+    out.Decoded++;
+  }
+  else
+  {
+    AddCell("Error","NO DATA!!!","ERROR: No Error Data...",RED);
+  }
+  
+  if(DatLength>2)
+  {
+    bReserved = NextNBits_(8);
+    if(bReserved!=0x00)
+    {
+      SetCellColor(RED);
+      AddPayLoadCell("R",Format("0x%02X",bReserved),FormatEx("WARNING: Expected 00h, Found 0x%02X\n bReserved = 0x%02X",bReserved,bReserved));
+       RestoreCellColor();
+    }
+    else if(SimpleShowItem())
+      AddPayLoadCell("R",Format("0x%02X",bReserved),Format("bReserved = 0x%02X",bReserved)); 
+    
+    out.Decoded++;
+  }
+  else
+  {
+    AddCell("R","NO DATA!!!","ERROR: No Reserved Data...",RED);
+  }
+}
+
+ShowStatus(prm1)
+{
+    SetFieldOffsetLen_ICCD( 64-6, 8-6 );
+    errorflag = 0;
+    error_string = "";
+    stat_val ="";
+    tttxt = "";
+    
+    IccS = prm1&0x03;
+    
+    tttxt = select{
+      IccS==0x00  : {
+                      stat_val = "Activated";
+                      "00b: The USB-ICC is present and activated.";
+                    }
+      IccS==0x01  : {
+                      stat_val = "NOT Activated";
+                      "01b: The USB-ICC is present but NOT activated.";
+                    }
+      IccS==0x02  : {
+                      stat_val = "V-NOT Present";
+                      "10b: The USB-ICC is virtually NOT present.";
+                    }
+      default     : {
+                      errorflag = 1;
+                      error_string = "!!!WARNING!!!\nExpected 00-10b, Found 11b.\n\n";
+                      stat_val = "Warning:RFU";
+                      "11b: ERROR - Invalid, Value 11b is RESERVED!";
+                    }
+    };
+    
+    if(errorflag)
+    {
+      SetCellColor(RED);
+      AddPayLoadCell("IccStatus",stat_val, error_string + "bStatus - (Bits 1-0).\n bmIccStatus = " + ToBitString(prm1,2) + "b\n\n" + tttxt);
+      RestoreCellColor();
+    }
+    else
+      AddPayLoadCell("IccStatus",stat_val,"bStatus - (Bits 1-0).\n bmIccStatus = " + ToBitString(prm1,2) + "b\n\n" + tttxt);
+    RestoreFieldOffsetLen_ICCD();
+    
+    SetFieldOffsetLen_ICCD( 64-2, 4 );
+    errorflag = 0;
+    if(prm1&0x3C)
+    {
+      errorflag = 1;
+      error_string = "!!!WARNING!!!\nBits 5-2 RESERVED - Found Value: " + ToBitString(prm1>>2,4) + "b\n\n";
+      tttxt = ToBitString(prm1>>2,4) + "b: WARNING->RESERVED BITS";
+    }
+    else
+      tttxt = "Bit 5-2 = 00000b";
+      
+    if(errorflag)
+    {
+      SetCellColor(RED);
+      AddPayLoadCell("RFU",ToBitString(prm1>>2,4) + "b",error_string + "bStatus - (Bits5-2).\n bmRFU = " + ToBitString(prm1>>2,4) + "b\n\n" + tttxt);
+      RestoreCellColor();
+    }
+    else if(SimpleShowItem())
+      AddPayLoadCell("RFU",ToBitString(prm1>>2,4) + "b","bStatus - (Bits5-2).\n bmRFU = " + ToBitString(prm1>>2,4) + "b\n\n" + tttxt);
+    RestoreFieldOffsetLen_ICCD();
+
+    SetFieldOffsetLen_ICCD( 64, 2 );
+    bmCommandStatus= (prm1 >> 6)&0x03;  #Bits 7-6
+    
+    str1 = ToBitString(bmCommandStatus,2) + "b";
+    tttxt="bStatus - (Bits 7-6).\n  bmCommandStatus = " + str1 + ".\n\n00b - Processed without error\n01b - Failed (error code provided by\n      the error register";
+    tttxt=tttxt +"\n10b - RFU\n11b - RFU";
+    if (bmCommandStatus==0) {
+      datF="OK";
+    } else if (bmCommandStatus==1) {
+      datF="Error";
+/*    } else if (bmCommandStatus==2) {
+      datF="MoreTime";*/
+    } else {
+      SetCellColor(RED);
+      datF="Warning:RFU";
+    }    
+    
+    if(FieldColor == RED)
+    {
+      AddPayLoadCell( "CmdStatus", datF, "!!!WARNING!!!\nExpected 00-10b; Found 11b(RESERVED).\n\n" + tttxt);
+      RestoreCellColor();
+    }
+    else
+      AddPayLoadCell( "CmdStatus", datF, tttxt );
+      
+    RestoreFieldOffsetLen_ICCD();
+}
+
+set ErrorCodeTable=[
+#  Error Name  Possible Causes  
+ [ 0,     "",             ""],
+ [ 0xFE,  "ICC_MUTE",     "\nThe applications of the USB-ICC did not\nrespond or thh ATR could not be sent by\nthe USB-ICC."  ],
+ [ 0xFC,  "XFR_OVERRUN",  "\nThe USB-ICC detected a buffer overflow\nwhen receiving a data block."  ],
+ [ 0xFB,  "HW_ERROR",     "\nThe USB-ICC detetected a hardware error."  ]
+];
+
+ShowErrorCode(prm)
+{
+  errorflag = 0;
+  SetFieldOffsetLen_ICCD( 72, 8 );
+  ecode=Find(ErrorCodeTable,prm);
+  
+/*  if(bmCommandStatus == 2)                                  #Applying Rule where bError = Multiplier
+  {                                                          #when bmCommandStatus == 2.
+    ecode_val = prm;
+    ecode[0] = prm;
+    ecode[1] = "MULTIPLIER";
+    ecode[2] = "\nT=0: bError = Multiplier of WWT\nT=1: bError = Multiplier of BWT";
+  }
+  else */  
+  if(bmCommandStatus!=1) #(bmCommandStatus == 0)||(bmCommandStatus == 3))    #Applying Rule where bError is RFU
+  {                                                          #when bmCommandStatus == 0 or 3
+    ecode[1] = "RFU";
+    ecode[0] = prm;
+    if(prm!=0)
+    {
+      errorflag=1;
+      ecode[2] = "\nbError is RESERVED when\nbmCommandStatus = 00b or 11b.";
+    }
+    else
+      ecode[2] = "\nbError is Reserved\n (bmCommandStatus = 00b or 11b)";
+  }
+  else if (ecode[0]==0)                                     #Determining what error bError code represents
+  {                                                         #This is the case bmCommandStatus ==1
+    ecode_val = prm - 256;
+    if ((prm>0x80) && (prm<0xC1))                           #User-Defined errors
+    {
+      ecode[0]=prm;
+      ecode[1]="User Defined: " + Format("0x%02X",prm);
+      ecode[2]="\nAdd your user error code to the ErrorCodeTable\nin file ICCD_req_Ver.B.dec";
+    } 
+/*  else if (prm==0)                                        #CMD_NOT_SUPPORTED error
+    {
+      ecode_val = prm;
+      ecode[0]=prm;
+      ecode[1]="CMD_NOT_SUPPORTED";
+      ecode[2]="";
+    } 
+    else if ((prm>0x00) && (prm<0x80))                       #Errors 1 - 127 (positive) are an index value
+    {
+      ecode_val = prm;
+      ecode[0]=prm;
+      ecode[1]="PARAM_NOT_SUPPORTED_INCORRECT (" + Format("%d)",prm);
+      ecode[2]="\nIndex of Not Supported/Incorrect Message Parameter";
+    }*/
+    else if ( (prm==0xFD) || ((prm>0xF7)&&(prm<0xF3)) || (prm==0xF0) || (prm==0xEF) || (prm==0xE0) )
+    {
+      errorflag = 2;
+      ecode[0]=prm;
+      ecode[1]="INVALID_ERRCODE";
+      ecode[3]="\nValues -3(FDh),-8 to -14(F8h to F2h),\n-16(F0h),-17(EFh),-32(E0h) SHALL NOT\nBE USED by the USB-ICC!";
+    }    
+    else 
+    {
+      errorflag = 1;
+      ecode[0]=prm;
+      ecode[1]="RESERVED";
+      ecode[2]="\nThis is a RESERVED code\nand should not be used!";
+    }
+  }
+  else                                                      #These are errors in the table, hence assign value
+    if(prm > 127)                                           #If (value > 0xC0), it's a negative number
+      ecode_val = prm-256;                                  
+    else
+      ecode_val = prm;                                      #Else it's a positive number
+  
+  if((bmCommandStatus != 1))
+  {
+    if(errorflag)
+    {
+      SetCellColor(RED);
+      AddPayLoadCell("ErrCode",ecode[1],Format("!!!WARNING!!!\nRESERVED - Found Value.\n\nbError = 0x%02X\n",ecode[0]) + ecode[1] + ecode[2]);
+      RestoreCellColor();
+    }
+    else
+    {
+      SetCellColor(GreyColor);
+      if(SimpleShowItem())
+        AddPayLoadCell("ErrCode",ecode[1],Format("Field Reserved (bmCommandStatus != 1 or 2)\n\nbError = 0x%02X\n",ecode[0]) + ecode[1] + ecode[2]);
+      RestoreCellColor();
+    }
+  }
+  else /*if(bmCommandStatus == 1)*/
+  {
+    if(errorflag==1)
+    {
+      SetCellColor(RED);
+      AddPayLoadCell("ErrCode",ecode[1],Format("!!!WARNING!!!\nRESERVED CODE\n\nbError: %d",ecode_val) + Format("(0x%02X)\n",prm) + ecode[1] + ecode[2]);
+      RestoreCellColor();
+    }
+    else if(errorflag==2)
+    {
+      SetCellColor(RED);
+      AddPayLoadCell("ErrCode",ecode[1],Format("!!!ERROR!!!\nINVALID CODE\n\nbError: %d\n",ecode_val) + Format("(0x%02X)\n",prm) + ecode[1] + ecode[2]);
+      RestoreCellColor();
+    }    
+    else
+      AddPayLoadCell("ErrCode",ecode[1],Format("bError: %d ",ecode_val) + Format("(0x%02X)\n",prm) + ecode[1] + ecode[2]); 
+  }
+/*  else
+    AddPayLoadCell("ErrCode",Format("%dX",prm),Format("Header offset Byte 8.\n bError: %d ",prm) + Format("(0x%02X)\n",prm) + ecode[1] + ecode[2]); 
+*/  
+  RestoreFieldOffsetLen_ICCD();
+}
+
+
+
+
+### These are general functions to decrease code length 
+### (copied from UsbCommon.inc and removed FieldColor setting plus minor tweaking where necessary/desired)
+
+AddReqTypeCell_ICCD()
+{
+    SetFieldOffsetLen_ICCD( 8, 8 );  
+    AddPayLoadCell("RequestType",Format("0x%02X",bReqType),Format("Bitmap with decimal value of %d",bReqType) + "\n\nCharacteristics of Request:\n   D7      Data xfer direction\n\t   0 = Host to Device\n\t   1=Device to host\n\n   D6..5   Type\n\t   0 = Standard\n\t   1 = Class\n\t   2 = Vendor\n\t   3 = Reserved\n\n   D4..0   Recipient\n\t   0 = Device\n\t   1 = Interface\n\t   2 = Endpoint\n\t   3 = Other\n\t   4..31 = Reserved\n");
+    RestoreFieldOffsetLen_ICCD();
+}
+
+AddRequestCell_ICCD( req_text )
+{
+    SetFieldOffsetLen_ICCD( 16, 8 );
+    AddPayLoadCell("Request", req_text, Format("bRequest HexVal: 0x%04X", bRequest));
+    RestoreFieldOffsetLen_ICCD();
+}
+
+AddWValueCell_ICCD( val_text, tooltip )
+{
+    SetFieldOffsetLen_ICCD( 32, 16 );
+ 
+    if( val_text == null || val_text == "" )
+        val_text = Format( "0x%04X", wValue );
+        
+    if(tooltip == null || tooltip == "")
+        tooltip = "wValue";
+    
+    if(wValue != 0)
+    {
+      SetCellColor(RED);
+      AddPayLoadCell( "wValue*", "*WARNING* " + val_text, "WARNING: RESERVED, Found Value " + val_text);
+      RestoreCellColor();
+    }
+    else
+      AddPayLoadCell( "Value", val_text, tooltip );
+    RestoreFieldOffsetLen_ICCD();
+}
+
+AddWIndexCell_ICCD( idx_text, tooltip )
+{
+    SetFieldOffsetLen_ICCD( 48, 16 );
+    
+    if( idx_text == null || idx_text == "" )
+        idx_text = Format( "0x%04X", wIndex );
+        
+    bRFU = (wIndex>>8)&0xFF;      #High Byte
+    bInterface = wIndex&0xFF;     #Low Byte
+    
+    if(bRFU!=0)
+    {
+      SetCellColor(RED);
+      AddPayLoadCell("RFU",Format("0x%02X",bRFU),FormatEx("WARNING: bRFU is RESERVED\n bRFU = 0x%02X\n High Byte of wIndex (0x%04X)",bRFU,wIndex));
+      RestoreCellColor();
+    }
+    else if(SimpleShowItem())
+      AddPayLoadCell("RFU",Format("0x%02X",bRFU),FormatEx("bRFU = 0x%02X.\nHigh Byte of wIndex (0x%04X).",bRFU,wIndex));
+    
+    AddPayLoadCell("Interface",Format("0x%02X",bInterface),FormatEx("bInterface = 0x%02X.\nLow Byte of wIndex (0x%04X).",bInterface,wIndex)); 
+    RestoreFieldOffsetLen_ICCD();
+}
+
+AddWLengthCell_ICCD( tooltip , expected_val )
+{
+    SetFieldOffsetLen_ICCD( 64, 16 );
+    if(wLength != (in.DataLength - 8))
+    {
+      SetCellColor(RED);
+      AddPayLoadCell("wLength*",Format("%u", wLength), Format("WARNING: DATA DISCREPANCY\n wLength != Actual Data Length\n Difference of %d Bytes (wLength - Actual Data).\n\n",(wLength - (in.DataLength-8))) + tooltip); 
+      RestoreCellColor();
+    }
+    else if(expected_val < 0)
+    {
+      if(SimpleShowItem())
+        AddPayLoadCell("wLength", Format( "%u", wLength ), tooltip ); 
+    }
+    else
+    {
+      if(wLength != expected_val)
+      {
+        SetCellColor(RED);
+        tooltip_err = FormatEx("WARNING! Expected %d, Found %d.\n",expected_val,wLength);
+        if((wLength<expected_val)&&(wLength!=0))
+          tooltip_err += "Will Attempt to Decode...\n";
+        else if(wLength>expected_val){
+          FullyDecoded = 0;          
+          tooltip_err += "See 'Data' for extra raw bytes.\n";
+        }
+        else
+          tooltip_err += "No Data to Decode.\n";
+        
+        tooltip_err += tooltip;
+        AddPayLoadCell("wLength*", Format( "%u", wLength ), tooltip_err); 
+        RestoreCellColor();
+      }
+      else if(SimpleShowItem())
+        AddPayLoadCell("wLength", Format( "%u", wLength ), tooltip ); 
+    }
+    RestoreFieldOffsetLen_ICCD();        
+}
+
+SetFieldOffsetLen_ICCD( offset, len )
+{
+    RestoreBitCurrentFieldOffset = BitCurrentFieldOffset;
+    RestoreBitCurrentFieldLength = BitCurrentFieldLength;
+    BitCurrentFieldOffset = offset;
+    BitCurrentFieldLength = len;
+}
+
+RestoreFieldOffsetLen_ICCD()
+{
+    BitCurrentFieldOffset = RestoreBitCurrentFieldOffset;
+    BitCurrentFieldLength = RestoreBitCurrentFieldLength;
+}    
+
+GetByteStrFld_ICCD( len_in_bytes )
+{
+    tmp = "0x";        
+    for(i = 0; i < len_in_bytes; i++) 
+        tmp += Format("%02X", NextNBits_(8));    
+    return tmp;
+}
+
+GetUnicodeString_ICCD(length)
+{
+    done = 0;
+    str = "";
+    offset = 8;
+    index = 0;
+    val = 0;
+    while ((done == 0) && (index < length))
+    {
+        val = NextNBits_(8);
+
+        ###val = GetDataByte(start_offset + index);
+
+        if (val != null)
+        {
+            str += Format("%c", val);
+            index++;
+        } 
+        else
+        {
+            done = 1;
+        }
+    }
+    
+    if(index != length)
+    {
+      trash = 0;
+      trash = NextNBits_((length - index)*8);
+    }
+    return str;   
+}    
+
+
+####################################################################################
+#                       USBTracer specific caption cell                            #
+####################################################################################
+
+AddSpecCaptionCell(caption, text, tooltip, FieldColor, addparam, addparam1, addparam2 )
+{   
+    AddCell(caption, text, tooltip, FieldColor, _USBBULK_HEADER, addparam, addparam1, addparam2 );        
+    return 1;        
+}

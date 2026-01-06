@@ -1,0 +1,1488 @@
+#
+#  Copyright (c) 2015 Teledyne LeCroy, Inc.
+#
+#   PowerDeliveryTest.vse
+#
+#   Verification script
+#
+#   Brief Description: 
+#   A generic example of processing Power Delivery packets.
+#
+
+
+######################################################################################################
+#                                         Module info                                                #
+######################################################################################################
+#       Filling of this block is necessary for proper verification script operation...               #
+######################################################################################################
+#
+# Specify here the brief description for your verification script.
+# This name will be shown in the verification script dialog.
+#
+set DecoderDesc = "Power Delivery Analysis";
+
+######################################################################################################
+
+#
+# include main Verification Script Engine definitions
+#
+%include  "VSTools.inc"
+
+
+######################################################################################
+#                            Global Variables and Constants                          #
+######################################################################################
+
+const TRUE  = 1;
+const FALSE = 0;
+const NO_DATA_OBJECT = 0xff;
+
+set FormatString_StringValue  = "\t%-20s \t\t= %s\n";
+set FormatString_IntValue     = "\t%-20s \t\t= %d\n";
+set EventCount = 0;
+
+set EventNames =
+[
+    "Fast Role Swap"
+];
+
+set SinkFixedPowerSupplyDataObjectFieldNames =
+[
+    "Opr_Cur", 
+    "Voltage", 
+    "Rsvd", 
+    "FR_Swap_Curr",
+    "Data_DR", 
+    "USB_Com_Cap", 
+    "Ext_Pow", 
+    "Higher_Cap", 
+    "Power_DR", 
+    "Supply_Type"
+];
+
+set SourceFixedPowerSupplyDataObjectFieldNames = 
+[
+    "Max_Cur",
+    "Voltage",
+    "Peak_Curr",
+    "Rsvd",
+    "Unchunked_Ext",
+    "Data_DR",
+    "USB_Com_Cap",
+    "Ext_Pow",
+    "USB_Suspend",
+    "Power_DR",
+    "Supply_Type"
+];
+
+set SinkBatteryPowerSupplyDataObjectFieldNames =
+[
+    "Opr_Pwr",
+    "Min_Volt",
+    "Max_Volt",
+    "Supply_Type"
+];
+
+set SourceBatteryPowerSupplyDataObjectFieldNames =
+[
+    "Max_Allowed_Pwr",
+    "Min_Volt",
+    "Max_Volt",
+    "Supply_Type"
+];
+
+set SinkVariablePowerSupplyDataObjectFieldNames =
+[
+    "Opr_Cur",
+    "Min_Volt",
+    "Max_Volt",
+    "Supply_Type"
+];
+
+set SourceVariablePowerSupplyDataObjectFieldNames =
+[
+    "Max_Cur",
+    "Min_Volt",
+    "Max_Volt",
+    "Supply_Type"
+];
+
+set BISTReturnedCounterPacketDataFieldNames =
+[
+    "Rsvd",
+    "Err_Cnt",
+    "Mode"
+];
+
+set BISTPacketDataFieldNames =
+[
+    "Rsvd",
+    "Mode"
+];
+
+set VendorDefStructuredVDMHeaderPacketDataFieldNames =
+[
+    "Cmd",
+    "Rsvd_1",
+    "Cmd_Type",
+    "Obj_Pos",
+    "Rsvd_2",
+    "VDM_Ver"
+];
+
+set VendorDefDiscoverIDResponseIdHeaderVDOFieldNames =
+[
+    "Vendor_ID",
+    "Rsvd",
+    "DFP_Type",
+    "Modal_Opr",
+    "Prod_Type",
+    "Device_Cap",
+    "Host_Cap"
+];
+
+set VendorDefDiscoverIDResponseCertStateVDOFieldNames =
+[
+    "XID"
+];
+
+set VendorDefDiscoverIDResponseProductVDOFieldNames =
+[
+    "bcd_Device",
+    "Product_ID"
+];
+
+set VendorDefDiscoverIDResponseCableVDOFieldNames =
+[
+    "USB_SS",
+    "SOPDPrime_Con",
+    "VBUS_Cable",
+    "VBUS_Curr_Cap",
+    "SS_RX2",
+    "SS_RX1",
+    "SS_TX2",
+    "SS_TX1",
+    "Cable_Term",
+    "Cable_Latency",
+    "Type_C_to_Plg",
+    "Type_C_to",
+    "Rsvd",
+    "FW_Ver",
+    "HW_Ver"
+];
+
+set VendorDefDiscoverIDResponsePassiveCableVDOFieldNames =
+[
+    "USB_SS",
+    "Rsvd_1",
+    "VBUS_Curr_Cap",
+    "Rsvd_2",
+    "Max_VBus",
+    "Cable_Term",
+    "Cable_Latency",
+    "Rsvd_3",
+    "Type_C_to",
+    "Rsvd_4",
+    "VDO_Ver",
+    "FW_Ver",
+    "HW_Ver"
+];
+
+set VendorDefDiscoverIDResponseActiveCableVDOFieldNames =
+[
+    "USB_SS",
+    "SOPDPrime_Con",
+    "VBUS_Cable",
+    "VBUS_Curr_Cap",
+    "Rsvd_1",
+    "Max_VBus",
+    "Cable_Term",
+    "Cable_Latency",
+    "Rsvd_2",
+    "Type_C_to",
+    "Rsvd_3",
+    "VDO_Ver",
+    "FW_Ver",
+    "HW_Ver"
+];
+
+set VendorDefDiscoverIDResponseAlternateModeVDOFieldNames_Rev2 =
+[
+    "USB_SS",
+    "VBUS_Req",
+    "VCONN_Req",
+    "VCONN_Pow",
+    "SS_RX2",
+    "SS_RX1",
+    "SS_TX2",
+    "SS_TX1",
+    "Rsvd",
+    "FW_Ver",
+    "HW_Ver"
+];
+
+set VendorDefDiscoverIDResponseAlternateModeVDOFieldNames =
+[
+    "USB_SS",
+    "VBUS_Req",
+    "VCONN_Req",
+    "VCONN_Pow",
+    "Rsvd_1",
+    "VDO_Ver",
+    "FW_Ver",
+    "HW_Ver"
+];
+
+set VendorDefDiscoverModesDPCapabilityResponseVDOFieldNames =
+[
+    "Port_Cap",
+    "Sig_Supp",
+    "Recep_Ind",
+    "USB_r2_0",
+    "DFP_D_Pins",
+    "UFP_D_Pins",
+    "Rsvd"
+];
+
+set VendorDefDPStatusVDOFieldNames =
+[
+    "Con",
+    "Pow_Low",
+    "Adaptor_Func",
+    "Multi_Func",
+    "USB_Config",
+    "Exit_DP",
+    "HPD_State",
+    "IRQ_HPD",
+    "Rsvd"
+];
+
+set VendorDefDPConfigureVDOFieldNames =
+[
+    "Set_Config",
+    "Set_Sig",
+    "Rsvd_1",
+    "Config_UFP_U",
+    "Rsvd_2"
+];
+
+
+set BatteryStatusFieldNames =
+[
+    "Rsvd_2",
+    "Battery_Info",
+    "Battery_PC"
+];
+
+set AlertFieldNames =
+[
+    "Rsvd",
+    "Hot_Swap_Batteries",
+    "Fixed_Batteries",
+    "Alert_Type"
+];
+
+set SourceCapExtendedDataFieldNames =
+[
+    "VID",
+    "PID",
+    "XID",
+    "FW_Ver",
+    "HW_Ver",
+    "Vol_Reg",
+    "Holdup_Time",
+    "Compliance",
+    "Touch_Curr",
+    "Peak_Curr_1",
+    "Peak_Curr_2",
+    "Peak_Curr_3",
+    "Touch_Temp",
+    "Source_Inputs",
+    "Hot_Swap_Batteries",
+    "Fixed_Batteries"
+];
+
+set StatusDataFieldNames =
+[
+    "Internal_Temp",
+    "Src_Input",
+    "Fixed_Battery_Input",
+    "Hot_Swap_Battery_Input"
+];
+
+set GetBatteryCapDataFieldNames =
+[
+    "Hot_Swap_Ref",
+    "Fixed_Ref"
+];
+
+set GetBatteryStatusDataFieldNames =
+[
+    "Hot_Swap_Ref",
+    "Fixed_Ref"
+];
+
+set BatteryCapDataFieldNames =
+[
+    "VID",
+    "PID",
+    "Design_Cap",
+    "Last_Full_Charge_Cap",
+    "Battery_Type"
+];
+
+set GetManufacturerInfoDataFieldNames =
+[
+    "Target",
+    "Fixed_Ref",
+    "Hot_Swap_Ref"
+];
+
+set ManufacturerInfoDataFieldNames =
+[
+    "VID",
+    "PID",
+    "String"    
+];
+
+
+# Power delivery data object type
+# Field names array name
+set PowerDeliveryFieldNames = Map (
+[
+    ["SinkFixedPowerSupply",            SinkFixedPowerSupplyDataObjectFieldNames],
+    ["SourceFixedPowerSupply",          SourceFixedPowerSupplyDataObjectFieldNames],
+    ["SinkBatteryPowerSupply",          SinkBatteryPowerSupplyDataObjectFieldNames],
+    ["SourceBatteryPowerSupply",        SourceBatteryPowerSupplyDataObjectFieldNames],
+    ["SinkVariablePowerSupply",         SinkVariablePowerSupplyDataObjectFieldNames],
+    ["SourceVariablePowerSupply",       SourceVariablePowerSupplyDataObjectFieldNames],
+    ["BISTReturnedCounterPacketData",   BISTReturnedCounterPacketDataFieldNames],
+    ["BISTPacketData",                  BISTPacketDataFieldNames],
+    ["VDMHeaderPacketData",             VendorDefStructuredVDMHeaderPacketDataFieldNames],
+    ["VDMIdHeader",                     VendorDefDiscoverIDResponseIdHeaderVDOFieldNames],
+    ["VDMCertState",                    VendorDefDiscoverIDResponseCertStateVDOFieldNames],
+    ["VDMProductVDO",                   VendorDefDiscoverIDResponseProductVDOFieldNames],
+    ["VDMCableVDO",                     VendorDefDiscoverIDResponseCableVDOFieldNames],
+    ["VDMAlternateModeVDO",             VendorDefDiscoverIDResponseAlternateModeVDOFieldNames],
+    ["VDMDPCapabilityResponseVDO",      VendorDefDiscoverModesDPCapabilityResponseVDOFieldNames],
+    ["VDMDPStatusVDO",                  VendorDefDPStatusVDOFieldNames],
+    ["VDMConfigureVDO",                 VendorDefDPConfigureVDOFieldNames],
+    ["VDMAlternateModeVDO_Rev2",        VendorDefDiscoverIDResponseAlternateModeVDOFieldNames_Rev2],
+    ["VDMPassiveCableVDO",              VendorDefDiscoverIDResponsePassiveCableVDOFieldNames],
+    ["VDMActiveCableVDO",               VendorDefDiscoverIDResponseActiveCableVDOFieldNames],
+    ["BatteryStatusData",               BatteryStatusFieldNames],
+    ["AlertData",                       AlertFieldNames],
+    ["SourceCapExtendedData",           SourceCapExtendedDataFieldNames],
+    ["StatusData",                      StatusDataFieldNames],
+    ["GetBatteryCapData",               GetBatteryCapDataFieldNames],
+    ["GetBatteryStatusData",            GetBatteryStatusDataFieldNames],
+    ["BatteryCapData",                  BatteryCapDataFieldNames],
+    ["GetManufacturerInfoData",         GetManufacturerInfoDataFieldNames],
+    ["ManufacturerInfoData",            ManufacturerInfoDataFieldNames]
+] );
+
+set PDCapPowerSupplyTypeString =
+[
+    "Fixed",
+    "Battery",
+    "Variable",
+    "Undefined"
+];
+
+OnStartScript()
+{
+    EventCount = 0;
+    SendAllChannels();
+    SendLevelOnly ( _PKT );        # sends trace events of PACKET level only        
+    SendAllTraceEvents();
+    ScriptForDisplayOnly();
+}
+
+######################################################################################
+#   ProcessEvent()                                                                   #
+######################################################################################
+#                                                                                    #
+# It is a main script function called by the application when the next waited event  #
+# occured in the evaluated trace.                                                    #
+#                                                                                    #
+######################################################################################
+#
+ProcessEvent()
+{
+    DecodePDMessage();
+    return Complete();
+}
+
+######################################################################################
+#   OnFinishScript()                                                                 #
+######################################################################################
+#                                                                                    #
+# It is a main script function called by the application when the script completed   #
+# running. Specify in this function some resetting procedures for a successive run   #
+# of this script.                                                                    #
+#                                                                                    #
+######################################################################################
+#
+OnFinishScript()
+{
+    return 0;
+}
+
+###########################################################
+# finds a string in the table by a key value -
+# if the key is not found the first string is returned
+###########################################################
+Find(table, table_key)
+{
+    if( IsMap( table ) )
+    {
+        item = table[table_key];
+
+        if( item == null ) item = table[0xFFFFFFFF];  # Legacy script support - when first list item was returned if key isn't found.
+        if( item == null ) item = table[0xFFFF];      # Legacy script support - when first list item was returned if key isn't found.
+        if( item == null ) item = table[0xFF];        # Legacy script support - when first list item was returned if key isn't found.
+
+        return item;
+    }
+
+
+    if( IsList( table ) )
+    {
+        not_found = table[0];
+
+        for( item = first( table ); more( table ); item = next( table ) )
+        {
+           if( head( item ) == table_key ) return item;
+        }
+
+        return not_found;
+    }
+
+    if( IsArray( table ) )
+    {
+        not_found = table[0];
+
+        for( i = 0; i < sizeof( table ); i++ )
+        {
+            item = table[i];
+            if( head( item ) == table_key ) return item;
+        }
+
+        return not_found;
+    }
+
+    return not_found;
+}
+
+GetDecodedField(data_object_index, field_name, just_field_value)
+{
+    report_str = "";
+    
+    if(data_object_index != NO_DATA_OBJECT)
+    {
+        field_prefix = FormatEx( "OBJ%d_", data_object_index + 1 );
+        field_name = field_prefix + field_name;
+    }
+        
+    if(just_field_value == null)
+        report_str = FormatEx( FormatString_StringValue, field_name, GetDecodedPktField(field_name) ); 
+    else
+        report_str = GetDecodedPktField(field_name); 
+        
+    return report_str;
+}
+
+AddFields(data_object_index, data_object_id)
+{
+    _row = Find(PowerDeliveryFieldNames, data_object_id);
+    
+    ReportText ( text_message );
+    
+    return DecodeDataObject(data_object_index, _row[1]);
+}
+
+DecodeDataObject(data_object_index, FieldsArray)
+{
+    report_str = "";
+    
+    i = 0;
+    while (i < sizeof(FieldsArray))
+    {
+        field_name = FieldsArray[i];
+        report_str += GetDecodedField(data_object_index, field_name);
+        i++;
+    }
+    
+    return report_str;
+}
+
+AddFieldsHexPkt(data_object_index, field_name)
+{
+    report_str = "";
+    if(data_object_index != NO_DATA_OBJECT)
+    {
+        field_prefix = FormatEx( "OBJ%d_", data_object_index + 1 );
+        field_name = field_prefix + field_name;
+    }
+        
+    report_str += FormatEx( FormatString_IntValue, field_name, GetHexPktField(field_name) );
+    return report_str;
+}
+
+GetPDMessageTypeDescr()
+{
+    pd_message_type = select
+    {
+        in.PacketType == _PD_CONTROL_GOOD_CRC          : "GoodCRC";
+        in.PacketType == _PD_CONTROL_GOTO_MIN          : "GotoMin";
+        in.PacketType == _PD_CONTROL_ACCEPT            : "Accept";
+        in.PacketType == _PD_CONTROL_REJECT            : "Reject";
+        in.PacketType == _PD_CONTROL_PING              : "Ping";
+        in.PacketType == _PD_CONTROL_PS_RDY            : "PS Ready";
+        in.PacketType == _PD_CONTROL_GET_SRC_CAP       : "Get SRC Cap";
+        in.PacketType == _PD_CONTROL_GET_SINK_CAP      : "Get SNK Cap";
+        in.PacketType == _PD_CONTROL_DR_SWAP           : "DR Swap";
+        in.PacketType == _PD_CONTROL_PR_SWAP           : "PR Swap";
+        in.PacketType == _PD_CONTROL_VCONN_SWAP        : "VConn Swap";
+        in.PacketType == _PD_CONTROL_WAIT              : "Wait";
+        in.PacketType == _PD_CONTROL_SOFT_RESET        : "Soft Reset";
+        in.PacketType == _PD_CONTROL_NOT_SUPPORTED     : "Not Supported";
+        in.PacketType == _PD_CONTROL_GET_SRC_CAP_EXTENDED: "Get Src Cap Extended";
+        in.PacketType == _PD_CONTROL_GET_STATUS        : "Get Status";
+        in.PacketType == _PD_CONTROL_FR_SWAP           : "FR Swap";
+        in.PacketType == _PD_DATA_SRC_CAP              : "Source Cap";    
+        in.PacketType == _PD_DATA_REQ                  : "Request";    
+        in.PacketType == _PD_DATA_BIST                 : "BIST";    
+        in.PacketType == _PD_DATA_SNK_CAP              : "Sink Cap";    
+        in.PacketType == _PD_DATA_VENDOR_DEF           : "Vendor Defined";
+        in.PacketType == _PD_DATA_BATTERY_STATUS       : "Battery Status";
+        in.PacketType == _PD_DATA_ALERT                : "Alert";
+        in.PacketType == _PD_EXTENDED_SRC_CAP_EXTENDED : "Src Cap Extended";
+        in.PacketType == _PD_EXTENDED_STATUS           : "Status";
+        in.PacketType == _PD_EXTENDED_GET_BATTERY_CAP  : "Get Battery Cap";
+        in.PacketType == _PD_EXTENDED_GET_BATTERY_STATUS:"Get Battery Status";
+        in.PacketType == _PD_EXTENDED_BATTERY_CAP      : "Battery Cap";
+        in.PacketType == _PD_EXTENDED_GET_MANUFACTURER_INFO: "Get Manufacturer Info";
+        in.PacketType == _PD_EXTENDED_MANUFACTURER_INFO: "Manufacturer Info";
+        in.PacketType == _PD_EXTENDED_SECURITY_REQ     : "Security Req";
+        in.PacketType == _PD_EXTENDED_SECURITY_RESP    : "Security Resp";
+        in.PacketType == _PD_EXTENDED_FW_UPDATE_REQ    : "Firmware Update Req";
+        in.PacketType == _PD_EXTENDED_FW_UPDATE_RESP   : "Firmware Update Resp";   
+        in.PacketType == _PD_MSG_HARD_RESET            : "Hard Reset";
+        in.PacketType == _PD_MSG_CABLE_RESET           : "Cable Reset";
+        in.PacketType == _PD_MSG_BIST_TEST_DATA        : "BIST Bit Stream";
+		in.PacketType == _PD_MSG_EVENT_FAST_POWER_ROLE_SWAP : "Power Role Swap Event";
+        in.PacketType == _PD_MSG_UNKNOWN               : "Unknown Packet";
+    };
+    return pd_message_type;
+}
+
+DecodePDMessage()
+{
+    if(in.TraceEvent == _PD_PACKET)
+    {        
+        ReportText( FormatEx("\nTrace Event = %d, EventCount = %d, Packet# = %d, Message Size = %d bytes", in.TraceEvent, EventCount, in.Index, in.BufferLen) );
+        report_str = "";
+        report_str += DecodeSenderPort();            
+        header_str = DecodeHeaderData();
+
+        if( header_str != "" )
+        {   
+            report_str += header_str;            
+            data_object_str = "";
+            
+            if( in.Spec_Rev < _PD_SPEC_REV_3 )
+            {
+                data_object_str = select
+                {
+                    in.PacketType == _PD_DATA_SRC_CAP     : AddCapabilityPDOs();
+                    in.PacketType == _PD_DATA_SNK_CAP     : AddCapabilityPDOs();
+                    in.PacketType == _PD_DATA_REQ         : AddRequestPDO();
+                    in.PacketType == _PD_DATA_BIST        : AddBISTPDO();
+                    in.PacketType == _PD_DATA_VENDOR_DEF  : AddVendorDefPDOs();
+                    default                               : DecodeUndefinedDataObjects();
+                };
+            }
+            else
+            {
+                data_object_str = select
+                {
+                    in.PacketType == _PD_DATA_SRC_CAP                   : AddCapabilityPDOs();
+                    in.PacketType == _PD_DATA_SNK_CAP                   : AddCapabilityPDOs();
+                    in.PacketType == _PD_DATA_REQ                       : AddRequestPDO();
+                    in.PacketType == _PD_DATA_BIST                      : AddBISTPDO();
+                    in.PacketType == _PD_DATA_VENDOR_DEF                : AddVendorDefPDOs();
+                    in.PacketType == _PD_DATA_BATTERY_STATUS            : AddBatteryStatusPDO();
+                    in.PacketType == _PD_DATA_ALERT                     : AddAlertPDO();
+                    in.PacketType == _PD_EXTENDED_SRC_CAP_EXTENDED      : AddSourceCapExtendedData();
+                    in.PacketType == _PD_EXTENDED_STATUS                : AddStatusData();
+                    in.PacketType == _PD_EXTENDED_GET_BATTERY_CAP       : AddGetBatteryCapData();
+                    in.PacketType == _PD_EXTENDED_GET_BATTERY_STATUS    : AddGetBatteryStatusData();
+                    in.PacketType == _PD_EXTENDED_BATTERY_CAP           : AddBatteryCapData();
+                    in.PacketType == _PD_EXTENDED_GET_MANUFACTURER_INFO : AddGetManufacturerInfoData();
+                    in.PacketType == _PD_EXTENDED_MANUFACTURER_INFO     : AddManufacturerInfoData();
+                    in.PacketType == _PD_EXTENDED_SECURITY_REQ          : AddSecurityReqData();
+                    in.PacketType == _PD_EXTENDED_SECURITY_RESP         : AddSecurityRespData();
+                    in.PacketType == _PD_EXTENDED_FW_UPDATE_REQ         : AddFirmwareUpdateReqData();
+                    in.PacketType == _PD_EXTENDED_FW_UPDATE_RESP        : AddFirmwareUpdateRespData();
+                    default                                             : DecodeUndefinedDataObjects();
+                };
+            }
+       
+            report_str += data_object_str;
+        }
+        else
+        {
+            pd_message_type_descr = GetPDMessageTypeDescr();
+            report_str += FormatEx( "\t%-20s \t\t= %s(%d)\n", "Msg Type", pd_message_type_descr, in.PacketType ); 
+            
+            if(in.PacketType == _PD_MSG_BIST_TEST_DATA)
+            {
+                report_str += DecodeBISTTestStream();
+            }
+            
+			if(in.PacketType == _PD_MSG_EVENT_FAST_POWER_ROLE_SWAP)
+            {
+                report_str += DecodePacketEvent();
+            }
+			
+            if(in.PacketType == _PD_MSG_UNKNOWN)
+            {
+                report_str += DecodeUnknownPacket();
+            }
+        }
+                       
+        ReportText ( report_str );
+        ReportText( "--------------------------------------------" );
+        
+        EventCount++;
+    }
+    else if (in.TraceEvent == _PD_EVENT)
+    {        
+        ReportText( FormatEx("\nTrace Event = %d, EventCount = %d, Packet# = %d", in.TraceEvent, EventCount, in.Index) );
+        ReportText( "\t*** PD Event *** " );
+        ReportText( FormatEx(FormatString_StringValue, "Event Type", EventNames[in.EventType]) );
+        ReportText( "--------------------------------------------" );
+        EventCount++;
+    }
+}
+
+DecodeSenderPort()
+{
+    report_str = "";
+    
+    report_str += FormatEx( FormatString_IntValue, "SenderPort", in.SenderPort );
+    
+    return report_str;
+}
+
+DecodeHeaderData()
+{
+    report_str = "";
+    
+    if(in.PacketType >= _PD_MESSAGE_TYPE_START___ && in.PacketType <= _PD_MESSAGE_TYPE_END___)
+    {
+        report_str = FormatEx( "\n\t*** Message Header ***\n" );
+        
+        report_str += FormatEx( FormatString_IntValue, "SOP_Type", in.SOP_Type ); 
+        
+        report_str += FormatEx( FormatString_IntValue, "in.Msg_Type", in.Msg_Type );        
+        
+        ######################################################################################
+        #Here is how to use GetHexPktField method to retrieve a field's value
+        report_str += AddFieldsHexPkt(NO_DATA_OBJECT, "Msg_Type");
+        ######################################################################################
+
+        pd_message_type_descr = GetPDMessageTypeDescr();
+        report_str += FormatEx( "\t%-20s \t\t= %s(%d)\n", "in.PacketType", pd_message_type_descr, in.PacketType ); 
+
+        if(in.SOP_Type == _PD_FRAMING_SOP)
+        {
+            if( in.Spec_Rev < _PD_SPEC_REV_3 )
+                report_str += FormatEx( FormatString_IntValue, "Rsvd 1", in.Rsvd_1 );
+            report_str += FormatEx( FormatString_IntValue, "PortDataRole", in.DR );
+        }
+        else
+        {
+            report_str += FormatEx( FormatString_IntValue, "Rsvd 1", in.Rsvd_1 );
+        }
+                       
+        report_str += FormatEx( FormatString_IntValue, "Spec Rev", in.Spec_Rev );
+        
+        if(in.SOP_Type == _PD_FRAMING_SOP)
+        {
+            report_str += FormatEx( FormatString_IntValue, "PortPowerRole", in.PR );
+        }
+        else
+        {
+            report_str += FormatEx( FormatString_IntValue, "Cable Plug", in.Cable_Plug );
+        }
+        
+        report_str += FormatEx( FormatString_IntValue, "Msg ID", in.Msg_ID ); 
+        report_str += FormatEx( FormatString_IntValue, "Obj Cnt", in.Obj_Cnt ); 
+        
+        if(in.Spec_Rev < _PD_SPEC_REV_3)
+        {
+            report_str += FormatEx( FormatString_IntValue, "Rsvd 2", in.Rsvd_2 );
+        }
+        else
+        {
+            report_str += FormatEx( FormatString_IntValue, "Extended", in.Extended );
+            
+            if( in.Extended == 1 )
+            {
+                report_str += FormatEx( FormatString_IntValue, "Data Size", in.Data_Size );
+                report_str += FormatEx( FormatString_IntValue, "Rsvd 3", in.Rsvd_3 );
+                report_str += FormatEx( FormatString_IntValue, "Request Chunk", in.Req_Chunk );
+                report_str += FormatEx( FormatString_IntValue, "Chunk Number", in.Chunk_Num );
+                report_str += FormatEx( FormatString_IntValue, "Chunked", in.Chunked );
+            }
+        }
+    }
+    
+    return report_str;
+}
+
+AddCapabilityPDOs()
+{
+    report_str = "";
+    
+    for (i = 0; i < in.DataObjectCount; i++)
+    {
+        report_str += FormatEx( "\n\t*** Data Object %d out of %d ***\n", i + 1, in.DataObjectCount );
+       
+        data_object_str = "";
+        
+        supply_type = GetDecodedField(i, "Supply_Type", TRUE);        
+     
+        if( supply_type == PDCapPowerSupplyTypeString[_PD_CAP_PWR_FIXED] )
+            data_object_str = DecodeCapFixedPowerSupplyData(i);
+        else if( supply_type == PDCapPowerSupplyTypeString[_PD_CAP_PWR_BATTERY] )
+            data_object_str = DecodeCapBatteryPowerSupplyData(i);
+        else if( supply_type == PDCapPowerSupplyTypeString[_PD_CAP_PWR_VARIABLE] )
+            data_object_str = DecodeCapVariablePowerSupplyData(i);
+        else
+            data_object_str = DecodeCapUndefinedPowerSupplyData(i);
+
+        report_str += data_object_str;
+    }   
+  
+    return report_str;
+}
+
+DecodeCapFixedPowerSupplyData(data_object_index)
+{    
+    if(in.PacketType == _PD_DATA_SNK_CAP)
+    {
+        report_str = "";
+        
+        ######################################################################################
+        #Here is how to use GetHexPktField method to retrieve a field's value
+        report_str += AddFieldsHexPkt(data_object_index, "Rsvd");
+        report_str += AddFieldsHexPkt(data_object_index, "Data_DR");
+        
+        ReportText ( report_str );
+        ######################################################################################
+        
+        ######################################################################################
+        #Here is how to use GetDecodedPktField method to retrieve a field's value
+        return AddFields(data_object_index, "SinkFixedPowerSupply");
+        ######################################################################################
+    }
+    else
+    {
+        report_str = "";
+        
+        ######################################################################################
+        #Here is how to use GetHexPktField method to retrieve a field's value
+        report_str += AddFieldsHexPkt(data_object_index, "Max_Cur");
+        report_str += AddFieldsHexPkt(data_object_index, "Voltage");
+        report_str += AddFieldsHexPkt(data_object_index, "Peak_Curr");
+        report_str += AddFieldsHexPkt(data_object_index, "Rsvd");
+        report_str += AddFieldsHexPkt(data_object_index, "Data_DR");
+
+        ReportText ( report_str );
+        ######################################################################################        
+        
+        ######################################################################################
+        #Here is how to use GetDecodedPktField method to retrieve a field's value
+        text = FormatEx( FormatString_IntValue, "DR SWAP", in.OBJ1_Data_DR );
+        ReportText ( text );
+        
+        return AddFields(data_object_index, "SourceFixedPowerSupply");                
+        ######################################################################################
+    }
+}
+
+DecodeCapBatteryPowerSupplyData(data_object_index)
+{
+    if(in.PacketType == _PD_DATA_SNK_CAP)
+    {
+        report_str = "";        
+        
+        ######################################################################################
+        #Here is how to use GetHexPktField method to retrieve a field's value    
+        report_str += AddFieldsHexPkt(data_object_index, "Opr_Pwr");
+        report_str += AddFieldsHexPkt(data_object_index, "Min_Volt");
+        report_str += AddFieldsHexPkt(data_object_index, "Max_Volt");
+        
+        ReportText ( report_str );
+        ######################################################################################        
+        
+        ######################################################################################
+        #Here is how to use GetDecodedPktField method to retrieve a field's value
+        return AddFields(data_object_index, "SinkBatteryPowerSupply");  
+        ######################################################################################        
+    }
+    else
+    {
+        report_str = "";        
+        
+        ######################################################################################
+        #Here is how to use GetHexPktField method to retrieve a field's value
+        report_str += AddFieldsHexPkt(data_object_index, "Max_Allowed_Pwr");
+        report_str += AddFieldsHexPkt(data_object_index, "Min_Volt");
+        report_str += AddFieldsHexPkt(data_object_index, "Max_Volt");    
+        
+        ReportText ( report_str );
+        ######################################################################################        
+        
+        ######################################################################################
+        #Here is how to use GetDecodedPktField method to retrieve a field's value
+        return AddFields(data_object_index, "SourceBatteryPowerSupply");
+        ######################################################################################
+    }
+}
+
+DecodeCapVariablePowerSupplyData(data_object_index)
+{
+    if(in.PacketType == _PD_DATA_SNK_CAP)
+        return AddFields(data_object_index, "SinkVariablePowerSupply");
+    else
+        return AddFields(data_object_index, "SourceVariablePowerSupply");
+}
+
+DecodeCapUndefinedPowerSupplyData(data_object_index)
+{
+    report_str = "";    
+    
+    report_str += GetDecodedField(data_object_index, "Object");
+    report_str += GetDecodedField(data_object_index, "Supply_Type");
+    
+    return report_str;
+}
+
+AddRequestPDO()
+{
+    report_str = "";
+    
+    if ( in.DataObjectCount >= 1 )
+    {
+        report_str += FormatEx( "\n\t*** Data Object 1 out of %d ***\n", in.DataObjectCount );        
+        report_str += DecodeRequestPacketData();
+
+        if ( in.DataObjectCount >= 2 )
+        {
+            report_str += DecodeUndefinedDataObjects();
+        }       
+    }
+    
+    return report_str;
+}
+
+DecodeRequestPacketData()
+{
+    report_str = "";
+    field_name = "";
+    field_prefix =  "OBJ1_";
+    
+    if(in.OBJ1_Give_Back)
+    {
+        field_name = field_prefix + "MinOprCurPow";
+        report_str += FormatEx( FormatString_IntValue, field_name, in.OBJ1_MinOprCurPow); 
+    }
+    else
+    {
+        field_name = field_prefix + "MaxOprCurPow";
+        report_str += FormatEx( FormatString_IntValue, field_name, in.OBJ1_MaxOprCurPow); 
+    }    
+    
+    field_name = field_prefix + "OprCurPow";
+    report_str += FormatEx( FormatString_IntValue, field_name, in.OBJ1_OprCurPow); 
+        
+    ######################################################################################
+    #Here is how to use decoder and context methods to retrieve a field's value
+    field_name = "Rsvd_1";
+    report_str += GetDecodedField(0, field_name); 
+    
+    field_name = "in." + field_prefix + "Rsvd_1";
+    report_str += FormatEx( FormatString_IntValue, field_name, in.OBJ1_Rsvd_1); 
+    ######################################################################################
+    
+    if( in.Spec_Rev >= _PD_SPEC_REV_3 )
+    {
+        field_name = field_prefix + "Unchunked_Ext";
+        report_str += FormatEx( FormatString_IntValue, field_name, in.OBJ1_Unchunked_Ext); 
+    }
+    
+    field_name = field_prefix + "No_USB_Suspend";
+    report_str += FormatEx( FormatString_IntValue, field_name, in.OBJ1_No_USB_Suspend); 
+    
+    field_name = field_prefix + "USB_Com_cap";
+    report_str += FormatEx( FormatString_IntValue, field_name, in.OBJ1_USB_Com_cap); 
+    
+    ######################################################################################
+    #Here is how to use decoder and context methods to retrieve a field's value
+    field_name = "Cap_Mismatch";
+    report_str += GetDecodedField(0, field_name); 
+    
+    field_name = "in." + field_prefix + "Cap_Mismatch";
+    report_str += FormatEx( FormatString_IntValue, field_name, in.OBJ1_Cap_Mismatch); 
+    ######################################################################################
+    
+    field_name = field_prefix + "OBJ1_Give_Back";
+    report_str += FormatEx( FormatString_IntValue, field_name, in.OBJ1_Give_Back); 
+    
+    field_name = field_prefix + "Obj_Pos";
+    report_str += FormatEx( FormatString_IntValue, field_name, in.OBJ1_Obj_Pos); 
+    
+    field_name = field_prefix + "Rsvd_2";
+    report_str += FormatEx( FormatString_IntValue, field_name, in.OBJ1_Rsvd_2); 
+
+    return report_str;
+}
+
+AddBISTPDO()
+{
+    report_str = "";
+    
+    if ( in.DataObjectCount >= 1 )
+    {        
+        report_str += FormatEx( "\n\t*** %d Data Objects ***\n", in.DataObjectCount );
+
+        if(in.BISTFunction == _PD_BIST_REQ_TYPE_RETURNED_BIST_COUNTERS)
+            report_str += DecodeBISTReturnedCounterPacketData();
+        else
+            report_str += DecodeBISTPacketData();
+
+        if(in.BISTFunction == _PD_BIST_REQ_TYPE_TEST_DATA)
+            report_str += DecodeBISTTestData();
+        if ( in.DataObjectCount >= 2 )
+            report_str += DecodeUndefinedDataObjects();
+    }
+    
+    return report_str;
+}
+
+DecodeBISTReturnedCounterPacketData()
+{
+    return AddFields(NO_DATA_OBJECT, "BISTReturnedCounterPacketData");
+}
+
+DecodeBISTPacketData()
+{
+    return AddFields(NO_DATA_OBJECT, "BISTPacketData");
+}
+
+DecodeBISTTestData()
+{
+    report_str = "";
+    data_stream = "";
+
+    val = GetHexPktField("Data");
+    for (byte_index = 0; byte_index < 24; byte_index++)
+    {
+        result = GetNBits(val, byte_index * 8, 8);
+        data_stream += FormatEx( "%X ", result );
+    }
+    
+    report_str += FormatEx( FormatString_StringValue, "Data", data_stream );
+    
+    data_stream = "";
+    for (byte_index = 0; byte_index < 24; byte_index++)
+    {
+        result = GetNBits(in.Data, byte_index * 8, 8);
+        data_stream += FormatEx( "%X ", result );
+    }
+    report_str += FormatEx( FormatString_StringValue, "Data via Context", data_stream );
+
+    return report_str;
+}
+
+DecodeBISTTestStream()
+{
+    report_str = "";
+    
+    report_str += FormatEx( FormatString_IntValue, "in.Mode", in.Mode );
+    report_str += FormatEx( "\t%-20s \t\t= %d bits\n", "in.Length", in.Length );        
+
+    if(in.CorruptedDataLen > 0)
+    {
+        report_str += FormatEx( FormatString_IntValue, "in.CorruptedDataLen", in.CorruptedDataLen );
+        
+        data_stream = "";
+        for (byte_index = 0; byte_index < in.CorruptedDataLen; byte_index++)
+        {
+            result = GetNBits(in.Corrupted_Bits, byte_index * 8, 8);
+            data_stream += FormatEx( "0x%X ", result );
+        }
+        report_str += FormatEx( FormatString_StringValue, "Corrupted Bits", data_stream );
+        
+        data_stream = "0b";
+        for (bit_index = 0; bit_index < in.CorruptedDataLen * 8; bit_index++)
+        {
+            result = GetNBits(in.Corrupted_Bits, bit_index, 1);
+            data_stream += FormatEx( "%u", result );
+        }
+        report_str += FormatEx( FormatString_StringValue, "Corrupted Bits", data_stream );
+    }
+
+    return report_str;
+}
+
+AddVendorDefPDOs()
+{   
+    report_str = "";
+    data_object_str = "";
+  
+    if(in.IsStructuredVDM)
+    {
+        for (obj_num = 0; obj_num < in.DataObjectCount; obj_num++)
+        {
+            data_object_str += FormatEx( "\n\t*** Data Object %d out of %d ***\n", obj_num + 1, in.DataObjectCount );
+            
+            all_remaining_data_decoded = FALSE;
+            pd_undefined_data_obj = FALSE;
+            
+            if ( obj_num == 0 )
+            {
+                data_object_str += DecodeVendorDefVDMHeaderPacketData();
+            }
+            else
+            {
+                if ( in.VDMCommandType == _PD_VDM_CMD_TYPE_INIT )
+                {
+                    if ( in.VDMCommand == _PD_VDM_CMD_ATTENTION )
+                    {                       
+                        if ( in.VDMVendorID == _PD_SID_DISPLAY_PORT && obj_num == 1 )                    
+                        {
+                            data_object_str += DecodeVendorDefDPStatusVDO(obj_num);
+                        }
+                        else
+                        {
+                            data_object_str += DecodeVendorDefUnstructuredDataObjects(obj_num);
+                            all_remaining_data_decoded = TRUE;
+                        }
+                    }
+                    else if ( _PD_VDM_CMD_SVID_SPECIFIC_FIRST___ <= in.VDMCommand && in.VDMCommand <= _PD_VDM_CMD_SVID_SPECIFIC_LAST___ )
+                    {
+                        if ( in.VDMVendorID == _PD_SID_DISPLAY_PORT && 
+                            in.VDMCommand == _PD_VDM_CMD_SVID_SPECIFIC_DP_CONFIGURE )
+                        {
+                            data_object_str += DecodeVendorDefDPConfigureVDO(obj_num);
+                        }
+                        else if ( in.VDMVendorID == _PD_SID_DISPLAY_PORT &&
+                            in.VDMCommand == _PD_VDM_CMD_SVID_SPECIFIC_DP_STATUS )
+                        {
+                            data_object_str += DecodeVendorDefDPStatusVDO(obj_num);
+                        }
+                        else
+                        {
+                            data_object_str += DecodeVendorDefUnstructuredDataObjects(obj_num);
+                            all_remaining_data_decoded = true;
+                        }
+                    }
+                }
+                else
+                {
+                    if(in.VDMCommand == _PD_VDM_CMD_DISCOVER_IDENTITY)                            
+                    {
+                            if(obj_num == 1) 
+                                data_object_str += DecodeVendorDefDiscoverIDResponseIdHeaderVDO(obj_num);
+                            if(obj_num == 2)
+                                data_object_str += DecodeVendorDefDiscoverIDResponseCertStateVDO(obj_num);
+                            if(obj_num == 3)
+                                data_object_str += DecodeVendorDefDiscoverIDResponseProductVDO(obj_num);
+                            if(obj_num == 4 || obj_num == 5 || obj_num == 6)
+                            {
+                                if(in.VDMProductType == _PD_VDM_PRODUCT_TYPE_PASSIVE_CABLE)
+                                    data_object_str += DecodeVendorDefDiscoverIDResponsePassiveCableVDO(obj_num);
+                                else if(in.VDMProductType == _PD_VDM_PRODUCT_TYPE_ACTIVE_CABLE)
+                                    data_object_str += DecodeVendorDefDiscoverIDResponseActiveCableVDO(obj_num);
+                                else if(in.VDMProductType == _PD_VDM_PRODUCT_TYPE_ALTERNATE_MODE_ADAPTER)
+                                    data_object_str += DecodeVendorDefDiscoverIDResponseAlternateModeVDO(obj_num);
+                                else
+                                {
+                                    pd_undefined_data_obj = TRUE;
+                                }
+                            }
+                    }
+                    else if(in.VDMCommand == _PD_VDM_CMD_DISCOVER_SVIDS)
+                    {
+                        if(in.DataObjectCount > 1)
+                        {
+                            report_str = "";     
+                            
+                            report_str += FormatEx("\t%-20s \t\t= 0x%s\n", "in.SVID_0", in.SVID_0);
+                            report_str += FormatEx("\t%-20s \t\t= 0x%s\n", "in.SVID_1", in.SVID_1);
+                            
+                            if(in.DataObjectCount > 2)
+                            {
+                                report_str += FormatEx("\t%-20s \t\t= 0x%s\n", "in.SVID_2", in.SVID_2);
+                                report_str += FormatEx("\t%-20s \t\t= 0x%s\n", "in.SVID_3", in.SVID_3);
+                            }
+                            
+                            ReportText ( report_str );
+                        }
+                        
+                        data_object_str += DecodeVendorDefDiscoverSVIDsResponseVDO(obj_num);
+                        all_remaining_data_decoded = TRUE;
+                    }
+                    else if(in.VDMCommand == _PD_VDM_CMD_DISCOVER_MODES)
+                    {    
+                        if ( in.VDMVendorID == _PD_SID_DISPLAY_PORT )
+                        {
+                            data_object_str += DecodeVendorDefDiscoverModesDPCapabilityResponseVDO(obj_num);
+                        }
+                        else
+                        {
+                            data_object_str += DecodeVendorDefDiscoverModesResponseVDO(obj_num);
+                            all_remaining_data_decoded = TRUE;
+                        }
+                    }
+                    else if(in.VDMCommand == _PD_VDM_CMD_ENTER_MODE || in.VDMCommand == _PD_VDM_CMD_EXIT_MODE || in.VDMCommand == _PD_VDM_CMD_ATTENTION)
+                    {
+                        all_remaining_data_decoded = TRUE;
+                        pd_undefined_data_obj = TRUE;
+                    }
+                    else if(in.VDMCommand == _PD_VDM_CMD_SVID_SPECIFIC_DP_STATUS)
+                    {
+                        if ( in.VDMVendorID == _PD_SID_DISPLAY_PORT && obj_num == 1 )
+                        {
+                            data_object_str += DecodeVendorDefDPStatusVDO(obj_num);
+                        }
+                        else
+                        {
+                            data_object_str += DecodeVendorDefUnstructuredDataObjects(obj_num);
+                            all_remaining_data_decoded = TRUE;
+                        }
+                    }
+                    else if(in.VDMCommand >= _PD_VDM_CMD_SVID_SPECIFIC_1 && in.VDMCommand <= _PD_VDM_CMD_SVID_SPECIFIC_15)
+                    {
+                        data_object_str += DecodeVendorDefUnstructuredDataObjects(obj_num);
+                        all_remaining_data_decoded = TRUE;
+                    }
+                    else
+                        pd_undefined_data_obj = TRUE;
+                }
+            }
+           
+            if(pd_undefined_data_obj == TRUE)
+            {
+                all_remaining_data_decoded = TRUE;
+                data_object_str += DecodeUndefinedDataObjects();
+            }
+
+            if ( all_remaining_data_decoded == TRUE )
+            {
+                #This is to break the loop
+                obj_num = in.DataObjectCount;
+            }
+        }
+    }
+    else
+    {
+        if ( in.DataObjectCount >= 1 )
+        {
+            data_object_str += FormatEx( "\n\t*** Data Object %d out of %d ***\n", 1, in.DataObjectCount );
+            data_object_str += DecodeVendorDefVDMHeaderPacketData();
+
+            if( in.DataObjectCount >= 2 )
+            {
+                data_object_str += FormatEx( "\n\t*** Data Object %d out of %d ***\n", 2, in.DataObjectCount );
+                data_object_str += DecodeVendorDefUnstructuredDataObjects(1);
+            }
+        }
+    }
+    
+    report_str = data_object_str;
+    
+    return report_str;
+}
+
+AddBatteryStatusPDO()
+{
+    report_str = "\n\t*** Data Object ***\n";
+    report_str += AddFields(0, "BatteryStatusData");
+    return report_str;
+}
+
+AddAlertPDO()
+{
+    report_str = "\n\t*** Data Object ***\n";
+    report_str += AddFields(0, "AlertData");
+    return report_str;
+}
+
+AddSourceCapExtendedData()
+{
+    report_str  = "\n\t*** Extended Data ***\n";
+    report_str += AddFields(NO_DATA_OBJECT, "SourceCapExtendedData");
+    return report_str;
+}
+
+AddStatusData()
+{
+    report_str  = "\n\t*** Extended Data ***\n";
+    report_str += AddFields(NO_DATA_OBJECT, "StatusData");
+    return report_str;
+}
+
+AddGetBatteryCapData()
+{
+    report_str  = "\n\t*** Extended Data ***\n";
+    report_str += AddFields(NO_DATA_OBJECT, "GetBatteryCapData");
+    return report_str;
+}
+
+AddGetBatteryStatusData()
+{
+    report_str  = "\n\t*** Extended Data ***\n";
+    report_str += AddFields(NO_DATA_OBJECT, "GetBatteryStatusData");
+    return report_str;
+}
+
+AddBatteryCapData()
+{
+    report_str  = "\n\t*** Extended Data ***\n";
+    report_str += AddFields(NO_DATA_OBJECT, "BatteryCapData");
+    return report_str;
+}
+
+AddGetManufacturerInfoData()
+{
+    report_str  = "\n\t*** Extended Data ***\n";
+    report_str += AddFields(NO_DATA_OBJECT, "GetManufacturerInfoData");
+    return report_str;
+}
+
+AddManufacturerInfoData()
+{
+    report_str  = "\n\t*** Extended Data ***\n";
+    report_str += AddFields(NO_DATA_OBJECT, "ManufacturerInfoData");
+    return report_str;
+}
+
+AddSecurityReqData()
+{
+    report_str  = "\n\t*** Extended Data ***\n";
+    report_str += AddFieldsHexPkt(NO_DATA_OBJECT, "Security_Req_Data");
+    return report_str;
+}
+
+AddSecurityRespData()
+{
+    report_str  = "\n\t*** Extended Data ***\n";
+    report_str += AddFieldsHexPkt(NO_DATA_OBJECT, "Security_Resp_Data");
+    return report_str;
+}
+
+AddFirmwareUpdateReqData()
+{
+    report_str  = "\n\t*** Extended Data ***\n";
+    report_str += AddFieldsHexPkt(NO_DATA_OBJECT, "FW_Update_Req_Data");
+    return report_str;
+}
+
+AddFirmwareUpdateRespData()
+{
+    report_str  = "\n\t*** Extended Data ***\n";
+    report_str += AddFieldsHexPkt(NO_DATA_OBJECT, "FW_Update_Resp_Data");
+    return report_str;
+}
+
+DecodeVendorDefVDMHeaderPacketData()
+{
+    report_str = ""; 
+    
+    if(in.IsStructuredVDM)
+    {
+        report_str += AddFields(0, "VDMHeaderPacketData");
+    }
+    else
+    {
+        report_str += GetDecodedField(0, "Data (15 bits)");
+    }
+    
+    report_str += GetDecodedField(0, "Type");
+    report_str += GetDecodedField(0, "Vendor_ID");
+    
+    return report_str;
+}
+
+DecodeVendorDefUnstructuredDataObjects(starting_data_object_index)
+{
+    report_str = "";     
+   
+    for (obj_num = starting_data_object_index; obj_num < in.DataObjectCount; obj_num++)
+    {
+        if(obj_num > starting_data_object_index)
+            report_str += FormatEx( "\n\t*** Data Object %d out of %d ***\n", obj_num + 1, in.DataObjectCount );
+
+        field_name = FormatEx("Object %d", obj_num);
+        report_str += GetDecodedField(NO_DATA_OBJECT, field_name);
+    }
+    
+    return report_str;
+}
+
+DecodeVendorDefDiscoverIDResponseIdHeaderVDO(data_object_index)
+{
+    return AddFields(data_object_index, "VDMIdHeader");
+}
+
+DecodeVendorDefDiscoverIDResponseCertStateVDO(data_object_index)
+{
+    return AddFields(data_object_index, "VDMCertState");
+}
+
+DecodeVendorDefDiscoverIDResponseProductVDO(data_object_index)
+{
+    return AddFields(data_object_index, "VDMProductVDO");
+}
+
+DecodeVendorDefDiscoverIDResponsePassiveCableVDO(data_object_index)
+{
+    report_str = "";
+    report_str += FormatEx( FormatString_StringValue, "OBJ5_SOPDPrime_Con", GetDecodedPktField("OBJ5_SOPDPrime_Con") ); 
+    report_str += FormatEx( FormatString_StringValue, "OBJ5_Type-C_to_Plg", GetDecodedPktField("OBJ5_Type_C_to_Plg") ); 
+    report_str += FormatEx( FormatString_StringValue, "OBJ5_Type-C_to", GetDecodedPktField("OBJ5_Type_C_to") ); 
+    
+    report_str += FormatEx( FormatString_IntValue, "in.OBJ5_SOPDPrime_Con", in.OBJ5_SOPDPrime_Con ); 
+    report_str += FormatEx( FormatString_IntValue, "in.OBJ5_Type_C_to_Plg", in.OBJ5_Type_C_to_Plg ); 
+    report_str += FormatEx( FormatString_IntValue, "in.OBJ5_Type_C_to", in.OBJ5_Type_C_to ); 
+    
+    ReportText ( report_str );
+    
+    if( in.Spec_Rev < _PD_SPEC_REV_3 )
+        return AddFields(data_object_index, "VDMCableVDO");
+    else
+        return AddFields(data_object_index, "VDMPassiveCableVDO");
+}
+
+DecodeVendorDefDiscoverIDResponseActiveCableVDO(data_object_index)
+{
+    report_str = "";
+    report_str += FormatEx( FormatString_StringValue, "OBJ5_SOPDPrime_Con", GetDecodedPktField("OBJ5_SOPDPrime_Con") ); 
+    report_str += FormatEx( FormatString_StringValue, "OBJ5_Type-C_to_Plg", GetDecodedPktField("OBJ5_Type_C_to_Plg") ); 
+    report_str += FormatEx( FormatString_StringValue, "OBJ5_Type-C_to", GetDecodedPktField("OBJ5_Type_C_to") ); 
+    
+    report_str += FormatEx( FormatString_IntValue, "in.OBJ5_SOPDPrime_Con", in.OBJ5_SOPDPrime_Con ); 
+    report_str += FormatEx( FormatString_IntValue, "in.OBJ5_Type_C_to_Plg", in.OBJ5_Type_C_to_Plg ); 
+    report_str += FormatEx( FormatString_IntValue, "in.OBJ5_Type_C_to", in.OBJ5_Type_C_to ); 
+    
+    ReportText ( report_str );
+    
+    if( in.Spec_Rev < _PD_SPEC_REV_3 )
+        return AddFields(data_object_index, "VDMCableVDO");
+    else
+        return AddFields(data_object_index, "VDMActiveCableVDO");
+}
+
+DecodeVendorDefDiscoverIDResponseAlternateModeVDO(data_object_index)
+{
+    report_str += FormatEx( FormatString_IntValue, "in.OBJ5_FW_Ver", in.OBJ5_FW_Ver ); 
+    report_str += FormatEx( FormatString_IntValue, "in.OBJ5_HW_Ver", in.OBJ5_HW_Ver ); 
+    ReportText ( report_str );
+    
+    if( in.Spec_Rev < _PD_SPEC_REV_3 )
+        return AddFields(data_object_index, "VDMAlternateModeVDO_Rev2");
+    else
+        return AddFields(data_object_index, "VDMAlternateModeVDO");
+}
+
+DecodeVendorDefDiscoverSVIDsResponseVDO(data_object_index)
+{
+    report_str = "";
+    
+    for (obj_num = data_object_index; obj_num < in.DataObjectCount; obj_num++)
+    {
+        if(obj_num > data_object_index)
+            report_str += FormatEx( "\n\t*** Data Object %d out of %d ***\n", obj_num + 1, in.DataObjectCount );
+
+        field_name = FormatEx("SVID_%d", (obj_num - 1) * 2);
+        report_str += GetDecodedField(NO_DATA_OBJECT, field_name);     
+        
+        field_name = FormatEx("SVID_%d", (obj_num - 1) * 2 + 1);
+        report_str += GetDecodedField(NO_DATA_OBJECT, field_name);        
+    }
+  
+    return report_str;
+}
+
+DecodeVendorDefDiscoverModesResponseVDO(data_object_index)
+{
+    report_str = ""; 
+    
+    for (obj_num = data_object_index; obj_num < in.DataObjectCount; obj_num++)
+    {
+        if(obj_num > data_object_index)
+            report_str += FormatEx( "\n\t*** Data Object %d out of %d ***\n", obj_num + 1, in.DataObjectCount );
+            
+        field_name = FormatEx("Mode_%d", obj_num);
+        report_str += GetDecodedField(NO_DATA_OBJECT, field_name);
+    }
+  
+    return report_str;
+}
+
+DecodeVendorDefDiscoverModesDPCapabilityResponseVDO(data_object_index)
+{
+    return AddFields(data_object_index, "VDMDPCapabilityResponseVDO");
+}
+
+DecodeVendorDefDPStatusVDO(data_object_index)
+{
+    return AddFields(data_object_index, "VDMDPStatusVDO");
+}
+
+DecodeVendorDefDPConfigureVDO(data_object_index)
+{
+    return AddFields(data_object_index, "VDMConfigureVDO");
+}
+
+DecodeUndefinedDataObjects()
+{
+    report_str = ""; 
+
+    for( obj_num = 0; obj_num < in.UndefinedObjectsCount; obj_num++ )
+    {    
+        if(obj_num > 0)
+            report_str += FormatEx( "\n\t*** Data Object %d out of %d ***\n", obj_num + 1, in.UndefinedObjectsCount );
+            
+        field_name = FormatEx("Object %d", obj_num + 1);
+        report_str += GetDecodedField(NO_DATA_OBJECT, field_name);        
+    }
+  
+    return report_str;
+}
+
+DecodePacketEvent()
+{
+    report_str = "";
+	
+	report_str += FormatEx( "\n\tEvent Type: %s(%d)\n", GetPDMessageTypeDescr(), in.EventType );
+
+    return report_str;
+}
+
+DecodeUnknownPacket()
+{
+    report_str = ""; 
+    
+    report_str += FormatEx( FormatString_IntValue, "in.HasPacketFraming", in.HasPacketFraming ); 
+    if(in.HasPacketFraming == 1)
+        report_str += FormatEx( FormatString_IntValue, "in.ProbableMessageType", in.ProbableMessageType ); 
+
+    return report_str;
+}

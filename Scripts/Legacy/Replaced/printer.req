@@ -1,0 +1,116 @@
+;*******************************************************************************
+;*
+;*  FILENAME: printer.req
+;*
+;*  Copyright (C) 1999 Computer Access Technology Corporation
+;*
+;*  DESCRIPTION
+;*    This is the request file for USB Device Class Definition for Printing Devices. 
+;*    This file is prepared as per the Specification Revision 1.0.
+;*
+;*  REVISION HISTORY
+;*    13MAY99 First created -ag-
+;*
+;*******************************************************************************
+
+;*******************************************************************************
+; Specify the name for this set of requests as GroupName. This name is listed 
+; under Decode Vendor/Class Request menu depending on the GroupType specified 
+; and the Type field of the request you are trying to decode. 
+;*******************************************************************************
+GroupName=Printer Class
+GroupType=Class
+ClassCode=0x07
+
+AllRequests={
+0x00=GET_DEVICE_ID
+0x01=GET_PORT_STATUS
+0x02=SOFT_RESET
+}
+
+;*******************************************************************************
+; GET_DEVICE_ID : This class specific request returns a device ID string that is 
+;                 compatable with IEEE-1284.
+; bmRequestType : 0xA1
+; bRequest      : 0x00
+; wValue        : Config Index
+; wIndex        : Interface & Alternate Setting
+; wLength       : Maximum Length
+; Data          : 1284 Device ID String
+;*******************************************************************************
+; start GET_DEVICE_ID
+Request(0x00)={
+
+   wValue={
+    Depends(bmRequestType)={
+      0xA1={  
+        FormatValue=Configuration Index is 0x%04X
+      }
+    }
+   }
+   wIndex={ 
+     HIBYTE={
+       FormatValue= Interface is # %i
+     }
+     LOBYTE={
+       FormatValue= Alternate Setting for the Interface is %d
+     }
+   }
+   Data={
+     Name=IEEE-1284 Device ID String
+     Bytes(0,1)={
+       FormatValue= The Device ID Length is 0x%4X
+     }
+   }     
+}
+; end GET_DEVICE_ID
+
+;*******************************************************************************
+; GET_PORT_STATUS : This class specific request returns the current status of the 
+;                 status register of the Centronics Parallel Port.
+; bmRequestType : 0xA1
+; bRequest      : 0x01
+; wValue        : 0x0000
+; wIndex        : Interface
+; wLength       : 0x01
+; Data          : Byte
+;*******************************************************************************
+; start GET_PORT_STATUS
+Request(0x01)={
+
+  wIndex={
+    FormatValue= Interface is # %i
+  }
+  Data={
+    Length=1
+    Bytes(0,0)={
+      Name= Status of Centronics Parallel Port:
+      Bitmap={
+        3=Not Error(1=No Error, 0=Error)
+        4=Select(1=Selected, 0=Not Selected)
+        5=Paper Empty(1=Empty, 0=Not Empty)
+      }
+    }
+  }
+}
+; end GET_PORT_STATUS
+
+;*******************************************************************************
+; SOFT_RESET    : This class specific request flushes all buffers and resets the 
+;                 Bulk OUT and Bulk IN pipes to their default state. This reset 
+;                 does not change the USB address or USB configuration.
+; bmRequestType : 0x21
+; bRequest      : 0x02
+; wValue        : 0x0000
+; wIndex        : Interface
+; wLength       : 0x00
+; Data          : None
+;*******************************************************************************
+; start SOFT_RESET
+Request(0x02)={
+
+  wIndex={     
+    FormatValue= Interface is # %i
+  }
+}
+; end SOFT_RESET

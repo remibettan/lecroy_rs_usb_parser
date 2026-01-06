@@ -1,0 +1,162 @@
+#*******************************************************************************
+#
+#  FILENAME: Comm_Notification.dec
+#
+#  Copyright (c) 2005, LeCroy - All Rights Reserved
+#
+#  DESCRIPTION
+#    This is the request file for USB Class Definition for Communication Devices. 
+#    This file is prepared as per the Specification Revision 1.0.
+#    This file is prepared as per the USB Class Definitions for Communication Devices v1.1
+#
+#  REVISION HISTORY
+#    13MAY99 First created -ag-
+#    08AUG99 Modified as per Revision 1.1 -ag-
+#    May00   Added notifications -ag- -mp-
+#    Mar 06  Convert to new script format and prepared for WUSB 1.0 -jz-
+#    19MAR07 Updated for CDC Wireless (WCD) Spec. 1.0 [MDLM Codes] + Removed Tabs -rk-
+#    30Jan13 CDC sub protocols separated from CDC decoder.
+#*******************************************************************************
+
+#*******************************************************************************
+# Specify the name for this set of requests as GroupName. This name is listed 
+# under Decode Vendor/Class Request menu depending on the GroupType specified 
+# and the Type field of the request you are trying to decode. 
+#*******************************************************************************
+ 
+
+%include "CATCScriptAPI.inc"             #.inc files that are included
+%include "UsbCommon.inc" 
+%include "CDCRequests.inc" 
+
+
+const Tabular_Def_Table = Map( 
+[   
+    #-----------------------------------------------------------------------------------------------------
+    #       id           ,      colId                          , 		containerCellId
+    #-----------------------------------------------------------------------------------------------------
+    [ CELL_REQUEST   , TABULAR_SCRIPT_COLUMN_ID_SUBTYPE  , TABULAR_SCRIPT_CONTAINER_CELL_ID_NONE ],
+    [ CELL_WVALUE    , TABULAR_SCRIPT_COLUMN_ID_NONE     , TABULAR_SCRIPT_CONTAINER_CELL_ID_MISC ]  
+] );
+
+
+const CCI_ViewAll              = 0;
+const CCI_HideAll              = 0;
+#                       [collapsed, expanded]   
+const CCI_bmRequestType       = [1, 1];
+const CCI_wValue              = [1, 1];
+const CCI_wIndex              = [1, 1];
+const CCI_wLength             = [1, 1];
+const CCI_Over_Run            = [1, 1];
+const CCI_Parity              = [1, 1];
+const CCI_Framing             = [1, 1];
+const CCI_Ring_Sig            = [1, 1];
+const CCI_Break               = [1, 1];
+const CCI_Trans_Carir         = [1, 1];
+const CCI_Rcv_Carir           = [1, 1];
+const CCI_Rngbck_Tp           = [1, 1];
+const CCI_Conn_Tp             = [1, 1];
+const CCI_Rng_Ptn             = [1, 1];
+const CCI_Tm_Str_Sz           = [1, 1];
+const CCI_Tm_Str              = [1, 1];
+const CCI_PN_Str_Sz           = [1, 1];
+const CCI_Nm_Str_Sz           = [1, 1];
+const CCI_Nm_Str              = [1, 1];
+const CCI_US_BitRate          = [1, 1];
+const CCI_DS_BitRate          = [1, 1];
+
+ #----  Input
+ # in.Data       - Data_block to decode
+ # in.DataLength - Length of Data_block 
+ 
+ #----  Output
+ # out.Decoded   - amount of data has been decoded
+ 
+#-----------------------------------------------------------------------------
+
+set OutputType          = "Comm Class Interrupt Notif";      
+set UsbDecodeType       = "Endpoint";
+set UsbReqType          = "Class";
+set UsbClassCode        = 0x02; # Class code Communication device and communication interface 
+set UsbEndpId           = 12;   # just a unique value for each endpoint of the same Class/Vendor/Product to distinguish them
+set UsbEndpType         = "Interrupt";
+set UsbEndpDir          = "In";
+set UsbMaxXferSize      = 64;   
+set UsbScriptDecodeType = 1;   # Combined decoding for Cells and Text decoding 
+
+#-----------------------------------------------------------------------------
+
+const CDC_NOTIFY_CELL_COLOR = 0x887700;
+const STATUS_COLOR = 0xABCDEF;
+
+
+#
+# Parsing entry point
+#
+
+set bmRequestType   = 0;  
+set bRequest        = 0;
+set wValue          = 0;
+set wIndex          = 0;
+set wLength         = 0;
+
+
+#***************************************************************************
+#                 Communication Interface Class Notifications
+# Device uses these to notify the host of interface or endpoint events
+#***************************************************************************
+ProcessData()
+{
+    CommonDecoderInit();
+    UnitDecoderInit("CCI");
+    SetCellColor(CDC_NOTIFY_CELL_COLOR);
+	
+	FullyDecoded = 1;
+    
+    out.Decoded = 0;    	
+  
+    AddCaptionCell("Comm","Interrupt","This data payload represents a Comm Class Interrupt Notification.",_MONOCOLOR);  # Will allow for the expansion of certain fields
+    RestoreCellColor();
+    AddSeparator();
+            
+    if (in.DataLength < 8)
+    {
+        AddPLCellMonoNoDlg("Error", "Illegal Payload", "Nothing is being decoded", _ERROR);
+        AddShortDataHeader("<font color=RED>ILLEGAL (SHORT) PAYLOAD - Nothing is being decoded!</font>");
+        return Complete();
+    }
+    
+    bmRequestType = NextNBits_(8);    
+    bRequest = NextNBits_(8);
+
+    _row = Find(NotificationTypeTable, bRequest);  # will determine which request is being used  
+    
+    AddShortDataHeader(_row[1]);
+    SetFieldOffsetLen(8,8);
+    
+    if(SimpleShowItem())
+    {      
+		SetCellColor(bRequestColor);
+		AddPayLoadCell("bmRequestType", Format("0x%02X", bmRequestType), "Request Type bitmap");  
+		RestoreCellColor();
+    }
+    
+    SetFieldOffsetLen(16,8);    
+    SetCellColor(CDC_NOTIFY_CELL_COLOR);
+	
+    AddRequestCell (_row[1]);
+    RestoreCellColor();
+    Call( _row[1] );
+    
+    return Complete();
+}
+
+####################################################################################
+#                       USBTracer specific caption cell                            #
+####################################################################################
+
+AddSpecCaptionCell(caption, text, tooltip, FieldColor, addparam, addparam1, addparam2 )
+{   
+    AddCell(caption, text, tooltip, FieldColor, _USBBULK_HEADER, addparam, addparam1, addparam2 );        
+    return 1;        
+}

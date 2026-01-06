@@ -1,0 +1,106 @@
+#
+#  Copyright (c) 2003, Computer Access Technology Corp. - All Rights Reserved
+#
+#  MS_UFI_CBI_BulkInEndp.dec
+#
+#  Mass Storage UFI Control-Bulk-Interrupt Interrupt Endpoint Decoder
+#
+
+%include "CATCScriptAPI.inc"    #include usefull decoder functions
+
+# SCSI definitions
+%include "..\Shared\SCSI\SCSI_Defs.inc"
+
+%include "UsbCommon.inc"
+
+%include "MS_Common.inc"
+%include "MS_UFI_Common.inc"
+
+
+
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block 
+#
+#----  Output
+# out.Decoded   - amount of data has been decoded
+#
+
+
+set OutputType     = "Mass Strg UFI CBI Bulk Out Endp";
+set UsbDecodeType  = "Endpoint";
+set UsbEndpId      = 12; # just a unique value for each endpoint of the same Class/Vendor/Product to distinguish them
+set UsbClassCode   = 0x8; # Mass Storage Class
+set UsbSubClass    = 0x4; #This one is UFI
+set UsbEndpType    = "Bulk";
+set UsbEndpDir     = "Out";
+set UsbMaxXferSize = 0x7FFFFFFF;  #try largest possible positive value  
+set UsbMaxXferDecodeSize   = 31;  # Max bytes that we will be decoding  
+set UsbScriptDecodeType  = 2; # Combined decoding for Cells and Text decoding  
+set UsbDecHdrType = 2; # This type references decoder byte containing the SCSI Opcode  
+set UsbDecHdrLen  = 1; # This 1 byte is passed in to this vial the in context
+
+#
+# Parsing entry point
+#
+
+set PrevOpcode = 0;
+
+ProcessData()
+{
+    InitType2Decoder();
+    PrevOpcode = GetNBits(in.DecodeParams, 0, 8);
+    
+    if (PrevOpcode != 0)
+    {
+        ProcessCBIBulkOutData();
+    }
+    return Complete();
+}
+
+ProcessCBIBulkOutData()
+{
+    AddDecSeparator();
+    FieldColor = MassStorageColor;
+
+    #SCSILevel = GetNBits(in.DecodeParams, 8, 8);
+    Read_SCSILevel();
+    if (SCSILevel == 0) # Xfer level    
+        AddCaptionCell("  Mass  ", "Storage", "This Mass Storage Bulk data payload represents command data to a UFI Device.");
+        
+    GetNBits(in.Data, 0, 0);
+    SetFieldOffsetLen(0,8); 
+        
+    if ((PrevOpcode == 0x2A) ||
+        (PrevOpcode == 0xAA))   # Previous was a Write Command
+    {
+        out.Decoded = 0;
+    }
+    else
+    {    
+        AddDecSeparator();
+        DoInitialCell(PrevOpcode);
+        FieldColor = CDB_Color;           
+                  
+        save_endian = LittleEndian;
+        LittleEndian = 0;
+        
+        AddPLCellMonoStr(CDB_Name, "Data", "Command Data for Previous Command", _MONOCOLOR);
+        
+        LittleEndian = save_endian; 
+      
+        if (in.Expanded && (in.DataLength < 1024))
+        {
+            ShowDataBlockReOrder(in.DataLength);
+            out.Decoded = in.DataLength;
+        }
+        else
+        {
+            out.Decoded = 0;
+        }
+        
+    }
+    SCSILevel = 0;
+}
+  

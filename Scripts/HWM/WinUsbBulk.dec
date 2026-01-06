@@ -1,0 +1,309 @@
+#
+#  Copyright (c) 2002, Computer Access Technology Corp. - All Rights Reserved
+#
+#  winUsbBulk.dec VERSION2
+#
+#  
+#
+%include "CATCScriptAPI.inc"  
+%include "UsbCommon.inc" 
+# %include "Video_Common.inc"
+%include "VideoTables.inc"       #has all the tables that are accessed in this file
+#%include "VideoCellColors.inc"
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block 
+#
+#----  Output
+# out.Decoded   - amount of data has been decoded
+#
+
+
+set OutputType    = "HWM Interface";
+set UsbDecodeType = "Endpoint";
+set UsbEndpId = 10; # just a unique value for each endpoint of the same Class/Vendor/Product to distinguish them
+set UsbClassCode = 0xFF;
+set UsbEndpType = "Bulk";
+set UsbEndpDir = "Out";
+set UsbMaxXferSize = 0x6;   
+
+set UsbScriptDecodeType = 2; # explicit text decoding processing
+set CommandsOpcodeLUT = 
+[
+	[ 0x00	, "UNDEFINED" ],
+	[ 0x01	, "MRB" ],
+	[ 0x02	, "MRW" ],
+	[ 0x03	, "MRD" ],
+	[ 0x04	, "MWB" ],
+	[ 0x05	, "MWB" ],
+	[ 0x06	, "MWB" ],
+	[ 0x07	, "PSP" ],
+	[ 0x08	, "LOPV" ],
+	[ 0x09	, "LPO" ],
+	[ 0x0a	, "LGTEMP" ],
+	[ 0x0b	, "USDM" ],
+	[ 0x0c	, "TSEN" ],
+	[ 0x0d	, "FEIG" ],
+	[ 0x0e	, "GLE" ],
+	[ 0x0f	, "LFM" ],
+	[ 0x10	, "WDR" ],
+	[ 0x11	, "LFOVV" ],
+	[ 0x12	, "UES" ],
+	[ 0x13	, "IRB" ],
+	[ 0x14	, "IRB" ],
+	[ 0x15	, "IRW" ],
+	[ 0x16	, "IRW" ],
+	[ 0x17	, "IRD" ],
+	[ 0x18	, "IRD" ],
+	[ 0x19	, "IWB" ],
+	[ 0x1a	, "IWB" ],
+	[ 0x1b	, "IWW" ],
+	[ 0x1c	, "IWW" ],
+	[ 0x1d	, "IWB" ],
+	[ 0x1e	, "IWW" ],
+	[ 0x1f	, "LEDCON" ],
+	[ 0x20	, "LDDLOCK" ],
+	[ 0x21	, "MSS" ],
+	[ 0x22	, "LPDN" ],
+	[ 0x23	, "FRB" ],
+	[ 0x24	, "LGSC" ],
+	[ 0x25	, "FWB" ],
+	[ 0x26	, "ETR" ],
+	[ 0x27	, "HWA" ],
+	[ 0x28	, "HWRST" ],
+	[ 0x29	, "LGFS" ],
+	[ 0x2a	, "LGFR" ],
+	[ 0x2b	, "LISF" ],
+	[ 0x2c	, "FRMW" ],
+	[ 0x2d	, "GPW" ],
+	[ 0x2e	, "GPR" ],
+	[ 0x2f	, "GPP" ],
+	[ 0x30	, "GSD" ],
+	[ 0x31	, "GGD" ],
+	[ 0x32	, "WTI" ],
+	[ 0x33	, "FES" ],
+	[ 0x34	, "FEF" ],
+	[ 0x35	, "GLD" ],
+	[ 0x36	, "TEST" ],
+	[ 0x37	, "INTEN" ],
+	[ 0x38	, "FSRU" ],
+	[ 0x39	, "IME" ],
+	[ 0x3a	, "WUP" ],
+	[ 0x3b	, "GVD" ],
+	[ 0x3c	, "SVRTH" ],
+	[ 0x3d	, "CRU" ],
+	[ 0x3e	, "OBR" ],
+	[ 0x3f	, "OBW" ],
+	[ 0x40	, "IRGS" ],
+	[ 0x41	, "IRGG" ],
+	[ 0x42	, "RGBGS" ],
+	[ 0x43	, "RGBGG" ],
+	[ 0x44	, "FPS" ],
+	[ 0x45	, "SYNC_FPS" ],
+	[ 0x46	, "LAC" ],
+	[ 0x47	, "LPD" ],
+	[ 0x48	, "LGC" ],
+	[ 0x49	, "LSC" ],
+	[ 0x4a	, "I2CCONECT" ],
+	[ 0x4b	, "RGBCONECT" ],
+	[ 0x4c	, "DPTCONECT" ],
+	[ 0x4d	, "WAKE_ICON" ],
+	[ 0x4e	, "FPLOCK" ],
+	[ 0x4f	, "GCB" ],
+	[ 0x50	, "CALCPRW" ],
+	[ 0x51	, "CALGETSTAT" ],
+	[ 0x52	, "FTEMP" ],
+	[ 0x53	, "RFC" ],
+	[ 0x54	, "RFSE" ],
+	[ 0x55	, "RCALIBCOPY" ],
+	[ 0x56	, "RFBI" ],
+	[ 0x57	, "USBEVEN" ],
+	[ 0x58	, "USBEVS" ],
+	[ 0x59	, "not in use" ],
+	[ 0x5a	, "LGF" ],
+	[ 0x5b	, "LSF" ],
+	[ 0x5c	, "LSN" ],
+	[ 0x5d	, "LGP" ],
+	[ 0x5e	, "LSP" ],
+	[ 0x5f	, "LCI" ],
+	[ 0x60	, "LSE" ],
+	[ 0x61	, "LBO" ],
+	[ 0x62	, "MSE" ],
+	[ 0x63	, "GEFV" ],
+	[ 0x64  , "GBCV" ],
+	[ 0x65	, "SYNC_DPT_DELAY" ],
+	[ 0x66	, "LLN" ],
+	[ 0x67	, "LSD" ],
+	[ 0x68	, "LPO" ],
+	[ 0x69	, "LVO" ],
+	[ 0x6a	, "RFST" ],
+	[ 0x6b  , "LSCSETCOEF" ],
+	[ 0x6c  , "LSCENABLE" ],
+	[ 0x6d  , "CMR" ],
+	[ 0x6e	, "FDS" ],
+	[ 0x6f	, "UCC" ],
+	[ 0x70	, "PWR_SAVE" ],
+	[ 0x71  , "SYNC_STATUS" ],
+	[ 0x72	, "LMM" ],
+	[ 0x73	, "LSM" ],
+	[ 0x74	, "LDS" ],
+	[ 0x75	, "TLFORCE" ],
+	[ 0x76	, "LIE" ],
+	[ 0x77	, "LGV" ],
+	[ 0x78	, "LIF" ],
+	[ 0x79	, "LIM" ],
+	[ 0x7a	, "LIS" ],
+	[ 0x7b	, "LIC" ],
+	[ 0x7c	, "PFD" ],
+	[ 0x7d	, "TLTEMPSET" ],
+	[ 0x7e	, "USE" ],
+	[ 0x7f	, "LOES" ],
+	[ 0x80	, "DFU" ],
+	[ 0x81	, "PTE" ],
+	[ 0x82	, "PTD" ],
+	[ 0x83	, "PTS" ],
+	[ 0x84	, "WRPMBDATA" ],
+	[ 0x85	, "GPMBOFFSET" ],
+	[ 0x86	, "INITPMB" ],
+	[ 0x87	, "SMD" ],
+	[ 0x88	, "RESETPMB" ],
+	[ 0x89	, "LOESDATA" ],
+	[ 0x8a  , "STAT_CFG" ],
+	[ 0x8b	, "STAT_READ" ],
+	[ 0x8c	, "FPN" ],
+	[ 0x8d	, "FTEMPCOLD" ],
+	[ 0x8e	, "MIPITESTMODE" ],
+	[ 0x8f	, "MIPICNTGET" ],
+	[ 0x90	, "MIPICNTRST" ],
+	[ 0x91	, "WAKE_ON" ],
+	[ 0x92	, "WAKE_CONF" ],
+	[ 0x93	, "WAKE_REASON" ],
+	[ 0x94	, "MEM_READ" ],
+	[ 0x95	, "OSSTCK" ],
+	[ 0x96	, "RGBFP" ],
+	[ 0x97	, "VSMON" ],
+	[ 0x98	, "SLS" ],
+	[ 0x99  , "WMS" ],
+	[ 0x9a  , "ENDBGMON" ],
+	[ 0x9b  , "DSDBGMON" ],
+	[ 0x9c  , "DBGMONDATA" ],
+	[ 0x9d	, "OVTEN" ],
+	[ 0x9e	, "EXC" ],
+	[ 0x9f  , "SMI" ],
+	[ 0xa0	, "GMI" ],
+	[ 0xa1	, "RPMB" ],
+	[ 0xa2	, "LED_ENABLE" ],
+	[ 0xa3  , "FILLCAL" ],
+	[ 0xa4	, "SETIRT" ],
+	[ 0xa5	, "GETIRT" ],
+	[ 0xa6  , "AR_CFG" ],
+	[ 0xa7  , "META_ENABLE" ],
+	[ 0xa8  , "LMSS" ],
+	[ 0xa9	, "SETRGBT" ],
+	[ 0xaa	, "GETRGBT" ],
+	[ 0xab	, "SETTLT" ],
+	[ 0xac	, "GETTLT" ],
+	[ 0xad	, "WOS" ],
+	[ 0xae	, "ROS" ],
+	[ 0xaf	, "LOS" ],
+	[ 0xb0	, "LSWE" ],
+	[ 0xb1	, "LSWR" ],
+	[ 0xb2	, "LIMR" ],
+	[ 0xb3	, "CFG_AUTORANGE" ],
+	[ 0xb4	, "wake_cfg" ],
+	[ 0xb5	, "OEMDG" ],
+	[ 0xb6  , "ATEMP_EN" ],
+	[ 0xb7  , "ATEMP_READ" ],
+	[ 0xb8	, "LPPN" ],
+	[ 0xb9  , "WUSS" ],
+	[ 0xba  , "RUDS" ],
+	[ 0xbb  , "LUDS" ],
+	[ 0xbc	, "UPDATECALIB" ],
+	[ 0xbd  , "TS_HEADER" ],
+	[ 0xbe	, "EXT_TRIG" ],
+	[ 0xbf	, "TS_UNITS" ],
+	[ 0xc0	, "FLG" ],
+	[ 0xc1	, "OAC_READ" ],
+	[ 0xc2	, "OAC_FILT" ],
+	[ 0xc3	, "LOE" ],
+	[ 0xc4	, "TEMP_GET" ],
+	[ 0xc5	, "LOC" ],
+	[ 0xc6	, "SET_POL" ],
+	[ 0xc7	, "PLS" ],
+	[ 0xc8	, "PLG" ],
+	[ 0xc9	, "LGT" ],
+	[ 0xca	, "LHT" ],
+	[ 0xcb	, "UPD" ],
+	[ 0xcc	, "UPDI" ],
+	[ 0xcd	, "HWMOACEN" ],
+	[ 0xce	, "LNM" ],
+	[ 0xcf	, "GET_POL" ],
+	[ 0xd0  , "GET_POL" ],
+	[ 0xd1  , "DPT_EXP" ],
+	[ 0xd2  , "HDR_MODE_SET" ],
+	[ 0xd3  , "HDR_MODE_GET" ],
+	[ 0xd4  , "HDR_CFG_SET" ],
+	[ 0xd5  , "HDR_CFG_GET" ]
+];
+
+#
+# Parsing entry point
+#
+
+
+set bStatusType = 0;
+
+ProcessData()
+{
+    ProcessDataInit();
+
+    Speed        = GetDecoderHeaderByte(0);    
+    UsbSpecLevel = GetDecoderHeaderByte(1);
+    out.Decoded = 0;    
+
+    AddDecodedTextHeader();
+    AddSeparator();
+
+  if(in.DataLength > 0)
+  {
+		wCmdSize = GetDataByte(0) | (GetDataByte(1) << 8);
+		out.Decoded +=2;
+		AddPayLoadCell(" Length ", Format("0x%04X", wCmdSize), "HWM command Length (without header)");
+
+		wMagicDword = GetDataByte(2) | (GetDataByte(3) << 8);
+		out.Decoded +=2;
+		if (0xCDAB == wMagicDword)
+		{
+			AddPayLoadCell(" Magic Word ", "0xCDAB", "Magic Word for HWM WinUsb Command");
+		}
+
+		opCode = GetDataByte(4) | (GetDataByte(5) << 8) | (GetDataByte(6) << 16) | (GetDataByte(7) << 24);
+		out.Decoded +=4;
+		_row_x = Find(CommandsOpcodeLUT, opCode);
+		AddPayLoadCell(" OpCode ", _row_x[1], Format("opcode for HWM command 0x%x", opCode));
+	
+		param1 = GetDataByte(8) | (GetDataByte(9) << 8) | (GetDataByte(10) << 16) | (GetDataByte(11) << 24);
+		out.Decoded +=4;
+		AddPayLoadCell(" Param1 ", Format("0x%04X", param1), "first param for HWM command - see cmd description for more info");
+
+		param2 = GetDataByte(12) | (GetDataByte(13) << 8) | (GetDataByte(14) << 16) | (GetDataByte(15) << 24);
+		out.Decoded +=4;
+		AddPayLoadCell(" param2 ", Format("0x%04X", param2), "second param for HWM command - see cmd description for more info");
+
+		param3 = GetDataByte(16) | (GetDataByte(17) << 8) | (GetDataByte(18) << 16) | (GetDataByte(19) << 24);
+		out.Decoded +=4;
+		AddPayLoadCell(" param3 ", Format("0x%04X", param3), "first param for HWM command - see cmd description for more info");
+
+		param4 = GetDataByte(20) | (GetDataByte(21) << 8) | (GetDataByte(22) << 16) | (GetDataByte(23) << 24);
+		out.Decoded +=4;
+		AddPayLoadCell(" param4 ", Format("0x%04X", param4), "first param for HWM command - see cmd description for more info");
+		
+            
+		AddSeparator();
+	}
+	
+    return Complete();
+}
+
+

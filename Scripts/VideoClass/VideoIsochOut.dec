@@ -1,0 +1,110 @@
+#
+#  Copyright (c) 2004, Computer Access Technology Corp. - All Rights Reserved
+#
+#  VideoBulkOut.dec
+#
+#  
+#
+
+
+%include "CATCScriptAPI.inc"
+%include "UsbCommon.inc"
+%include "Video_Common.inc"
+%include "VideoTables.inc"
+%include "VideoCellColors.inc"
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block 
+#
+#----  Output
+# out.Decoded   - amount of data has been decoded
+#
+
+
+set OutputType    = "Video Isoch Out";
+set UsbDecodeType = "Endpoint";
+set UsbEndpId = 16; # just a unique value for each endpoint of the same Class/Vendor/Product to distinguish them
+set UsbClassCode = 0x0E;
+set UsbEndpType = "Isochronous";
+set UsbEndpDir = "Out";
+set UsbMaxXferSize = 0xC00; # Hi Speed Isoch is 3 packets max
+set UsbMaxPktSize       = 1024; # will automatically be reduced to 64 if branch is Full Speed     
+set UsbMaxXferDecodeSize   = 12;  # Max bytes that we will be decoding   User can up this if he likes
+set UsbDecodeLevel = "Transaction";
+set UsbDecHdrType = 3; # This type references decoder byte containing the data_only flag  
+set UsbDecHdrLen  = 2; # This 1 byte is passed in to this via the in context
+set Usb1HeaderPerHSIsochFrame = 1;
+#set UsbXferCompleteClue    = 1; # Transfer not necessarily over when empty frame seen.  See USBCommon.inc for explanation.
+
+
+set UsbScriptDecodeType = 2; ######changed this from 1; explicit text decoding processing
+
+#
+# Parsing entry point
+#
+  
+
+
+# User can select the colors for the fields he chooses
+
+
+set ContainerLength = 0;    # these are global variables
+set ContainerType = 0;
+set Code = 0;
+set TransactionID = 0;
+set Payload = 0;
+set numOfParams = 0;
+
+
+set FullyDecoded = 1;
+#set IsUsb2Hub = 1; # default value
+
+ProcessData()
+{
+    DoProcessDataFirstPart();
+       
+    DataOnly = GetNBits(in.DecodeParams, 0, 8);
+    HiBandWidth = GetNBits(in.DecodeParams, 8, 8);
+
+    if (in.Expanded)
+    {
+        if (HiBandWidth == 2)
+        {
+            FieldColor = HiBandwidthColor;
+            AddPayLoadCell("BW", "Hi", "This transaction is part of a Hi Bandwidth sequence");
+    
+        }
+        else if (HiBandWidth == 1)
+        {
+            FieldColor = RegBandwidthColor;
+            AddPayLoadCell("BW", "-", "This transaction is the only one in this frame for this endpoint");
+        }
+    }
+    
+    if (DataOnly)
+    {
+        out.Decoded= 0;
+    }
+    else
+    {
+        CurrentPayloadColor = VideoBulkOutColor;
+        DoVideoPayloadHeader();
+    }
+    return Complete();
+}
+
+
+
+Data()
+{
+    _code2 = Find(OperationCodeTable, Code);
+    msnDataout = GetNBits(Code,16,4);
+    AddSeparator();
+    SetFieldOffsetLen(32,32);
+    FieldColor = ContainerLengthColor;
+    AddPayLoadCell("ConLen", Format("%d", ContainerLength), Format("ContainerLength: %d bytes in the container(decimal)", ContainerLength)+ Format("\nContainerLength HexVal: 0x%04X", ContainerLength));
+    SetFieldOffsetLen(48,16);
+   
+}
+

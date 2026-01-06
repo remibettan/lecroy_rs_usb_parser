@@ -1,0 +1,1207 @@
+#
+#  Copyright (c) 2001, Computer Access Technology Corp. - All Rights Reserved
+#
+#  hci_event.dec
+#
+#  HCI event Display Decoder
+#
+
+%include "DecoderTools.inc"    #include usefull decoder functions
+%include "hci_common.inc"
+%include "hci_command_table.inc"
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block 
+#
+#----  Output
+# out.Decoded   - amount of data has been decoded
+#
+
+
+set ModuleType  = "DataBlock Decoder";
+set OutputType  = "HCI event";
+
+#Thes are for USB Analyzer decoding
+set UsbClassCode = 0xE0;
+set UsbSubClass  = 0x01;
+set UsbProtocol  = 0x01;
+
+# This variable defines that the script which includes this file
+# belongs to the USB script decoding family.
+set ScriptFamily = "USB";
+
+set UsbDecodeType = "Endpoint";
+set UsbEndpId = 3;
+set UsbEndpType = "Interrupt";
+set UsbEndpDir = "In";
+set UsbMaxPktSize=16;
+set UsbMaxXferSize=3573;   
+ 
+
+
+#
+# Parsing entry point
+#
+const HCIeventColor = 0xb3541c;
+
+
+
+
+ProcessData()
+{
+    event = GetNBits(in.Data, 0, 8);
+    event_length = NextNBits(8);
+    _row = Find(EventOpcodeTable, event);
+    AddCell("Event", _row[1], Format("0x%02X - ", event) + _row[2], HCIeventColor);
+
+
+    Call ( _row[1], [ in.DataLength - 2 ] );
+
+    AddSeparator();
+
+###### uncomment the following lines if you need the original data of HCI
+#    GetNBits(in.Data, 0, 0);
+#    ShowDataBlock(in.DataLength);
+#########################################################################
+
+    out.Decoded = in.DataLength;
+    
+    return Complete();
+}
+
+
+
+
+
+
+
+
+
+set EventOpcodeTable = 
+[
+    [ 0xfff,  "Unknown HCI Event"     ,  ""       ],
+
+    [ 0x01,  "Inquiry_Complete"            , "The Inquiry Complete event indicates that the Inquiry is finished." ],
+    [ 0x02,  "Inquiry_Result"              , "The Inquiry Result event indicates that a Bluetooth device or multiple Bluetooth devices have responded so far during the current Inquiry process." ],
+    [ 0x03,  "Connection_Complete"         , "The Connection Complete event indicates to both of the Hosts forming the connection that a new connection has been established." ],
+    [ 0x04,  "Connection_Request"          , "The Connection Request event is used to indicate that a new incoming connection is trying to be established." ],
+    [ 0x05,  "Disconnection_Complete"      , "The Disconnection Complete event occurs when a connection has been terminated." ],
+    [ 0x06,  "Authentication_Complete"     , "The Authentication Complete event occurs when authentication has been completed for the specified connection." ],
+    [ 0x07,  "Remote_Name_Request_Complete", "The Remote Name Request Complete event is used to indicate a remote name request has been completed. The Remote_Name event parameter is a UTF-8 encoded string with up to 248 bytes in length." ],
+    [ 0x08,  "Encryption_Change"           , "The Encryption Change event is used to indicate that the change in the encryption has been completed for the Connection Handle specified by the Connection_Handle event parameter." ],
+    [ 0x09,  "Change_Connection_Link_Key_Complete" , "The Change Connection Link Key Complete event is used to indicate that the change in the Link Key for the Connection Handle specified by the Connection_Handle event parameter had been completed." ],
+    [ 0x0A,  "Master_Link_Key_Complete"    , "The Master Link Key Complete event is used to indicate that the change in the temporary Link Key or in the semi-permanent link keys on the Bluetooth master side has been completed." ],
+    [ 0x0B,  "Read_Remote_Supported_Features_Complete" , "The Read Remote Supported Features Complete event is used to indicate the completion of the process of the Link Manager obtaining the supported features of the remote Bluetooth device specified by the Connection_Handle event parameter." ],
+    [ 0x0C,  "Read_Remote_Version_Information_Complete" , "The Read Remote Version Information Complete event is used to indicate the completion of the process of the Link Manager obtaining the version information of the remote Bluetooth device specified by the Connection_Handle event parameter." ],
+    [ 0x0D,  "QoS_Setup_Complete"          , "The QoS Setup Complete event is used to indicate the completion of the process of the Link Manager setting up QoS with the remote Bluetooth device specified by the Connection_Handle event parameter." ],
+    [ 0x0E,  "Command_Complete"            , "The Command Complete event is used by the Host Controller to pass the return status of a command and the other event parameters for each HCI Command." ],
+    [ 0x0F,  "Command_Status"              , "The Command Status event is used to indicate that the command described by the Command_Opcode parameter has been received and the Host Controller is currently performing the task for this command." ],
+    [ 0x10,  "Hardware_Error"              , "The Error event is used to indicate some type of hardware failure for the Bluetooth device." ],
+    [ 0x11,  "Flush_Occurred"              , "The Flush Occurred event is used to indicate that, for the specified Connection Handle, the current user data to be transmitted has been removed." ],
+    [ 0x12,  "Role_Change"                 , "The Role Change event is used to indicate that the current Bluetooth role related to the particular connection has been changed." ],
+    [ 0x13,  "Number_Of_Completed_Packets" , "The Number Of Completed Packets event is used by the Host Controller to indicate to the Host how many HCI Data Packets have been completed for each Connection Handle since the previous Number Of Completed Packets event was sent." ],
+    [ 0x14,  "Mode_Change"                 , "The Mode Change event is used to indicate when the device associated with the Connection Handle changes between Active, Hold, Sniff and Park mode." ],
+    [ 0x15,  "Return_Link_Keys"            , "The Return Link Keys event is used to return stored link keys after a Read_Stored_Link_Key command is used." ],
+    [ 0x16,  "PIN_Code_Request"            , "The PIN Code Request event is used to indicate that a PIN code is required to create a new link key for a connection." ],
+    [ 0x17,  "Link_Key_Request"            , "The Link Key Request event is used to indicate that a Link Key is required for the connection with the device specified in BD_ADDR." ],
+    [ 0x18,  "Link_Key_Notification"       , "The Link Key Notification event is used to indicate to the Host that a new Link Key has been created for the connection with the device specified in BD_ADDR." ],
+    [ 0x19,  "Loopback_Command"            , "The Loopback Command event is used to loop back most commands that the Host sends to the Host Controller."],
+    [ 0x1A,  "Data_Buffer_Overflow"        , "The Data Buffer Overflow event is used to indicate that the Host Controller's data buffers have overflowed, because the Host has sent more packets than allowed." ],
+    [ 0x1B,  "Max_Slots_Change"            , "This event is used to notify the Host about the LMP_Max_Slots parameter when the value of this parameter changes." ],
+    [ 0x1C,  "Read_Clock_Offset_Complete"  , "The Read Clock Offset Complete event is used to indicate the completion of the process of the LM obtaining the Clock offset information." ],
+    [ 0x1D,  "Connection_Packet_Type_Changed" , "The Connection Packet Type Changed event is used to indicate the completion of the process of the Link Manager changing the Packet Types used for the specified Connection_Handle." ],
+    [ 0x1E,  "QoS_Violation"               , "The QoS Violation event is used to indicate the Link Manager is unable to provide the current QoS requirement for the Connection Handle." ],
+    [ 0x1F,  "Page_Scan_Mode_Change"       , "The Page Scan Mode Change event indicates that the connected remote Bluetooth device with the specified Connection_Handle has successfully changed the Page_Scan_Mode." ],
+    [ 0x20,  "Page_Scan_Repetition_Mode_Change" , "The Page Scan Repetition Mode Change event indicates that the connected remote Bluetooth device with the specified Connection_Handle has successfully changed the Page_Scan_Repetition_Mode (SR)." ],
+    [ 0x21,  "Flow_Specification_Complete" , "The Flow Specification Complete event is used to inform the Host about the \nQuality of Service for the ACL connection the Controller is able to support." ],
+    [ 0x22,  "Inquiry_Result_with_RSSI"    , "The Inquiry Result with RSSI event indicates that a Bluetooth device or\nmultiple Bluetooth devices have responded so far during the current Inquiry process." ],
+    [ 0x23,  "Read_Remote_Extended_Features_Complete"    , "" ],
+
+    [ 0x2C,  "Synchronous_Connection_Complete" , "Indicates that a new Synchronous connection has been established." ],
+    [ 0x2D,  "Synchronous_Connection_Changed"  , "Indicates that an existing Synchronous connection has been reconfigured." ],
+
+    [ 0xFF,  "VendorSpecific" , "Vendor Specific event" ]
+];
+
+
+
+
+
+Inquiry_Complete()
+{
+    ShowStatus();
+}
+
+Inquiry_Result()
+{
+    num = NextNBits(8);
+    AddCell("Num_Responses", Format("%d", num),
+            "Number of responses from the Inquiry.",
+             HCIeventColor );
+    for (i = 0; i < num; i++)
+    {
+        ShowBD_ADDR(HCIeventColor);
+        ShowPage_Scan_Repetition_Mode(HCIeventColor);
+        ShowPage_Scan_Period_Mode(HCIeventColor);
+        ShowPage_Scan_Mode(HCIeventColor);
+        ShowClass_of_Device(HCIeventColor);
+        ShowClock_Offset();
+    }
+}
+
+Connection_Complete()
+{
+    ShowStatus();
+    ShowConnection_Handle();
+    ShowBD_ADDR(HCIeventColor);
+    ShowLink_Type();
+    ShowEncryption_Mode(HCIeventColor);
+}
+
+Connection_Request()
+{
+    ShowBD_ADDR(HCIeventColor);
+    ShowClass_of_Device(HCIeventColor);
+    ShowLink_Type();
+}
+
+Disconnection_Complete()
+{
+    ShowStatus();
+    ShowConnection_Handle();
+    ShowReason();
+}
+
+Authentication_Complete()
+{
+    ShowStatus();
+    ShowConnection_Handle();
+}
+
+Remote_Name_Request_Complete()
+{
+    ShowStatus();
+    ShowBD_ADDR(HCIeventColor);
+    ShowName(HCIeventColor);
+}
+
+Encryption_Change()
+{
+    ShowStatus();
+    ShowConnection_Handle();
+    ShowEncryption_Enable();
+}
+
+Change_Connection_Link_Key_Complete()
+{
+    ShowStatus();
+    ShowConnection_Handle();
+}
+
+Master_Link_Key_Complete()
+{
+    ShowStatus();
+    ShowConnection_Handle();
+    ShowKey_Flag();
+}
+
+Read_Remote_Supported_Features_Complete()
+{
+    ShowStatus();
+    ShowConnection_Handle();
+    ShowLmpFeatures(HCIeventColor);
+}
+
+Read_Remote_Version_Information_Complete()
+{
+    ShowStatus();
+    ShowConnection_Handle();
+    ShowLMP_Version();
+    ShowManufacturer_Name();
+    data = Next16Bits();
+    AddCell("LMP_Subversion", Format("0x%04X", data), "", HCIeventColor);
+}
+
+QoS_Setup_Complete()
+{
+    ShowStatus();
+    ShowConnection_Handle();
+    AddCell("Flags", Format("0x%02X", NextNBits(8)),"Reserved for Future Use.", HCIeventColor);
+    ShowService_Type();
+    ShowToken_Rate(HCIeventColor);
+    ShowPeak_Bandwidth(HCIeventColor);
+    ShowLatency(HCIeventColor);
+    ShowDelay_Variation(HCIeventColor);
+}
+
+Command_Status()
+{
+    ShowStatusEx("pending", "0 - Command currently in pending.");
+    ShowNum_HCI_Command_Packets();
+    ShowCommand_Opcode();
+}
+
+Hardware_Error()
+{
+    AddCell("Hardware_Code", Format("0x%02X", NextNBits(8)) , "Hardware_Codes is implementation-specific,\nassigned to indicate various hardware problems.", HCIeventColor);
+}
+
+Flush_Occurred()
+{
+    ShowConnection_Handle();
+}
+
+Role_Change()
+{
+    ShowStatusEx("success", "0 - Role change has occurred.");
+    ShowBD_ADDR(HCIeventColor);
+
+    data = NextNBits(8);
+    select {
+      data == 0 : AddCell("New_Role", "master", "Currently the Master for specified BD_ADDR.", HCIcommandColor);
+      data == 1 : AddCell("New_Role", "slave", "Currently the Slave for specified BD_ADDR.", HCIcommandColor);
+      default: AddCell("New_Role", "unknown", Format("0x%02X", data) + " - unknown value", HCIcommandColor, _ERROR);
+    };
+}
+
+Number_Of_Completed_Packets()
+{
+    num = NextNBits(8);
+    AddCell("Number_of_Handles", Format("%d", num),
+            "The number of Connection Handles and Num_HCI_Data_Packets\nparameters pairs contained in this event.",
+             HCIeventColor );
+    for (i = 0; i < num; i++)
+    {
+        ShowConnection_Handle();
+
+        data = Next16Bits();
+        AddCell("HC_Num_Of_Completed_Packets", Format("%d", data),
+                "The number of HCI Data Packets that have been completed (transmitted\nor flushed) for the associated Connection Handle since the previous time\nthe event was returned.",
+                HCIeventColor );
+    }
+}
+
+Mode_Change()
+{
+    ShowStatusEx("Mode Change", "A Mode Change has occurred.");
+    ShowConnection_Handle();
+
+    data = NextNBits(8);
+    select {
+      data == 0x00:
+        {
+          AddCell("Current_Mode", "Active Mode", "", HCIeventColor );
+        }
+      data == 0x01:
+        {
+          AddCell("Current_Mode", "Hold Mode", "", HCIeventColor );
+          data = Next16Bits();
+          AddCell("Interval", Format("%d", data), 
+                  "Number of Baseband slots to wait in Hold Mode.\nHold Interval = N * 0.625 msec (1 Baseband slot)\nRange for N: 0x0000-0xFFFF\nTime Range: 0-40.9 sec",
+                  HCIeventColor );
+        }
+     data ==  0x02:
+        {
+          AddCell("Current_Mode", "Sniff Mode", "", HCIeventColor );
+          data = Next16Bits();
+          AddCell("Interval", Format("%d", data), 
+                  "Number of Baseband slots between sniff intervals.\nTime between sniff intervals = 0.625 msec (1 Baseband slot)\nRange for N: 0x0000-0xFFFF\nTime Range: 0-40.9 sec",
+                  HCIeventColor );
+        }
+     data ==  0x03:
+        {
+          AddCell("Current_Mode", "Park Mode", "", HCIeventColor );
+          data = Next16Bits();
+          AddCell("Interval", Format("%d", data), 
+                  "Number of Baseband slots between consecutive beacons.\nInterval Length = N * 0.625 msec (1 Baseband slot)\nRange for N: 0x0000-0xFFFF\nTime Range: 0-40.9 Seconds",
+                  HCIeventColor );
+        }
+     default: AddCell("Current_Mode", Format("0x%02X", data), "Reserved for future use.", HCIeventColor );
+    };
+}
+
+Return_Link_Keys()
+{
+    num = NextNBits(8);
+    AddCell("Num_Keys", Format("%d", num),
+            "Number of Link Keys contained in this event.\nRange: 0x01 - 0x0B",
+             HCIeventColor,
+             select {((num == 0) || (num > 0xb)): _ERROR; } );
+
+    for (i = 0; i < num; i++)
+    {
+        ShowBD_ADDR(HCIeventColor);
+        ShowLink_Key(HCIeventColor);
+    }
+}
+
+PIN_Code_Request()
+{
+    ShowBD_ADDR(HCIeventColor);
+}
+
+Link_Key_Request()
+{
+    ShowBD_ADDR(HCIeventColor);
+}
+
+Link_Key_Notification()
+{
+    ShowBD_ADDR(HCIeventColor);
+    ShowLink_Key(HCIeventColor);
+    ShowKey_Type();
+}
+
+Loopback_Command()
+{}
+
+Data_Buffer_Overflow()
+{
+    data = NextNBits(8);
+    select {
+      data == 0x00: AddCell("Link_Type", "SCO", "SCO Buffer Overflow (Voice Channels)." , HCIeventColor);
+      data == 0x01: AddCell("Link_Type", "ACL", "ACL Buffer Overflow (Data Channels)." , HCIeventColor);
+      default:      AddCell("Link_Type", Format("0x%02X", data), "Reserved for Future Use." , HCIeventColor);
+    };
+}
+
+Max_Slots_Change()
+{
+    ShowConnection_Handle();
+    data = NextNBits(8);
+    AddCell("LMP_Max_Slots", Format("%d", data), 
+            "Maximum number of slots allowed to use for baseband packets (1, 3 or 5).",
+            HCIeventColor,
+            select {((data != 1) && (data != 3) && (data != 5)): _ERROR; } );
+}
+
+Read_Clock_Offset_Complete()
+{
+    ShowStatus();
+    ShowConnection_Handle();
+    ShowClock_Offset();
+}
+
+Connection_Packet_Type_Changed()
+{
+    ShowStatus();
+    ShowConnection_Handle();
+    ShowPacket_Type(HCIeventColor, PacketTypeTable_ALL);
+}
+
+QoS_Violation()
+{
+    ShowConnection_Handle();
+}
+
+Page_Scan_Mode_Change()
+{
+    ShowBD_ADDR(HCIeventColor);
+    ShowPage_Scan_Mode(HCIeventColor);
+}
+
+Page_Scan_Repetition_Mode_Change()
+{
+    ShowBD_ADDR(HCIeventColor);
+    ShowPage_Scan_Repetition_Mode(HCIeventColor);
+}
+
+Flow_Specification_Complete()
+{
+    ShowConnection_Handle();
+    ShowFlags(HCIeventColor);
+    ShowFlow_direction(HCIeventColor);
+    ShowService_Type();
+    ShowToken_Rate(HCIeventColor);
+    ShowToken_Bucket_Size(HCIeventColor);
+    ShowPeak_Bandwidth(HCIcommandColor);
+    ShowLatency(HCIcommandColor);
+}
+
+Inquiry_Result_with_RSSI()
+{
+    num = NextNBits(8);
+    AddCell("Num_Responses", Format("%d", num),
+            "Number of responses from the Inquiry.",
+             HCIeventColor );
+    for (i = 0; i < num; i++)
+    {
+        ShowBD_ADDR(HCIeventColor);
+        ShowPage_Scan_Repetition_Mode(HCIeventColor);
+        ShowPage_Scan_Period_Mode(HCIeventColor);
+        ShowClass_of_Device(HCIeventColor);
+        ShowClock_Offset();
+        ShowRSSI();
+    }
+}
+
+Read_Remote_Extended_Features_Complete()
+{
+    ShowConnection_Handle();
+    ShowPage(HCIeventColor);
+  
+    AddCell("Maximum Page Number", Format("%d", NextNBits(8)), "The highest features page number which contains non-zero bits for the local device", HCIeventColor);
+
+    
+    text = "0x";
+    for (i = 0; i < 8; i++)
+    {
+        text = text + Format("%02X", NextNBits(8));
+    }
+    AddCell("Extended_LMP_Features", text, "Bit map of requested page of LMP features." , HCIeventColor); 
+}
+
+Synchronous_Connection_Complete()
+{
+    ShowConnection_Handle();
+    ShowBD_ADDR(HCIeventColor);
+
+    data = NextNBits(8);
+    select {
+      data == 0x00: AddCell("Link_Type", "SCO", "SCO Connection" , HCIeventColor);
+      data == 0x02: AddCell("Link_Type", "eSCO", "eSCO Connection" , HCIeventColor);
+      default:      AddCell("Link_Type", Format("0x%02X", data), "Reserved for Future Use." , HCIeventColor);
+    };
+
+    AddCell("Transmission_Interval", Dormat("%d slots" , NextNBits(8)), "Time between two consecutive eSCO instants measured in slots.\nMust be zero for SCO links.",  HCIeventColor);
+    AddCell("Retransmission_window", Dormat("%d slots" , NextNBits(8)), "The size of the retransmission window measured in slots.\nMust be zero for SCO links.",  HCIeventColor);
+    AddCell("Rx_Packet_Length", Dormat("%d bytes" , Next16Bits()), "Length in bytes of the eSCO payload in the receive direction.\nMust be zero for SCO links.",  HCIeventColor);
+    AddCell("Tx_Packet_Length", Dormat("%d bytes" , Next16Bits()), "Length in bytes of the eSCO payload in the transmit direction.\nMust be zero for SCO links.",  HCIeventColor);
+
+
+    data = NextNBits(8);
+    select {
+      data == 0x00: AddCell("Air Mode", "u-law log", "0x00 - u-law log" , HCIeventColor);
+      data == 0x01: AddCell("Air Mode", "A-law log", "0x01 - A-law log" , HCIeventColor);
+      data == 0x02: AddCell("Air Mode", "CVSD", "0x02 - CVSD" , HCIeventColor);
+      data == 0x03: AddCell("Air Mode", "Transparent", "0x03 - Transparent Data", HCIeventColor);
+      default:      AddCell("Air Mode", Format("0x%02X", data), "Reserved for Future Use." , HCIeventColor);
+    };
+}
+
+Synchronous_Connection_Changed()
+{
+    ShowConnection_Handle();
+    AddCell("Transmission_Interval", Dormat("%d slots" , NextNBits(8)), "Time between two consecutive eSCO instants measured in slots.\nMust be zero for SCO links.",  HCIeventColor);
+    AddCell("Retransmission_window", Dormat("%d slots" , NextNBits(8)), "The size of the retransmission window measured in slots.\nMust be zero for SCO links.",  HCIeventColor);
+    AddCell("Rx_Packet_Length", Dormat("%d bytes" , Next16Bits()), "Length in bytes of the eSCO payload in the receive direction.\nMust be zero for SCO links.",  HCIeventColor);
+    AddCell("Tx_Packet_Length", Dormat("%d bytes" , Next16Bits()), "Length in bytes of the eSCO payload in the transmit direction.\nMust be zero for SCO links.",  HCIeventColor);
+}
+
+
+
+set VendorEventOpcodeTable = 
+[
+    [ 0xfff,  "Unknown",  "Unknown Vendor specific HCI Event"          ],
+
+    [ 0x01,  "CatcTestControl" , "The event indicates LMP_TestControl PDU is received by the firmware" ],
+    [ 0x02,  "CatcCreateConnectionExt_Disconnect", "The event indicates to the host that the link is lost\nwhen the firmware is in the TCI CatcCreateConnectionExt context" ],
+    [ 0x03,  "CatcMaxSlotRequest_Event", "Indicate that the LMP_Max_Slot_Req PDU is received" ]
+];
+
+
+
+VendorSpecific()
+{
+    vendor_event = NextNBits(8);
+    _row = Find(VendorEventOpcodeTable, vendor_event);
+    AddCell("VendorEvent", _row[1], Format("0x%02X - ", vendor_event) + _row[2], HCIeventColor);
+
+    Call ( _row[1], [ in.DataLength - 3 ] );
+
+}
+
+
+CatcTestControl()
+{
+    ShowLmpTestScenario(HCIeventColor);
+    ShowLmpHoppingMode(HCIeventColor);
+    ShowTxFreq(HCIeventColor);
+    ShowRxFreq(HCIeventColor);
+    ShowPowerControlMode(HCIeventColor);
+    ShowPollPeriod(HCIeventColor);
+    ShowPacketType(HCIeventColor);
+
+    data = Next16Bits();
+    AddCell("length", Format("0x%04X", data), "Length of test data", HCIeventColor);
+}
+
+
+CatcCreateConnectionExt_Disconnect()
+{
+    ShowBD_ADDR(HCIeventColor);
+}
+
+CatcMaxSlotRequest_Event()
+{
+    ShowConnection_Handle();
+    ShowMaxSlot(HCIeventColor);
+}
+
+
+
+
+Command_Complete()
+{
+  ShowNum_HCI_Command_Packets();
+
+  command_code = Next16Bits();
+  if (command_code == 0x0000)
+  {
+    AddCell("Command_Opcode", "0x0000", "No OPeration (NOP)\nused to change the number of outstanding HCI command packets\nthat the Host can send before waiting", HCIeventColor);
+  }
+  else
+  {
+    cmd_row = Find(HciCommandTable, command_code);
+    AddCell("Command_Opcode", cmd_row[1], Format("0x%04X", command_code) + " - Opcode of the command which caused this event", HCIeventColor);
+  }
+
+  return_value = NextNBits(8);
+  _row = Find(HciErrorCodes, return_value);
+  AddCell("Return_Parameter", _row[1], Format("0x%02X - ", return_value) + _row[2], HCIeventColor);
+  
+  Call (cmd_row[1]);
+}
+
+
+
+
+
+
+
+ShowCommand_Opcode()
+{
+  command_code = Next16Bits();
+  _row = Find(HciCommandTable, command_code);
+  AddCell("Command_Opcode", _row[1], Format("0x%04X", command_code) + " - Opcode of the command which caused this event", HCIeventColor);
+}
+
+
+ShowStatus()
+{
+    return_value = NextNBits(8);
+    _row = Find(HciErrorCodes, return_value);
+    AddCell("Status", _row[1], Format("0x%02X - ", return_value) + _row[2], HCIeventColor);
+}
+
+
+ShowStatusEx(text_0, tooltip_0)
+{
+    data = NextNBits(8);
+    if (data == 0)
+    {
+       AddCell("Status", text_0, tooltip_0, HCIeventColor);
+    } 
+    else
+    {
+       _row = Find(HciErrorCodes, data);
+       AddCell("Status", _row[1], Format("0x%02X - ", data) + _row[1], HCIeventColor);
+    }
+}
+
+ShowReason()
+{
+    return_value = NextNBits(8);
+    _row = Find(HciErrorCodes, return_value);
+    AddCell("Reason", _row[1], Format("0x%02X - ", return_value) + _row[1], HCIeventColor);
+}
+
+
+
+const Link_TypeTable = 
+[
+  [ 0xFF , "Reserved for Future Use."         ],
+  [ 0x00 , "SCO connection (Voice Channels)." ],
+  [ 0x01 , "ACL connection (Data Channels)."  ]
+];
+
+ShowLink_Type()
+{
+    data= NextNBits(8);
+    _row = Find(Link_TypeTable, data);
+    AddCell("Link_Type", Format("0x%02X", data), _row[1], HCIeventColor);
+}
+
+ShowEncryption_Enable()
+{
+    data = NextNBits(8);
+    select {
+      data == 0 : AddCell("Encryption_Enable", "OFF", "Link Level Encryption is OFF.", HCIeventColor);
+      data == 1 : AddCell("Encryption_Enable", "ON", "Link Level Encryption is ON.", HCIeventColor);
+      default: AddCell("Encryption_Enable", "unknown", Format("0x%02X", data) + " - unknown value", HCIeventColor, _ERROR);
+    };
+}
+
+ShowKey_Flag()
+{
+    data = NextNBits(8);
+    select {
+      data == 0 : AddCell("Key_Flag", "using semi-permanent", "Using semi-permanent Link Keys.", HCIeventColor);
+      data == 1 : AddCell("Key_Flag", "using Temporary", "Using Temporary Link Key.", HCIeventColor);
+      default: AddCell("Key_Flag", "unknown", Format("0x%02X", data) + " - unknown value", HCIeventColor, _ERROR);
+    };
+}
+
+
+
+set LMP_VersionTable = 
+[
+  [ 0xff , "unknown value"      ],
+  [ 0    , "Bluetooth LMP 1.0"  ],
+  [ 1    , "Bluetooth LMP 1.1"  ]
+];
+
+ShowLMP_Version()
+{
+    data= NextNBits(8);
+    _row = Find(LMP_VersionTable, data);
+    AddCell("LMP_Version", _row[1]  , Format("0x%02X - ", data) + _row[1], HCIeventColor);
+}
+
+const Manufacturer_NameTable = 
+[
+  [ 0xFFFFFF , "Unknown"                          ],
+  [ 0xFFFF   , "Unassigned"                       ],
+  [ 0  ,  "Ericsson Mobile Comunications"         ],
+  [ 1  ,  "Nokia Mobile Phones"                   ],
+  [ 2  ,  "Intel Corp"                            ],
+  [ 3  ,  "IBM Corp"                              ],
+  [ 4  ,  "Toshiba Corp"                          ],
+  [ 5  ,  "3Com"                                  ],
+  [ 6  ,  "Microsoft"                             ],
+  [ 7  ,  "Lucent"                                ],
+  [ 8  ,  "Motorola"                              ],
+  [ 9  ,  "Infineon Technologies AG"              ],
+  [ 10 ,  "Cambridge Silicon Radio"               ],
+  [ 11 ,  "Silicon Wave"                          ],
+  [ 12 ,  "Digianswer A/S"                        ],
+  [ 13 ,  "Texas Instruments Inc"                 ],
+  [ 14 ,  "Parthus Technologies Inc"              ],
+  [ 15 ,  "Broadcom Corporation"                  ],
+  [ 16 ,  "Mitel Semiconductor"                   ],
+  [ 17 ,  "Widcomm, Inc"                          ],
+  [ 18 ,  "Telencomm Inc"                         ],
+  [ 19 ,  "Atmel Corporation"                     ],
+  [ 20 ,  "Mitsubishi Electric Corporation"       ],
+  [ 21 ,  "RTX Telecom A/S"                       ],
+  [ 22 ,  "KC Technology Inc"                     ],
+  [ 23 ,  "Newlogic"                              ],
+  [ 24 ,  "Transilica, Inc"                       ],
+  [ 25 ,  "Rohde & Schwartz GmbH & Co. KG"        ],
+  [ 26 ,  "TTPCom Limited"                        ],
+  [ 27 ,  "Signia Technologies, Inc"              ],
+  [ 28 ,  "Conexant Systems Inc"                  ],
+  [ 29 ,  "Qualcomm"                              ],
+  [ 30 ,  "Inventel"                              ],
+  [ 31 ,  "AVM Berlin"                            ],
+  [ 32 ,  "BandSpeed, Inc"                        ],
+  [ 33 ,  "Mansella Ltd"                          ],
+  [ 34 ,  "NEC Corporation"                       ],
+  [ 35 ,  "WavePlus Technology Co."               ],
+  [ 36 ,  "Alcatel"                               ],
+  [ 37 ,  "Philips Semiconductors"                ],
+  [ 38 ,  "C Technologies"                        ],
+  [ 39 ,  "Open Interface"                        ],
+  [ 40 ,  "R F Micro Devices"                     ],
+  [ 41 ,  "Hitachi"                               ],
+  [ 42 ,  "Symbol"                                ],
+  [ 43 ,  "Tenovis"                               ],
+  [ 44 ,  "Macronix"                              ],
+  [ 45 ,  "GCT"                                   ],
+  [ 46 ,  "Norwood"                               ],
+  [ 47 ,  "MewTel"                                ],
+  [ 48 ,  "ST"                                    ],
+  [ 49 ,  "Synopsys"                              ],
+  [ 50 ,  "Red-M"                                 ],
+  [ 51 ,  "Commil"                                ],
+  [ 52 ,  "CATC"                                  ]
+];
+
+ShowManufacturer_Name()
+{
+    data= NextNBits(8);
+    _row = Find(Manufacturer_NameTable, data);
+    AddCell("Manufacturer_Name",  _row[1], Format("0x%02X - " , data) + _row[1], HCIeventColor);
+}
+
+set Service_TypeTable = 
+[
+  [0xFF , "Reserved"   ],
+  [0x00 , "No Traffic Available" ],
+  [0x01 , "Best Effort Available"],
+  [0x02 , "Guaranteed Available" ]
+];
+
+ShowService_Type()
+{
+    data = NextNBits(8);
+    _row = Find(Service_TypeTable, data);
+    AddCell("Service_Type",  _row[1], Format("0x%02X - ", data) + _row[1], HCIeventColor);
+}
+
+ShowNum_HCI_Command_Packets()
+{
+    AddCell("Num_HCI_Command_Packets", Format("%d", NextNBits(8) ), "The Number of HCI command packets which are allowed to be sent to the Host Controller from the Host", HCIeventColor);
+}
+
+
+const Key_TypeTable = 
+[
+  [ 0xFF , "Reserved"         ],
+  [ 0x00 , "Combination Key"  ],
+  [ 0x01 , "Local Unit Key"   ],
+  [ 0x02 , "Remote Unit Key"  ]
+];
+
+ShowKey_Type()
+{
+    data = NextNBits(8);
+    _row = Find(Key_TypeTable, data);
+    AddCell("Key_Type",  _row[1], Format("0x%02X - ", data) + _row[1], HCIeventColor);
+}
+
+ShowClock_Offset()
+{
+    data = Next16Bits();
+    data = data & 0x7FFF;
+    AddCell("Clock_Offset", Format("0x%04X", data), "Bit 16.2 of CLKslave-CLKmaster.", HCIeventColor);
+}
+
+ShowRSSI()
+{
+    data = NextNBits(8);
+    if (data & 0x80)
+    {
+        # this value is below zero
+        data = data | 0xffffff00;
+    }
+    AddCell("RSSI", Format ("%d dB", data), "",  HCIeventColor);
+}
+
+
+######################## Return parameters
+
+Create_Connection_Cancel()
+{
+    ShowBD_ADDR(HCIeventColor);
+}
+
+
+Link_Key_Request_Reply()
+{
+    ShowBD_ADDR(HCIeventColor);
+}
+
+Link_Key_Request_Negative_Reply()
+{
+    ShowBD_ADDR(HCIeventColor);
+}
+
+PIN_Code_Request_Reply()
+{
+    ShowBD_ADDR(HCIeventColor);
+}
+
+PIN_Code_Request_Negative_Reply()
+{
+    ShowBD_ADDR(HCIeventColor);
+}
+
+Role_Discovery()
+{
+    ShowConnection_Handle();
+    data = NextNBits(8);
+    select {
+      data == 0 : AddCell("Current_Role", "master", "Current Role is Master for this Connection Handle.", HCIeventColor);
+      data == 1 : AddCell("Current_Role", "slave", "Current Role is Slave for this Connection Handle.", HCIeventColor);
+      default   : AddCell("Current_Role", "unknown", Format("0x%02X", data) + " - unknown value", HCIeventColor, _ERROR);
+    };
+}
+
+Read_Link_Policy_Settings()
+{
+    ShowConnection_Handle();
+    ShowLink_Policy_Settings(HCIeventColor);
+}
+
+Write_Link_Policy_Settings()
+{
+    ShowConnection_Handle();
+}
+
+Flush()
+{
+    ShowConnection_Handle();
+}
+
+Read_PIN_Type()
+{
+    ShowPIN_Type(HCIeventColor);
+}
+
+Read_Stored_Link_Key()
+{
+    data = Next16Bits();
+    AddCell("Max_Num_Keys", Format("%d", data), "Total Number of Link Keys that the Host Controller can store.", HCIeventColor);
+
+    data = Next16Bits();
+    AddCell("Num_Keys_Read", Format("%d", data), "Number of Link Keys Read.", HCIeventColor);
+}
+
+Write_Stored_Link_Key()
+{
+    data = NextNBits(8);
+    AddCell("Num_Keys_Written", Format("%d", data), 
+            "Number of Link Keys successfully written.\nRange: 0x00 - 0x0B", HCIeventColor,
+             select {(data > 0xb): _ERROR; } );
+
+}
+
+Delete_Stored_Link_Key()
+{
+    data = Next16Bits();
+    AddCell("Num_Keys_Deleted", Format("%d", data), "Number of Link Keys Deleted.", HCIeventColor);
+}
+
+Read_Local_Name()
+{
+    ShowName(HCIeventColor);
+}
+
+Remote_Name_Request_Cancel()
+{
+    ShowBD_ADDR(HCIeventColor);
+}
+
+Read_LMP_Handle()
+{
+    ShowConnection_Handle();
+    AddCell("LMP_Handle", Format("%d", NextNBits(8)), "" , HCIeventColor); 
+
+    data = Next32Bits();
+    AddCell("Reserved", Format("0x%08X", data), "Reserved, must be zero", 
+             HCIeventColor, 
+             select { (data != 0): _ERROR; } );
+}
+
+
+Read_Connection_Accept_Timeout()
+{
+    data = Next16Bits();
+    AddCell("Conn_Accept_Timeout", Format("%d", data), 
+            "Connection Accept Timeout measured in Number of Baseband slots.\nInterval Length = N * 0.625 msec (1 Baseband slot)\nRange for N: 0x0001 - 0xB540\nTime Range: 0.625 msec -29 seconds", 
+             HCIeventColor, 
+             select { ((data < 1) || (data > 0xB540)): _ERROR; } );
+}
+
+Read_Page_Timeout()
+{
+    data = Next16Bits();
+    AddCell("Page_Timeout", Format("%d", data), 
+            "Page Timeout measured in Number of Baseband slots.\nInterval Length = N * 0.625 msec (1 Baseband slot)\nRange for N: 0x0001 - 0xFFFF\nTime Range: 0.625 msec -40.9 Seconds", 
+             HCIeventColor,
+             select { (data < 1): _ERROR; } );
+}
+
+Read_Scan_Enable()
+{
+   ShowScan_Enable(HCIeventColor);
+}
+
+Read_Page_Scan_Activity()
+{
+    ShowPage_Scan_Interval(HCIeventColor);
+    ShowPage_Scan_Window(HCIeventColor);
+}
+
+Read_Inquiry_Scan_Activity()
+{
+    ShowInquiry_Scan_Interval(HCIeventColor);
+    ShowInquiry_Scan_Window(HCIeventColor);
+}
+
+Read_Authentication_Enable()
+{
+    ShowAuthentication_Enable(HCIeventColor);
+}
+
+Read_Encryption_Mode()
+{
+    ShowEncryption_Mode(HCIeventColor);
+}
+
+Read_Class_of_Device()
+{
+    ShowClass_of_Device(HCIeventColor);
+}
+
+Read_Voice_Setting()
+{
+    ShowVoice_Setting(HCIeventColor);
+}
+
+Read_Automatic_Flush_Timeout()
+{
+    ShowConnection_Handle();
+    ShowFlush_Timeout(HCIeventColor);
+}
+
+Write_Automatic_Flush_Timeout()
+{
+    ShowConnection_Handle();
+}
+
+Read_Num_Broadcast_Retransmissions()
+{
+    ShowNum_Broadcast_Retran(HCIeventColor);
+}
+
+Read_Hold_Mode_Activity()
+{
+    ShowHold_Mode_Activity(HCIeventColor);
+}
+
+Read_Transmit_Power_Level()
+{
+    ShowConnection_Handle();
+    data = NextNBits(8);
+    if (data & 0x80)
+    {
+        # this value is below zero
+        data = data | 0xffffff00;
+    }
+    AddCell("Transmit_Power_Level", Format ("%d dBm", data), 
+            "Transmit_Power_Level\nRange: -30 >= N <= 20", 
+             HCIeventColor,
+             select { ((data > 20) || (data < (0-30))) : _ERROR; });
+}
+
+Read_SCO_Flow_Control_Enable()
+{
+    ShowSCO_Flow_Control_Enable(HCIeventColor);
+}
+
+Read_Link_Supervision_Timeout()
+{
+    ShowConnection_Handle();
+    ShowLink_Supervision_Timeout(HCIeventColor);
+}
+
+
+Write_Link_Supervision_Timeout()
+{
+    ShowConnection_Handle();
+}
+
+Read_Number_Of_Supported_IAC()
+{
+    data = NextNBits(8);
+    AddCell("Num_Support_IAC", Format ("%d", data), 
+            "Specifies the number of Supported IAC that the local Bluetooth device can\nsimultaneous listen for during an Inquiry Scan.\nRange: 0x01-0x40", 
+             HCIeventColor,
+             select { ((data > 0x40) || (data < 1)) : _ERROR; });
+}
+
+Read_Current_IAC_LAP()
+{
+    num = NextNBits(8);
+    AddCell("Num_Current_IAC", Format("%d", num),
+            "Specifies the number of IACs which are currently in use by the local Bluetooth\ndevice to simultaneously listen for during an Inquiry Scan.\nRange: 0x01-0x40",
+             HCIeventColor,
+             select { ((num > 0x40) || (num < 1)) : _ERROR; });
+
+    for (i = 0; i < num; i++)
+    {
+        AddCell("IAC_LAP", Format("0x%06X", Next24Bits()), "", HCIeventColor ); 
+    }
+}
+
+Read_Page_Scan_Period_Mode()
+{
+    ShowPage_Scan_Period_Mode(HCIeventColor);
+}
+
+Read_Page_Scan_Mode()
+{
+    ShowPage_Scan_Mode(HCIeventColor);
+}
+
+Read_Local_Version_Information()
+{
+    data = NextNBits(8);
+    select {
+      data == 0x00: AddCell("HCI_Version", "1.0B", "Bluetooth HCI Specification 1.0B.", HCIeventColor);
+      data == 0x01: AddCell("HCI_Version", "1.1", "Bluetooth HCI Specification 1.1.", HCIeventColor);
+      default:      AddCell("HCI_Version", Format("0x%02X", data), "Reserved for future use.", HCIeventColor);
+    };
+
+    data = Next16Bits();
+    AddCell("HCI_Revision", Format("0x%02X", data), "Revision of the Current HCI in the Bluetooth hardware.", HCIeventColor);
+
+    ShowLMP_Version();
+    ShowManufacturer_Name();
+
+    data = Next16Bits();
+    AddCell("LMP_Subversion", Format("0x%04X", data), "", HCIeventColor);
+}
+
+Read_Local_Supported_Features()
+{
+    ShowLmpFeatures(HCIeventColor);
+}
+
+Read_Buffer_Size()
+{
+    data = Next16Bits();
+    AddCell("HC_ACL_Data_Packet_Length", Format("%d", data), "Maximum length (in bytes) of the data portion of each HCI ACL Data\nPacket that the Host Controller is able to accept.", HCIeventColor);
+
+    AddCell("HC_SCO_Data_Packet_Length", Format("%d", NextNBits(8)), "Maximum length (in bytes) of the data portion of each HCI SCO Data\nPacket that the Host Controller is able to accept.", HCIeventColor);
+
+    data = Next16Bits();
+    AddCell("HC_Total_Num_ACL_Data_Packets", Format("%d", data), "Total number of HCI ACL Data Packets that can be stored in the data\nbuffers of the Host Controller.", HCIeventColor);
+
+    data = Next16Bits();
+    AddCell("HC_Total_Num_SCO_Data_Packets", Format("%d", data), "Total number of HCI SCO Data Packets that can be stored in the data\nbuffers of the Host Controller.", HCIeventColor);
+}
+
+Read_Country_Code()
+{
+    data = NextNBits(8);
+    select {
+      data == 0x00: AddCell("Country_Code", "0x00", "North America & Europe (except France) and Japan", HCIeventColor);
+      data == 0x01: AddCell("Country_Code", "France", "", HCIeventColor);
+      default:     AddCell("Country_Code", Format("0x%02X", data), "Reserved for future use.", HCIeventColor);
+    };
+}
+
+
+Read_BD_ADDR()
+{
+    ShowBD_ADDR(HCIeventColor);
+}
+
+Read_Failed_Contact_Counter()
+{
+    ShowConnection_Handle();
+
+    data = Next16Bits();
+    AddCell("Failed_Contact_Counter", Format("0x%04X", data), "Number of consecutive failed contacts for a connection corresponding to\nthe connection handle.", HCIeventColor);
+}
+
+Reset_Failed_Contact_Counter()
+{
+    ShowConnection_Handle();
+}
+
+Read_Link_Quality()
+{
+    ShowConnection_Handle();
+    AddCell("Link_Quality", Format("0x%02X", NextNBits(8)), "The current quality of the Link connection between the local device and\nthe remote device specified by the Connection Handle\nRange: 0x00 - 0xFF\nThe higher the value, the better the link quality is.", HCIeventColor);
+}
+
+Read_RSSI()
+{
+    ShowConnection_Handle();
+    ShowRSSI();
+}
+
+
+Read_Loopback_Mode()
+{
+    ShowLoopback_Mode(HCIeventColor);
+}
+
+
+############ CATC specific commands
+
+CATC_Read_HW_FIFO() 
+{
+    length = NextNBits(8);
+    AddCell("length", length, "", HCIeventColor);
+    ShowDataBlock(length);
+}
+
+CATC_Write_HW_FIFO(){}
+
+CATC_Read_HW_Register() 
+{
+    AddCell("Data", Format("0x%04X", Next16Bits()), "", HCIeventColor);
+}
+
+CATC_Write_HW_Register() {}
+
+CATC_Read_I2C()
+{
+    AddCell("Data", Format("0x%02X", NextNBits(8)), "", HCIeventColor);
+}
+
+CATC_Write_I2C() {}
+CATC_Write_PCM_Settings() {}
+CATC_Write_Country_Code() {}
+
+CATC_Read_Revision_Information() 
+{
+    AddCell("Revision", Format("0x%08X", Next32Bits()), "", HCIeventColor);
+}
+
+CATC_Enable_Real_Timestamp() {}
+CATC_Reset() {}
+Catc_Write_Encryption_Key_Size() {}
+
+Catc_Read_Encryption_Key_Size() 
+{
+    ShowCatcKeySize(HCIeventColor);
+}
+
+Catc_Write_Link_Key_Type() {}
+
+Catc_Read_Link_Key_Type() 
+{
+    ShowCatcKeyType(HCIeventColor);
+}
+
+Catc_Select_SCO_Connection() {}
+
+Catc_Get_Selected_SCO_Connection()
+{
+    ShowConnection_Handle();
+    ShowCatcDataPath(HCIeventColor);
+}
+
+Catc_GetParkMode()
+{
+    ShowCatcParkMode(HCIeventColor);
+}
+
+
+Catc_TimingAccuracyRequest()
+{
+    ShowConnection_Handle();
+
+    data = NextNBits(8);
+    if (data & 0x80)
+      data = 0xFFFFFF00 | data;
+    AddCell("Drift", Format("%d", data), "", HCIeventColor);
+
+    ShowTciTxJitter(HCIeventColor);
+}
+
+
+############# CATC TCI commands
+TCI_CatcPage() {}
+TCI_CatcPageScan() {}
+TCI_CatcInquiry() {}
+TCI_CatcInquiryScan() {}
+TCI_CatcTestControlMaster() {}
+TCI_CatcTestControlSlave() {}
+TCI_CatcTestActivate() {}
+TCI_CatcCreateConnectionExt() {}
+TCI_CatcAcceptConnectionExt() {}
+TCI_CatcSetClock() {}
+TCI_CatcSetBdAddr() 
+{
+    ShowBD_ADDR(HCIeventColor);
+}
+
+

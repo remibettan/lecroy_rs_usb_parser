@@ -1,0 +1,566 @@
+
+#########################################################
+#   Copyright (c) 2005, LeCroy - All Rights Reserved    #
+#   Hid_Req.inc                                         #
+#########################################################
+
+
+%include "CATCScriptAPI.inc"             #.inc files that are included
+%include "UsbCommon.inc"
+%include "..\Standard\Hid_descr.inc"
+%include "..\Standard\StandardDescriptors.inc"
+
+
+ #----  Input
+ # in.Data       - Data_block to decode
+ # in.DataLength - Length of Data_block
+
+ #----  Output
+ # out.Decoded   - amount of data has been decoded
+
+const Tabular_Def_Table = Map( 
+[   
+    #-----------------------------------------------------------------------------------------------------
+    #       id            ,      colId                          , 		containerCellId
+    #-----------------------------------------------------------------------------------------------------
+    [ CELL_REQUEST        , TABULAR_SCRIPT_COLUMN_ID_SUBTYPE   , TABULAR_SCRIPT_CONTAINER_CELL_ID_NONE ],
+    [ CELL_WVALUE         , TABULAR_SCRIPT_COLUMN_ID_NONE      , TABULAR_SCRIPT_CONTAINER_CELL_ID_MISC ]
+    
+] );
+
+set OutputType      = "HID Class Requests";
+set UsbDecodeType   = "Request";
+set UsbReqType      = "Class";
+set UsbClassCode    = 0x03;    # Class code for HID
+set UsbScriptDecodeType = 1;   # Combined decoding for Cells and Text decoding
+
+set bReqType = 0xFF;
+set bRequest = 0xFF;
+set wValue   = 0xFFFF;
+set wIndex   = 0xFFFF;
+set wLength  = 0;
+set Base = 0;
+set sizeOf_w = 2;
+set sizeOf_b = 1;
+set CurrentIndex = 0;
+set ReqType = 0xFFFF;
+
+# User can select the colors for the fields he chooses
+set wDecodeCellColor = 0x898989;
+set RequestFieldColor  = 0x842A2A;
+set RequestDataFieldColor  = 0x002A2A;
+
+set HidClassReqType =
+[
+    [0x01, "GET_REPORT"     ],
+    [0x02, "GET_IDLE"       ],
+    [0x03, "GET_PROTOCOL"   ],
+    [0x04, "Reserved"       ],
+    [0x05, "Reserved"       ],
+    [0x06, "GET_DESCRIPTOR" ],
+    [0x07, "SET_DESCRIPTOR" ],
+    [0x08, "Reserved"       ],
+    [0x09, "SET_REPORT"     ],
+    [0x0A, "SET_IDLE"       ],
+    [0x0B, "SET_PROTOCOL"   ]
+];
+
+
+
+
+ProcessData()
+{
+    ProcessDataInit();
+    InitType2Decoder();
+    CurrentFldInit();
+    bReqType = 0xFF;
+    bRequest = 0xFF;
+    wValue   = 0xFFFF;
+    wIndex   = 0xFFFF;
+    out.Decoded = HidClassRequest();
+    return Complete();
+}
+
+
+HidClassRequest ()
+{
+
+    FieldColor = RequestDataFieldColor;
+    CurrentIndex = 0;
+    CurrentFldInit();
+
+    if (in.DataLength < 6) # we need at least to have wValue + wIndex + wLength.
+        return 0;
+
+    bReqType = GetDataByte(CurrentIndex); CurrentIndex = CurrentIndex + sizeOf_b;
+
+    if ((bReqType != 0x21) && (bReqType != 0xA1))# expect class request here.
+    {
+        AddPayLoadCell("bReqType", Format("Error: 0x%02X", bReqType), "Expected bRequestType 0x21 or 0xA1", _ERROR);
+        return 0;
+    }
+
+    _row = Find (HidClassReqType, GetDataByte(CurrentIndex)); CurrentIndex = CurrentIndex + sizeOf_b;
+
+    bRequest = _row[1];
+
+    if (bRequest == "Reserved")
+    {
+        AddPayLoadCell("bReqType", Format("Error: 0x%02X", bReqType), "Reserved bRequest", _ERROR);
+        return 0;
+    }
+
+    AddCaptionCell("bRequest", bRequest , Format("bRequest HexVal: 0x%04X", _row[0]), FieldColor, [_TABULARCELL, CELL_REQUEST]);
+
+    return Call(bRequest);
+}
+
+GET_DESCRIPTOR()
+{
+    if( bReqType == 0x81 ) # class req
+    {
+        if((wValue == 0xFFFF) && (wIndex == 0xFFFF)) # just to make sure if they are not been read.
+        {
+            wValue = GetDataWord(CurrentIndex); CurrentIndex = CurrentIndex + sizeOf_w;
+            wIndex = GetDataWord(CurrentIndex); CurrentIndex = CurrentIndex + sizeOf_w;
+        }
+        DecodeHidDescriptor();
+    }
+
+    else if( bReqType == 0x21 ) #standard req to interface
+    {
+
+        if((wValue == 0xFFFF) && (wIndex == 0xFFFF)) # just to make sure if they are not been read.
+        {
+            wValue = GetDataWord(CurrentIndex); CurrentIndex = CurrentIndex + sizeOf_w;
+            wIndex = GetDataWord(CurrentIndex); CurrentIndex = CurrentIndex + sizeOf_w;
+        }
+
+        DecodeHidDescriptor();
+    }
+    else
+    {
+        AddIllegalTypeCell( "GET DESCRIPTOR" );
+    }
+    out.Decoded = in.DataLength;
+}
+
+
+SET_DESCRIPTOR()
+{
+
+    if( bReqType == 0x81 ) # class req
+    {
+        if((wValue == 0xFFFF) && (wIndex == 0xFFFF)) # just to make sure if they are not been read.
+        {
+            wValue = GetDataWord(CurrentIndex); CurrentIndex = CurrentIndex + sizeOf_w;
+            wIndex = GetDataWord(CurrentIndex); CurrentIndex = CurrentIndex + sizeOf_w;
+        }
+        DecodeHidDescriptor();
+    }
+
+    else if( bReqType == 0x21 ) #standard req to interface
+    {
+
+        if((wValue == 0xFFFF) && (wIndex == 0xFFFF)) # just to make sure if they are not been read.
+        {
+            wValue = GetDataWord(CurrentIndex); CurrentIndex = CurrentIndex + sizeOf_w;
+            wIndex = GetDataWord(CurrentIndex); CurrentIndex = CurrentIndex + sizeOf_w;
+        }
+
+        DecodeHidDescriptor();
+    }
+    else
+    {
+        AddIllegalTypeCell( "SET DESCRIPTOR" );
+    }
+    out.Decoded = in.DataLength;
+}
+
+GET_REPORT()
+{
+    wValue      = GetDataWord(CurrentIndex); CurrentIndex = CurrentIndex + sizeOf_w;
+    reportID    =  wValue & 0x00FF;
+    reportType  =  wValue >>8;
+     str = "Report ID: ";
+    str += select
+    {
+        reportID == 0x00  : "Not used";
+        default           :  Format ("0x%02X", reportID );
+    };
+
+    str += select
+    {
+        reportType == 0x01 : ", Type: Input";
+        reportType == 0x02 : ", Type: Output";
+        reportType == 0x03 : ", Type: Feature";
+        default            : Format (", Type Reserved 0x%02X", reportType );
+    };
+
+
+    AddSimplePLCell( "wValue" , Format ("0x%04X", wValue), str, FieldColor, [_TABULARCELL, CELL_WVALUE, "TEXT_CAPTION"]);
+    wIndex   = GetDataWord(CurrentIndex); CurrentIndex = CurrentIndex + sizeOf_w;
+    AddSimplePLCell( "wIndex" , Format ("0x%04X", wIndex) , "Interface");
+
+    wLength  = GetDataWord(CurrentIndex); CurrentIndex = CurrentIndex + sizeOf_w;
+    if (DataAvailable(CurrentIndex) <= 0) # no more data to decode.
+    {
+        if (wLength > 0)
+        {
+            AddSimplePLCell( "wLength", Format ("0x%04X", wLength ) , "wLength error", _ERROR);
+        }
+        else
+        {
+            AddSimplePLCell( "wLength", Format ("0x%04X", wLength ) , "wLength");
+        }
+        return CurrentIndex;
+    }
+    else
+    {
+        if (wLength != DataAvailable(CurrentIndex))
+            AddSimplePLCell( "wLength ", Format ("0x%04X", wLength ) , "Report lenght error", _ERROR);
+        else
+            AddSimplePLCell( "wLength ", Format ("0x%04X", wLength ) , "Report length");
+
+        AddDecSeparator();
+
+        if( DataAvailable(CurrentIndex) >0)
+        {
+            actualLen = DataAvailable(CurrentIndex);
+            Data  = Format("0x%02X ", GetDataByte (CurrentIndex)); CurrentIndex = CurrentIndex + sizeOf_b;
+            for ( i = 1; i < actualLen ; i ++ )
+            {
+                Data += Format("%02X "  , GetDataByte(CurrentIndex));
+                CurrentIndex = CurrentIndex + sizeOf_b;
+            }
+            SetFieldOffsetLen( GetBitOffset(), actualLen * 8);
+            AddSimplePLCell ("Data",Data, "Report data.");
+        }
+        else
+        {
+            err_tooltip = "No data for report available";
+            AddSimplePLCell ("Data", "No data", err_tooltip , _ERROR);
+        }
+
+    }
+
+return CurrentIndex;
+
+}
+
+SET_REPORT()
+{
+
+    wValue      = GetDataWord(CurrentIndex); CurrentIndex = CurrentIndex + sizeOf_w;
+    reportID    =  wValue & 0x00FF;
+    reportType  =  wValue >>8;
+    str = "Report ID: ";
+    str += select
+    {
+        reportID == 0x00  : "Not used";
+        default           :  Format ("0x%02X", reportID );
+    };
+
+    str += select
+    {
+        reportType == 0x01 : ", Type: Input";
+        reportType == 0x02 : ", Type: Output";
+        reportType == 0x03 : ", Type: Feature";
+        default            : Format (", Type Reserved 0x%02X", reportType );
+    };
+
+    AddSimplePLCell( "wValue" , Format ("0x%04X", wValue), str, FieldColor, [_TABULARCELL, CELL_WVALUE, "TEXT_CAPTION"]);
+    wIndex   = GetDataWord(CurrentIndex); CurrentIndex = CurrentIndex + sizeOf_w;
+    AddSimplePLCell( "wIndex" , Format ("0x%04X", wIndex) , "Interface");
+
+    wLength  = GetDataWord(CurrentIndex); CurrentIndex = CurrentIndex + sizeOf_w;
+    if (DataAvailable(CurrentIndex) <= 0) # no more data to decode.
+    {
+        if (wLength > 0)
+        {
+            AddSimplePLCell( "wLength", Format ("0x%04X", wLength ) , "wLength error", _ERROR);
+        }
+        else
+        {
+            AddSimplePLCell( "wLength", Format ("0x%04X", wLength ) , "wLength");
+        }
+        return CurrentIndex;
+    }
+    else
+    {
+        if (wLength != DataAvailable(CurrentIndex))
+            AddSimplePLCell( "wLength ", Format ("0x%04X", wLength ) , "wLength error", _ERROR);
+        else
+            AddSimplePLCell( "wLength ", Format ("0x%04X", wLength ) , "Report lenght");
+
+        AddDecSeparator();
+
+        if( DataAvailable(CurrentIndex) >0)
+        {
+            actualLen = DataAvailable(CurrentIndex);
+            Data  = Format("0x%02X ", GetDataByte (CurrentIndex)); CurrentIndex = CurrentIndex + sizeOf_b;
+            for ( i = 1; i < actualLen ; i ++ )
+            {
+                Data += Format("%02X "  , GetDataByte(CurrentIndex));
+                CurrentIndex = CurrentIndex + sizeOf_b;
+            }
+            SetFieldOffsetLen( GetBitOffset(), actualLen * 8);
+            AddSimplePLCell ("Data",Data, "Report data.");
+        }
+        else
+        {
+            err_tooltip = "No data for report available";
+            AddSimplePLCell ("Data", "No data", err_tooltip , _ERROR);
+        }
+
+    }
+
+return CurrentIndex;
+
+}
+
+
+GET_IDLE()
+{
+    wValue      = GetDataWord(CurrentIndex); CurrentIndex = CurrentIndex + sizeOf_w;
+    reportID    =  wValue & 0x00FF;
+    reportType  =  wValue >>8;
+    str = "Report ID: ";
+    str += select
+    {
+        reportID == 0x00  : "Not used";
+        default           :  Format ("0x%02X", reportID );
+    };
+
+    str += select
+    {
+        reportType == 0x0 : ", Type: Zero";
+        default           : ", Type: Error, should be zero";
+    };
+
+    AddSimplePLCell( "wValue" , Format ("0x%04X", wValue), str, FieldColor, [_TABULARCELL, CELL_WVALUE, "TEXT_CAPTION"]);
+    wIndex   = GetDataWord(CurrentIndex); CurrentIndex = CurrentIndex + sizeOf_w;
+    AddSimplePLCell( "wIndex" , Format ("0x%04X", wIndex) , "Interface");
+
+    wLength  = GetDataWord(CurrentIndex); CurrentIndex = CurrentIndex + sizeOf_w;
+    if (DataAvailable(CurrentIndex) <= 0) # no more data to decode.
+    {
+        if (wLength > 0)
+        {
+            AddSimplePLCell( "wLength", Format ("0x%04X", wLength ) , "wLength error", _ERROR);
+        }
+        else
+        {
+            AddSimplePLCell( "wLength", Format ("0x%04X", wLength ) , "wLength");
+        }
+        return CurrentIndex;
+    }
+    else
+    {
+        if (wLength != 0x01)
+            AddSimplePLCell( "wLength ", Format ("0x%04X", wLength ) , "wLength error", _ERROR);
+        else
+            AddSimplePLCell( "wLength ", Format ("0x%04X", wLength ) , "One");
+
+        AddDecSeparator();
+
+        actualLen = DataAvailable(CurrentIndex);
+        if (actualLen > 1)
+        {
+            Data  = Format("0x%02X ", GetDataByte (CurrentIndex)); CurrentIndex = CurrentIndex + sizeOf_b;
+            for ( i = 1; i < actualLen ; i ++ )
+            {
+                Data += Format("%02X "  , GetDataByte(CurrentIndex));
+                CurrentIndex = CurrentIndex + sizeOf_b;
+            }
+            SetFieldOffsetLen( GetBitOffset(), actualLen * 8);
+            AddSimplePLCell ("Data",Data, "Idle rate should be only one byte.", _ERROR);
+        }
+        else
+        {
+            Data  = Format("0x%02X ", GetDataByte (CurrentIndex)); CurrentIndex = CurrentIndex + sizeOf_b;
+            str = "Idle rate";
+            AddSimplePLCell ("Data", Data, str);
+        }
+
+    }
+
+return CurrentIndex;
+
+}
+
+
+SET_IDLE()
+{
+    wValue      = GetDataWord(CurrentIndex); CurrentIndex = CurrentIndex + sizeOf_w;
+    reportID    =  wValue & 0x00FF;
+    duration  =  wValue >>8;
+
+    str = select
+    {
+        reportID == 0x00  : "Idle rate applies to all input reports generated by device";
+        default           :  Format ("Idle rate only applies to this report ID: 0x%02X ", reportID );
+    };
+
+    str += select
+    {
+        duration == 0x00 : ", duration: Infinite";
+        default          : Format (", duration: 0x%02X nanosecond", duration * 4 );
+    };
+
+    AddPayLoadCell( "wValue" , Format ("0x%04X", wValue), str, FieldColor, [_TABULARCELL, CELL_WVALUE, "TEXT_CAPTION"]);
+    wIndex   = GetDataWord(CurrentIndex); CurrentIndex = CurrentIndex + sizeOf_w;
+    AddPayLoadCell( "wIndex" , Format ("0x%04X", wIndex) , "Interface");
+
+    wLength  = GetDataWord(CurrentIndex); CurrentIndex = CurrentIndex + sizeOf_w;
+
+    if (wLength != 0)
+        AddPayLoadCell( "wLength", Format ("0x%04X", wLength ) , "wLength error, should be zero", _ERROR);
+    else
+        AddPayLoadCell( "wLength", Format ("%d", wLength ) , "Zero");
+
+    AddDecSeparator();
+
+    if( DataAvailable(CurrentIndex) >0)
+    {
+        actualLen = DataAvailable(CurrentIndex);
+        Data  = Format("0x%02X ", GetDataByte (CurrentIndex)); CurrentIndex = CurrentIndex + sizeOf_b;
+        for ( i = 1; i < actualLen ; i ++ )
+        {
+            Data += Format("%02X "  , GetDataByte(CurrentIndex));
+            CurrentIndex = CurrentIndex + sizeOf_b;
+        }
+        SetFieldOffsetLen( GetBitOffset(), actualLen * 8);
+        err_tooltip = "Not applicable for this type of request";
+        AddPayLoadCell ("Data", Data, err_tooltip , _ERROR);
+    }
+
+return CurrentIndex;
+}
+
+
+GET_PROTOCOL()
+{
+
+    wValue      = GetDataWord(CurrentIndex); CurrentIndex = CurrentIndex + sizeOf_w;
+    if (wValue == 0x0)
+        AddSimplePLCell( "wValue" , Format ("0x%04X", wValue), "Zero", FieldColor, [_TABULARCELL, CELL_WVALUE, "TEXT_CAPTION"]);
+    else
+        AddSimplePLCell( "wValue" , Format ("0x%04X", wValue), "Should be zero", _ERROR, [_TABULARCELL, CELL_WVALUE, "TEXT_CAPTION"]);
+
+    wIndex   = GetDataWord(CurrentIndex); CurrentIndex = CurrentIndex + sizeOf_w;
+    AddSimplePLCell( "wIndex" , Format ("0x%04X", wIndex) , "Interface");
+
+    wLength  = GetDataWord(CurrentIndex); CurrentIndex = CurrentIndex + sizeOf_w;
+    if (DataAvailable(CurrentIndex) <= 0) # no more data to decode.
+    {
+        if (wLength > 0)
+        {
+            AddSimplePLCell( "wLength", Format ("0x%04X", wLength ) , "wLength error", _ERROR);
+        }
+        else
+        {
+            AddSimplePLCell( "wLength", Format ("0x%04X", wLength ) , "wLength");
+        }
+        return CurrentIndex;
+    }
+    else
+    {
+        if (wLength != 0x01)
+            AddSimplePLCell( "wLength ", Format ("0x%04X", wLength ) , "wLength error, should be one", _ERROR);
+        else
+            AddSimplePLCell( "wLength ", Format ("0x%04X", wLength ) , "One");
+
+        AddDecSeparator();
+
+        actualLen = DataAvailable(CurrentIndex);
+        if (actualLen > 1)
+        {
+            Data  = Format("0x%02X ", GetDataByte (CurrentIndex)); CurrentIndex = CurrentIndex + sizeOf_b;
+            for ( i = 1; i < actualLen ; i ++ )
+            {
+                Data += Format("%02X "  , GetDataByte(CurrentIndex));
+                CurrentIndex = CurrentIndex + sizeOf_b;
+            }
+            SetFieldOffsetLen( GetBitOffset(), actualLen * 8);
+            AddSimplePLCell ("Data",Data, "Protocol field should be only one byte.", _ERROR);
+        }
+        else
+        {
+            Data  = Format("0x%02X ", GetDataByte (CurrentIndex)); CurrentIndex = CurrentIndex + sizeOf_b;
+            str = select
+            {
+                Data == 0x00 : "Boot Protocol";
+                Data == 0x01 : "Report Protocol";
+                default      : Format ("Protocol: 0x%02X Unknown", Data );
+            };
+
+            AddSimplePLCell ("Data", Data, str);
+        }
+
+    }
+
+return CurrentIndex;
+
+}
+
+
+
+SET_PROTOCOL()
+{
+
+    wValue      = GetDataWord(CurrentIndex); CurrentIndex = CurrentIndex + sizeOf_w;
+    str = select
+    {
+        wValue == 0x00  : "Boot Protocol";
+        wValue == 0x01  : "Report Protocol";
+        default         : Format ("Protocol: 0x%02X Unknown", wValue );
+    };
+
+    if (wValue < 0x2)
+        AddSimplePLCell( "wValue" , Format ("0x%04X", wValue), str, FieldColor, [_TABULARCELL, CELL_WVALUE, "TEXT_CAPTION"]);
+    else
+        AddSimplePLCell( "wValue" , Format ("0x%04X", wValue), str, _ERROR, [_TABULARCELL, CELL_WVALUE, "TEXT_CAPTION"]);
+
+    wIndex   = GetDataWord(CurrentIndex); CurrentIndex = CurrentIndex + sizeOf_w;
+    AddSimplePLCell( "wIndex" , Format ("0x%04X", wIndex) , "Interface");
+
+    wLength  = GetDataWord(CurrentIndex); CurrentIndex = CurrentIndex + sizeOf_w;
+
+    if (DataAvailable(CurrentIndex) <= 0) # no more data to decode.
+    {
+        if (wLength > 0)
+        {
+            AddSimplePLCell( "wLength", Format ("0x%04X", wLength ) , "wLength error", _ERROR);
+        }
+        else
+        {
+            AddSimplePLCell( "wLength", Format ("0x%04X", wLength ) , "wLength");
+        }
+        return CurrentIndex;
+    }
+    else
+    {
+        if (wLength != 0x00)
+            AddSimplePLCell( "wLength ", Format ("0x%04X", wLength ) , "wLength error, should be one", _ERROR);
+        else
+            AddSimplePLCell( "wLength ", Format ("0x%04X", wLength ) , "Zero");
+
+        AddDecSeparator();
+
+        actualLen = DataAvailable(CurrentIndex);
+        if (actualLen > 0)
+        {
+            Data  = Format("0x%02X ", GetDataByte (CurrentIndex)); CurrentIndex = CurrentIndex + sizeOf_b;
+            for ( i = 1; i < actualLen ; i ++ )
+            {
+                Data += Format("%02X "  , GetDataByte(CurrentIndex));
+                CurrentIndex = CurrentIndex + sizeOf_b;
+            }
+            SetFieldOffsetLen( GetBitOffset(), actualLen * 8);
+            AddSimplePLCell ("Data",Data, "Data is not applicable for this type of request.", _ERROR);
+        }
+    }
+
+return CurrentIndex;
+}

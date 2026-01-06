@@ -1,0 +1,344 @@
+#
+#  Copyright (c) 1998 - 2009, LeCroy Corp. PSG. - All Rights Reserved
+#
+#   zUsb3_Example.vse
+#
+#   Verification script
+#
+#   Brief Description: 
+#   A generic example of processing for USB3 packets.
+#
+
+
+######################################################################################################
+#                                         Module info                                                #
+######################################################################################################
+#       Filling of this block is necessary for proper verification script operation...               #
+######################################################################################################
+#
+# Specify here the brief description for your verification script.
+# This name will be shown in the verification script dialog.
+#
+set DecoderDesc = "Test USB Suite VSE event sending capabilities and processing for USB3 packets";
+
+######################################################################################################
+
+#
+# include main Verification Script Engine definitions
+#
+%include  "VSTools.inc"
+
+
+######################################################################################
+#                            Global Variables and Constants                          #
+######################################################################################
+
+const MAX_NUMBER_OF_EVENTS = 100;
+set   EventCount = 0;
+
+######################################################################################
+
+
+######################################################################################
+#   OnStartScript()                                                                  #
+######################################################################################
+#                                                                                    #
+# It is a main intialization routine for setting up all necessary                    #
+# script parameters before running the script.                                       #
+#                                                                                    #
+# Specify in the body of this function initial values for global variables           #
+# and what kind of trace events should be sent to the script.                        #
+# ( By default, only all frames and Link state change events from both channels      #
+#  will be passed to the script.                                                     #
+#                                                                                    #
+#  Please see CATC Verification Script Engine Manual for more details about          #
+#  recorded trace "events" passed to verification scripts.                           #
+#                                                                                    #
+######################################################################################
+#
+OnStartScript()
+{  
+    EventCount = 0;    
+    
+    #############################################
+    # Specify which channel/level/event         #
+    # should be sent to the script              #
+    #############################################  
+    
+    # Please see VSE manual for details about VSE sending capabilities.
+           
+    SendAllChannels();             # sends trace events of all channels
+    
+    #SendChannel( _USB2 );         # sends trace events for USB2 channel only   
+        
+    
+    SendLevelOnly ( _PKT );        # sends trace events of PACKET level only        
+    
+    #SendAllTraceEvents();
+    
+    # Send specific direction
+    #SendDirection( _OUT ); 
+    
+    # TSEQ
+    #SendTraceEvent( _USB3_TSEQ );
+    
+    # TS1, TS2
+    #SendTraceEvent( _USB3_TS2 );
+    
+    # BRST
+    #SendTraceEvent( _USB3_BRST );
+    
+    # BERC
+    #SendTraceEvent( _USB3_BERC );
+    
+    # BCNT
+    #SendTraceEvent( _USB3_BCNT );
+    
+    # IPS
+    #SendTraceEvent( _USB3_IPS );
+    
+    # Link Commands
+    #SendTraceEvent( _USB3_LINK_CMD );
+    
+    # Example of using SendUsb3LinkCommands primitive
+    # SendUsb3LinkCommands( lnk_cmd )
+    #SendUsb3LinkCommands( LCRD_A );
+    
+    # SKPs
+    #SendTraceEvent( _USB3_SKP_SEQ );
+    
+    # LMPs
+    #SendTraceEvent( _USB3_LMP_PKT );
+    
+    # Example of using SendUsb3LmpPkts primitive
+    # SendUsb3LmpPkts( sub_type )
+    #SendUsb3LmpPkts( LMP_PRT_CFG );
+    
+    # Electrical Idle
+    #SendTraceEvent( _USB3_E_IDLE );
+    
+    # TPs
+    SendTraceEvent( _USB3_TP_PKT );
+     
+    # Example of using SendUsb3LinkCommands primitive
+    # SendUsb3TpPkts( sub_type, addr, endp, dir, stream_id ) 
+    #SendUsb3TpPkts( TP_STATUS );
+    #SendUsb3TpPkts( TP_ACK, 1, 4 );
+    #SendUsb3TpPkts( TP_ACK, _ANY, _ANY, TP_OUT );
+     
+    # ITPs 
+    #SendTraceEvent( _USB3_ITP_PKT );     
+    
+    # DPH
+    SendTraceEvent( _USB3_DPH_PKT );
+    
+    # Example of using SendUsb3DphPkts primitive
+    # SendUsb3DphPkts( addr, endp, dir, stream_id, seq_n ) 
+    #SendUsb3DphPkts( 1, 3 );                      # send DPH for address: 1, endp: 3
+    #SendUsb3DphPkts( _ANY, _ANY, TP_IN );         # send DPH having IN direction
+    #SendUsb3DphPkts( _ANY, _ANY, _ANY, _ANY, 2 ); # send DPH having SeqN: 2
+        
+    # DPP
+    # NOTE: SendTraceEvent( _USB3_DPP_PKT )uses filtering conditions for DPH.
+    #       So if some DPH is not sent - then the corresponding DPP will not be sent either. 
+    SendTraceEvent( _USB3_DPP_PKT );   
+    
+        
+    # Uncomment the line below - if you want don't care about result of script running
+    #
+    ScriptForDisplayOnly();
+    
+    
+    # Uncomment the line below - if you want to disable output from
+    # ReportText()-functions. 
+    #
+    # DisableOutput();
+}
+
+
+######################################################################################
+#   ProcessEvent()                                                                   #
+######################################################################################
+#                                                                                    #
+# It is a main script function called by the application when the next waited event  #
+# occured in the evaluated trace.                                                    #
+#                                                                                    #
+######################################################################################
+#
+ProcessEvent()
+{        
+        #
+        # There are more useful reporting functions defined in VSTools.inc 
+        # like ReportEventInfo(), ReportFrameEventInfo() etc.
+    
+        ReportEventInfo();
+        #ReportBusConditionEventInfo();
+        #ReportUSB2PktEventInfo();
+        ReportUsb3TSEventInfo();
+        ReportLFPSEventInfo  ();
+        ReportEIdleEventInfo ();
+        ReportIPSEventInfo   (0);
+        ReportLnkCmdEventInfo();
+        ReportSKPSeqEventInfo();
+        ReportBRSTEventInfo  ();
+        ReportBERCEventInfo  ();
+        ReportBCNTEventInfo  ();
+        
+        ReportLMPEventInfo();
+        ReportTPEventInfo ();
+        ReportITPEventInfo();
+        
+        ReportDPEventInfo();
+        # ReportDPHEventInfo(); # reported only for traces recorded before USB Suite software version 3.71 
+        # ReportDPPEventInfo(); # reported only for traces recorded before USB Suite software version 3.71 
+    
+        if( in.TraceEvent == _USB3_LINK_CMD )  
+        {
+            # Additional information for link commands -
+            # fields in Link Command Word and its replica
+            str = FormatEx( "\tLink Command Information = 0x%X, CRC5 = 0x%X", in.LinkCmdInfo, in.CRC5 );
+            ReportText( str );
+            str = FormatEx( "\tReplica: Link Command Information = 0x%X, CRC5 = 0x%X\n", in.LinkCmdInfo_2, in.CRC5_2 );
+            ReportText( str );
+        }
+
+        if( in.TraceEvent == _USB3_LMP_PKT )
+        {
+            # Example of using decoded packet information for LMPs.
+              
+            # 'SubType' field
+            # String value
+            str = FormatEx( "\tSubType(str) = '%s'", GetDecodedPktField ( "SubType" ) );
+            ReportText( str );
+            
+            # Hex Value
+            val = GetHexPktField ( "SubType" );
+            str = FormatEx( "\tSubType(hex) = 0x%X\n", val );
+            ReportText( str );
+                    
+            # 'Hseq' field
+            # String value
+            str = FormatEx( "\tHseq(str) = '%s'", GetDecodedPktField ( "Hseq" ) );
+            ReportText( str );
+            
+            # Hex Value
+            val = GetHexPktField ( "Hseq" );
+            str = FormatEx( "\tHseq(hex) = 0x%X\n", val );
+            ReportText( str );                  
+        }
+            
+        if( ( in.TraceEvent == _USB3_TP_PKT ) && ( in.SubType == TP_ACK ) )
+        {
+            # Example of using decoded packet information for TPs.
+            
+            # 'SeqN' field
+            # String value
+            str = FormatEx( "\tSeqN(str) = '%s'", GetDecodedPktField ( "SeqN" ) );
+            ReportText( str );
+            
+            # Hex Value
+            val = GetHexPktField ( "SeqN" );
+            str = FormatEx( "\tSeqN(hex) = 0x%X\n", val );
+            ReportText( str );                  
+            
+            # 'NumP' field
+            # String value
+            str = FormatEx( "\tNumP(str) = '%s'", GetDecodedPktField ( "NumP" ) );
+            ReportText( str );
+            
+            # Hex Value
+            val = GetHexPktField ( "NumP" );
+            str = FormatEx( "\tNumP(hex) = 0x%X\n", val );
+            ReportText( str );                  
+        }
+            
+            
+        if( in.TraceEvent == _USB3_DP_PKT )
+        {
+            # Example of using decoded packet information for DPHs.
+            
+            # 'SeqN' field
+            # String value
+            str = FormatEx( "\tSeqN(str) = '%s'", GetDecodedPktField ( "SeqN" ) );
+            ReportText( str );
+            
+            # Hex Value
+            val = GetHexPktField ( "SeqN" );
+            str = FormatEx( "\tSeqN(hex) = 0x%X\n", val );
+            ReportText( str );                  
+            
+            # 'ENDP' field
+            # String value
+            str = FormatEx( "\tENDP(str) = '%s'", GetDecodedPktField ( "ENDP" ) );
+            ReportText( str );
+            
+            # Hex Value
+            val = GetHexPktField ( "ENDP" );
+            str = FormatEx( "\tENDP(hex) = 0x%X\n", val );
+            ReportText( str );                  
+        }
+        
+        # Link Control Word
+        if( ( in.TraceEvent == _USB3_TP_PKT ) || ( in.TraceEvent == _USB3_DP_PKT ) )
+        {
+            ReportText( "LCW:" );
+            
+            val = GetHexPktField ( "Hseq" );
+            str = FormatEx( "\tHseq = %d", val );
+            ReportText( str );                  
+            
+            val = GetHexPktField ( "HDepth" );
+            str = FormatEx( "\tHDepth = %d", val );
+            ReportText( str );
+            
+            val = GetHexPktField ( "D1" );
+            str = FormatEx( "\tDelayed (D1) = %d", val );
+            ReportText( str );
+            
+            val = GetHexPktField ( "D2" );
+            str = FormatEx( "\tDeferred (D2) = %d\n", val );
+            ReportText( str );
+        }      
+    
+        # ScriptPassed() - is a shortcut to out.Result = _VERIFICATION_PASSED;
+        # defined in VSTools.inc
+        #
+        if( EventCount == MAX_NUMBER_OF_EVENTS ) ScriptPassed(); 
+        
+        
+        EventCount++;
+    
+    
+    return Complete();
+}
+
+
+######################################################################################
+#   OnFinishScript()                                                                 #
+######################################################################################
+#                                                                                    #
+# It is a main script function called by the application when the script completed   #
+# running. Specify in this function some resetting procedures for a successive run   #
+# of this script.                                                                    #
+#                                                                                    #
+######################################################################################
+#
+OnFinishScript()
+{
+    return 0;
+}
+
+
+
+######################################################################################
+######################################################################################
+######################################################################################
+
+
+######################################################################################
+#   Additional script functions.                                                     #
+######################################################################################
+#                                                                                    #
+# Write your own script-specific functions here...                                   #
+#                                                                                    #
+######################################################################################

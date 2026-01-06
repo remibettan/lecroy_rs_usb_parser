@@ -1,0 +1,27 @@
+#
+#  Copyright (c) 2010, LeCroy - All Rights Reserved
+#
+#  MS_UASPStatusEndpoint.dec
+#
+#  Mass Storage Class UASP Protocol Status Endpoint Decoder
+#
+#  
+#
+
+%include "MS_UASPInEndpoint.inc"
+
+set OutputType    = "Mass Strg UASP Status Endp";
+set UsbEndpId     = 13; # just a unique value for each endpoint of the same Class/Vendor/Product to distinguish them
+set UsbUASPipeId  = 2;
+
+#
+# Parsing entry point
+#
+
+
+ProcessData()
+{
+	process_as_data = 0;
+	ProcessUASInData(process_as_data);  
+}
+ 

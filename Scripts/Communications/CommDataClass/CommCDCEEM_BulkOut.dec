@@ -1,0 +1,97 @@
+#*******************************************************************************
+#
+#  FILENAME: Comm_CDC_EEM.dec
+#
+#  Copyright (c) 2005, LeCroy - All Rights Reserved
+#
+#  DESCRIPTION
+#    This file isThis document specifies the behavior of Ethernet Emulation Model (EEM) Devices. 
+#
+#  REVISION HISTORY
+#    Mar 06  First created for WUSB 1.0 -jz-
+#	 June 12 seprated in 2 files
+#
+#*******************************************************************************
+
+#*******************************************************************************
+# Specify the name for this set of requests as GroupName. This name is listed 
+# under Decode Vendor/Class Request menu depending on the GroupType specified 
+# and the Type field of the request you are trying to decode. 
+#*******************************************************************************
+ 
+%include "EMMLib.inc"
+
+
+ #----  Input
+ # in.Data       - Data_block to decode
+ # in.DataLength - Length of Data_block 
+ 
+ #----  Output
+ # out.Decoded   - amount of data has been decoded
+
+set OutputType           = "Communication Class CDC EEM Bulk Out";      
+set UsbDecodeType        = "Endpoint";
+set UsbEndpId            = 41;
+set UsbClassCode         = 0x02;    # Class code Communication device and communication interface 
+set UsbScriptDecodeType  = 2;       # changed this from 1; explicit text decoding processing
+set UsbSubClass          = 0x0C;    # Communication Device Subclass / EEM
+set UsbProtocol          = 0x07;    # EEM
+set UsbEndpType          = "Bulk";
+set UsbEndpDir           = "Out";
+set UsbMaxXferSize       = 0xFFFFFF;
+set UsbMaxPktSize        = 512;     # will automatically be reduced to 64 if branch is Full Speed     
+set UsbMaxXferDecodeSize = 32;      # Max bytes that we will be decoding   User can up this if he likes
+set MaxDatagramSize      = 1514;    # The maximum size of an Ethernet frame datagram.
+    
+const STATUS_COLOR = 0xABCDEF;
+
+ProcessData()
+{
+    CommonDecoderInit();
+     UnitDecoderInit("CCEO");        #CCEI = Communication Class EEM BulkOut
+    FieldColor = 0x76A8F4;
+    
+    FullyDecoded = 1;
+    
+    out.Decoded = 0;    
+
+    if (in.DataLength < 2)
+    {
+        AddPLCellMonoNoDlg("Error", "Illegal Length", "Length has to be at least 2 to be decoded", _ERROR);
+        return Complete();
+    }
+    
+    EEMPacketHeader = NextDataWord_();
+    bmType = (EEMPacketHeader & 0x8000) >> 15;
+    if (bmType == 0)
+    {
+        AddPayLoadCell("bmType", "Data", "Default. EEM data payload", FieldColor, [_TABULARCELL, CELL_COMM_BMTYPE]);
+        bmCRC = (EEMPacketHeader & 0x4000) >> 14;
+        if (bmCRC == 0)
+            text = "Sentinel CRC";
+        else
+            text = "Has CRC";
+        AddPayLoadCell("bmCRC", text, "Whether the CTC field in the Ethernet Frame contains a calculated CRC\nOr a sentinel value of 0xdeadbeef");
+        
+        length = EEMPacketHeader & 0x3FFF;
+        if (in.DataLength == length + 2)
+            isError = null;
+        else
+            isError = _ERROR;
+            
+        AddPayLoadCell("Length", Format("%d", length), "Length of the data payload", isError, [_TABULARCELL, CELL_COMM_LENGTH, "TEXT_CAPTION"]);
+        ShowDataBlock(in.DataLength - 2);
+        out.Decoded = in.DataLength;
+    }
+    else
+    {
+        AddPayLoadCell("bmType", "Command", "EEM Command", FieldColor, [_TABULARCELL, CELL_COMM_BMTYPE]);
+        command = EEMPacketHeader & 0x3800;
+        _row = Find(bmEEMCmdSelectorTable, command);
+        AddPayLoadCell("Command", _row[1], "EEM command", FieldColor, [_TABULARCELL, CELL_COMM_COMMAND, "TEXT_CAPTION"]);
+        Call(_row[1]);
+    }
+    
+    return Complete();
+}
+

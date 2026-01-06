@@ -1,0 +1,48 @@
+#*******************************************************************************
+#
+#  FILENAME: CommCDCMBIM_Bulk.dec
+#
+#  DESCRIPTION
+#    This specification is a protocol by which USB host and Mobile Broadand devices can efficiently exchange control commands and data frames.
+#    MBIM is based on communication class network control Modle (NCM 1.0) subclass
+#*******************************************************************************
+ 
+%include "NCMMBIMLib.inc"
+
+ #----  Input
+ # in.Data       - Data_block to decode
+ # in.DataLength - Length of Data_block 
+ 
+ #----  Output
+ # out.Decoded   - amount of data has been decoded
+
+set OutputType           = "MBIM Bulk In";      #Mobile Broadband Interface Model
+set UsbDecodeType        = "Endpoint";
+set UsbEndpId            = 42;   				# just a unique value for each endpoint of the same Class/Vendor/Product to distinguish them
+set UsbClassCode         = 0x0A;
+set UsbSubClass          = 0x00;                
+set UsbProtocol          = 0x02;    			#MBIM               
+set UsbEndpType          = "Bulk";
+set UsbEndpDir           = "In";
+set UsbMaxXferSize       = 0xFFFFFF;
+set UsbScriptDecodeType  = 2;                   #changed this from 1; explicit text decoding processing 
+set UsbMaxPktSize        = 512; 				# will automatically be reduced to 64 if branch is Full Speed     
+set UsbMaxXferDecodeSize = 32;  				# Max bytes that we will be decoding   User can up this if he likes
+set MaxDatagramSize      = 1514;			    # The maximum size of an Ethernet frame datagram.
+    
+const STATUS_COLOR = 0xABCDEF;
+
+ProcessData()
+{
+	return ProcessMBIMData();
+}
+
+####################################################################################
+#                       USBTracer specific caption cell                            #
+####################################################################################
+
+AddSpecCaptionCell(caption, text, tooltip, FieldColor, addparam, addparam1, addparam2 )
+{   
+    AddCell(caption, text, tooltip, FieldColor, _USBBULK_HEADER, addparam, addparam1, addparam2 );        
+    return 1;        
+}

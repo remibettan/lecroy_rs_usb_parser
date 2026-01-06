@@ -1,0 +1,3265 @@
+#*******************************************************************************
+#
+#  FILENAME: RNDIS.dec
+#
+#  Copyright (c) 2005-7, LeCroy - All Rights Reserved
+#
+#  DESCRIPTION
+#    This is the request file for USB Class Definition for Communication Devices with RNDIS. 
+#    This file is prepared as per the Microsoft RNDIS Specification Revision 1.1.
+#    This file is prepared as per the USB Class Definitions for Communication Devices v1.1
+#
+#  REVISION HISTORY
+#    13MAY99 First created -ag-
+#    08AUG99 Modified as per Revision 1.1 -ag-
+#    May00   Added notifications -ag- -mp-
+#    Mar 06  Convert to new script format and prepared for WUSB 1.0 -jz-
+#    Mar 07  Updates added -mgd-
+#    13MAR07 Updated for Dialogue View, Removed tabs & replace w/ spaces -rk-
+#
+#*******************************************************************************
+
+#*******************************************************************************
+# Specify the name for this set of requests as GroupName. This name is listed 
+# under Decode Vendor/Class Request menu depending on the GroupType specified 
+# and the Type field of the request you are trying to decode. 
+#*******************************************************************************
+ 
+
+%include "CATCScriptAPI.inc"      #.inc files that are included
+%include "USBCommon.inc"          #include usefull decoder functions
+%include "RNDIS_Common.inc"
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block 
+#
+#----  Output
+# out.Decoded   - amount of data has been decoded
+#
+#############################################################################
+#                               View Settings                               #
+#############################################################################
+#
+#    In this section user can set up which fields are to be shown and 
+#    which are to be hidden in expanded and collapsed states.
+#    Zero-value everywhere means that fields will not be shown,
+#    otherwise means opposite.
+#
+
+
+# ----------------------- All Field View Settings ---------------------------
+#   These settings have priority above separate field View Settings in
+#   expanded state ONLY.
+#   In order separate field View Settings to work properly
+#   BOTH All Field View Settings should be set to 0.
+#
+#   Due to the fact that ViewAll-setting and HideAll-setting are 
+#   exceptive propositions - ViewAll has been set a higher priority.
+# ---------------------------------------------------------------------------
+
+const CCT_ViewAll              = 0;
+const CCT_HideAll              = 0;
+# ---------------------------------------------------------------------------
+
+
+# -----------------------  Separate Field View Settings ---------------------
+# The FIRST value in list-variables defines if the field is to be shown or
+# hidden in COLLAPSED state. 
+# 0 - means the field is to be shown.
+# 1 - means the field is to be hidden.
+# 
+# The SECOND value in list-variables defines if the field is to be shown or
+# hidden in EXPANDED state. 
+# 0 - means the field is to be shown.
+# 1 - means the field is to be hidden.
+#
+# i.e.  const RPD_Field = [0, 1]# - means that field 'Field' will be hidden
+# in collapsed state and will be shown in expanded state. 
+#
+
+#                       [collapsed, expanded]   
+const CCT_bmRequestType       = [1, 1];
+const CCT_wIndex              = [1, 1];
+const CCT_wValue              = [1, 1];
+const CCT_wLength             = [1, 1];
+const CCT_DMS                 = [1, 1];
+const CCT_Country_Code        = [1, 1];
+const CCT_dwDTERate           = [1, 1];
+const CCT_Stop_Bits           = [1, 1];
+const CCT_Parity              = [1, 1];
+const CCT_Data_Bits           = [1, 1];
+const CCT_Ringer              = [1, 1];
+const CCT_Ringer_Volume       = [1, 1];
+const CCT_Ringer_Pattern      = [1, 1];
+const CCT_Operation_Mode      = [1, 1];
+const CCT_Length              = [1, 1];
+const CCT_Active_Flag         = [1, 1];
+const CCT_Index               = [1, 1];
+const CCT_Change_Value        = [1, 1];
+const CCT_Ringback_Type       = [1, 1];
+const CCT_Connection_Type     = [1, 1];
+const CCT_Ringing_Type        = [1, 1];
+const CCT_Time_Str_size       = [1, 1];
+const CCT_Time_Str            = [1, 1];
+const CCT_PN_Str_size         = [1, 1];
+const CCT_PN_Str              = [1, 1];
+const CCT_Name_Str_size       = [1, 1];
+const CCT_Name_Str            = [1, 1];
+const CCT_Dialing_str         = [1, 1];
+const CCT_Profile             = [1, 1];
+const CCT_Multicast           = [1, 1];
+const CCT_Mask_Size           = [1, 1];
+const CCT_Match_Str           = [1, 1];
+const CCT_Pattern_Active      = [1, 1];
+const CCT_Data                = [1, 1];
+const CCT_VPI                 = [1, 1];
+const CCT_VCI                 = [1, 1];
+
+#-----------------------------------------------------------------------------
+ 
+
+set OutputType      = "RNDIS Requests";      
+set UsbDecodeType   = "Request";
+set UsbReqType      = "Class";
+set UsbClassCode    = 0xE0;    # Communication Interface Class code.
+set UsbSubClass     = 0x01;    # Communication Interface Class SubClass code for Abstract Control Model.
+set UsbProtocol     = 0x03;
+set UsbScriptDecodeType = 1;   # Combined decoding for Cells and Text decoding
+set UsbEndpId = 4;
+
+
+
+
+
+
+set RequestTypeTable =
+[
+    #------------------------------------------------------------------------------------------
+    # type,     type name                                                    |
+    #------------------------------------------------------------------------------------------
+    [0xFF,      "RESERVED"                                        ],
+    [0x00,      "SEND_ENCAPSULATED_COMMAND"                       ],
+    [0x01,      "GET_ENCAPSULATED_RESPONSE"                       ],
+    [0x02,      "SET_COMM_FEATURE"                                ],  
+    [0x03,      "GET_COMM_FEATURE"                                ],
+    [0x04,      "CLEAR_COMM_FEATURE"                              ],
+    [0x10,      "SET_AUX_LINE_STATE"                              ],
+    [0x11,      "SET_HOOK_STATE"                                  ],
+    [0x12,      "PULSE_SETUP"                                     ],
+    [0x13,      "SEND_PULSE"                                      ],
+    [0x14,      "SET_PULSE_TIME"                                  ],
+    [0x15,      "RING_AUX_JACK"                                   ],
+    [0x20,      "SET_LINE_CODING"                                 ],
+    [0x21,      "GET_LINE_CODING"                                 ],
+    [0x22,      "SET_CONTROL_LINE_STATE"                          ],
+    [0x23,      "SEND_BREAK"                                      ],
+    [0x30,      "SET_RINGER_PARMS"                                ],
+    [0x31,      "GET_RINGER_PARMS"                                ],
+    [0x32,      "SET_OPERATION_PARMS"                             ],
+    [0x33,      "GET_OPERATION_PARMS"                             ],
+    [0x34,      "SET_LINE_PARMS"                                  ],
+    [0x35,      "GET_LINE_PARMS"                                  ],
+    [0x36,      "DIAL_DIGITS"                                     ],
+    [0x37,      "SET_UNIT_PARAMETER"                              ],
+    [0x38,      "GET_UNIT_PARAMETER"                              ],
+    [0x39,      "CLEAR_UNIT_PARAMETER"                            ],
+    [0x3A,      "GET_PROFILE"                                     ],
+    [0x40,      "SET_ETHERNET_MULTICAST_FILTERS"                  ],
+    [0x41,      "SET_ETHERNET_POWER_MANAGEMENT_PATTERN_FILTER"    ],
+    [0x42,      "GET_ETHERNET_POWER_MANAGEMENT_PATTERN_FILTER"    ],
+    [0x43,      "SET_ETHERNET_PACKET_FILTER"                      ],
+    [0x44,      "GET_ETHERNET_STATISTIC"                          ],
+    [0x50,      "SET_ATM_DATAFORMAT"                              ],
+    [0x51,      "GET_ATM_DEVICE_STATISTICS"                       ],
+    [0x52,      "SET_ATM_DEFAULT_VC"                              ],
+    [0x53,      "GET_ATM_VC_STATISTICS"                           ],
+    [0x60,      "MDLM_SEMANTIC_MODEL_REQUEST"                     ],
+    [0x61,      "MDLM_SEMANTIC_MODEL_REQUEST"                     ],
+    [0x62,      "MDLM_SEMANTIC_MODEL_REQUEST"                     ],
+    [0x63,      "MDLM_SEMANTIC_MODEL_REQUEST"                     ],
+    [0x64,      "MDLM_SEMANTIC_MODEL_REQUEST"                     ],
+    [0x65,      "MDLM_SEMANTIC_MODEL_REQUEST"                     ],
+    [0x66,      "MDLM_SEMANTIC_MODEL_REQUEST"                     ],
+    [0x67,      "MDLM_SEMANTIC_MODEL_REQUEST"                     ],
+    [0x68,      "MDLM_SEMANTIC_MODEL_REQUEST"                     ],
+    [0x69,      "MDLM_SEMANTIC_MODEL_REQUEST"                     ],
+    [0x6A,      "MDLM_SEMANTIC_MODEL_REQUEST"                     ],
+    [0x6B,      "MDLM_SEMANTIC_MODEL_REQUEST"                     ],
+    [0x6C,      "MDLM_SEMANTIC_MODEL_REQUEST"                     ],
+    [0x6D,      "MDLM_SEMANTIC_MODEL_REQUEST"                     ],
+    [0x6E,      "MDLM_SEMANTIC_MODEL_REQUEST"                     ],
+    [0x6F,      "MDLM_SEMANTIC_MODEL_REQUEST"                     ],
+    [0x70,      "MDLM_SEMANTIC_MODEL_REQUEST"                     ],
+    [0x71,      "MDLM_SEMANTIC_MODEL_REQUEST"                     ],
+    [0x72,      "MDLM_SEMANTIC_MODEL_REQUEST"                     ],
+    [0x73,      "MDLM_SEMANTIC_MODEL_REQUEST"                     ],
+    [0x74,      "MDLM_SEMANTIC_MODEL_REQUEST"                     ],
+    [0x75,      "MDLM_SEMANTIC_MODEL_REQUEST"                     ],
+    [0x76,      "MDLM_SEMANTIC_MODEL_REQUEST"                     ],
+    [0x77,      "MDLM_SEMANTIC_MODEL_REQUEST"                     ],
+    [0x78,      "MDLM_SEMANTIC_MODEL_REQUEST"                     ],
+    [0x79,      "MDLM_SEMANTIC_MODEL_REQUEST"                     ],
+    [0x7A,      "MDLM_SEMANTIC_MODEL_REQUEST"                     ],
+    [0x7B,      "MDLM_SEMANTIC_MODEL_REQUEST"                     ],
+    [0x7C,      "MDLM_SEMANTIC_MODEL_REQUEST"                     ],
+    [0x7D,      "MDLM_SEMANTIC_MODEL_REQUEST"                     ],
+    [0x7E,      "MDLM_SEMANTIC_MODEL_REQUEST"                     ],
+    [0x7F,      "MDLM_SEMANTIC_MODEL_REQUEST"                     ],
+
+    [0x80,      "GET_NTB_PARAMETERS"                              ],
+    [0x81,      "GET_NET_ADDRESS"                                 ],
+    [0x82,      "SET_NET_ADDRESS"                                 ],
+    [0x83,      "GET_NTB_FORMAT"                                  ],
+    [0x84,      "SET_NTB_FORMAT"                                  ],
+    [0x85,      "GET_NTB_INPUT_SIZE"                              ],
+    [0x86,      "SET_NTB_INPUT_SIZE"                              ],
+    [0x87,      "GET_MAX_DATAGRAM_SIZE"                           ],
+    [0x88,      "SET_MAX_DATAGRAM_SIZE"                           ],
+    [0x89,      "GET_CRC_MODE"                                    ],
+    [0x8A,      "SET_CRC_MODE"                                    ]
+];
+
+
+#
+# Parsing entry point
+#
+
+set bmRequestType   = 0;  
+set bRequest        = 0;
+set wValue          = 0;
+set wIndex          = 0;
+set wLength         = 0;
+
+ProcessData()
+{    
+    bmRequestType   = 0;  
+    bRequest        = 0;
+    wValue          = 0;
+    wIndex          = 0;
+    wLength         = 0;
+    
+    CommonDecoderInit();
+    UnitDecoderInit("CCT");
+    FieldColor = 0x5499AC;
+    
+    FullyDecoded = 1;
+  
+    out.Decoded = 0;    
+
+    if (in.DataLength < 8)
+    {
+        #SetCellColor(0x5499AC);
+        AddCaptionCell("RNDIS","CDC","This data payload represents an RNDIS Comm Class Request.",_MONOCOLOR);  # Will allow for the expansion of certain fields
+        #RestoreCellColor();
+        AddSeparator();      
+        AddPLCellMonoNoDlg("Error", "Illegal Payload", "Nothing is being decoded", _ERROR);
+        return Complete();
+    }
+    
+    bmRequestType = NextNBits_(8);
+    
+    bRequest = NextNBits_(8);
+
+    _row = Find(RequestTypeTable, bRequest);  # will determine which request is being used  
+    
+    if((bRequest == 0x00)||(bRequest == 0x01)||(_row[1]=="RESERVED"))
+    {
+        #SetCellColor(0x5499AC);
+        AddCaptionCell("RNDIS","CDC","This data payload represents an RNDIS Comm Class Request.",_MONOCOLOR);  # Will allow for the expansion of certain fields
+        #RestoreCellColor();
+        AddSeparator();
+    }
+    else
+    {
+        SetCellColor(0x349933);
+        AddCaptionCell("Comm","Class","This data payload represents a Comm Class Request.",_MONOCOLOR);  # Will allow for the expansion of certain fields
+        RestoreCellColor();
+        AddSeparator();
+    }
+    
+    AddShortDataHeader(_row[1]);
+    SetFieldOffsetLen(8,8);
+    
+    if(SimpleShowItem())
+    {
+        SetCellColor(bRequestColor);
+        AddPayLoadCell("bmRequestType", Format("0x%02X", bmRequestType), "Request Type bitmap");
+        RestoreCellColor();
+    }
+    
+    SetFieldOffsetLen(16,8);
+    SetCellColor(FieldColor);   #Backing up FieldColor because AddRequestCell changes it.
+    AddRequestCell (_row[1]);
+    RestoreCellColor();
+    
+    Call( _row[1] );
+    
+    return Complete();
+}
+
+DecodeRequestToText()
+{
+    return DecodeRequestToTextCommon( RequestTypeTable );    
+}
+#*******************************************************************************
+# RESERVED : 
+#                 This request is used for all unknown requests
+# bmRequestType : Ignored
+# bRequest      : Out of Range
+# wValue        : Ignored
+# wIndex        : Ignored
+# wLength       : Ignored
+# Data          : Ignored
+#*******************************************************************************
+RESERVED()
+{
+    out.Decoded = 2;
+}
+
+#*******************************************************************************
+# SEND_ENCAPSULATED_COMMAND : 
+#                 This request is used to issue a command in the form of the 
+#                 supported control protocol of the communication class interface
+# bmRequestType : 0x21/0x22
+# bRequest      : 0x00
+# wValue        : 0x0000
+# wIndex        : Interface / Endpoint
+# wLength       : Amount of data in bytes associated with this recipient
+# Data          : Control Protocol-based Command
+#*******************************************************************************
+# start SEND_ENCAPSULATED_COMMAND
+SEND_ENCAPSULATED_COMMAND()
+{
+    PLReservedCheck(16); # wValue reserved to be zero
+    wIndex   = NextDataWord_();
+    if (bmRequestType == 0x21 )
+    {
+        AddPayLoadCell("wIndex", Format("Interface %d", wIndex), "Interface ID");
+    }
+    else if (bmRequestType == 0x22)
+    {
+        AddPayLoadCell("wIndex", Format("Endpoint %d", wIndex), "Endpoint ID");
+    }
+    else
+    {
+        err_tooltip = Format("Unknown bmRequestType (0x%02X)! ", bmRequestType);
+        AddPayLoadCell("wIndex", Format("0x%04X", wIndex), AddErrorTooltip(), _ERROR);        
+    }
+    wLength  = NextDataWord_();
+    if (wLength >= 0)
+    {
+        if(wLength != in.DataLength - 8)
+        {
+            SetCellColor(RED);
+            AddPayLoadCell("wLength", Format("%u", wLength), "!!! WARNING !!!\n\nwLength value mismatched with actual data\nlength in Payload!",_ERROR);
+            AddCell("WARNING","Data Discrepancy",FormatEx("Data Length discrepancy between wLength (%d)\n and actual data in PayLoad (%d)...",wLength,in.DataLength - 8),WarningColor,_ERROR);            
+            RestoreCellColor();
+        }      
+        else
+            AddPayLoadCell("wLength", Format("%d", wLength), "Length of the data");
+        AddSeparator();
+        DecodeNDIS();
+        rmLen=in.DataLength - out.Decoded - 8;
+        if (rmLen > 0) {
+            ShowDataBlockReOrder(rmLen);
+        }
+        out.Decoded = in.DataLength;
+    }
+    else
+    {
+        err_tooltip = "Illegal wLength Value" ;
+        AddPayLoadCell("wLength", Format("%d", wLength), AddErrorTooltip(), _ERROR);             
+        out.Decoded = 8;
+    }
+}
+
+# end SEND_ENCAPSULATED_COMMAND
+
+#*******************************************************************************
+# GET_ENCAPSULATED_RESPONSE : 
+#                 This request is used to request a response in the form of the 
+#                 supported control protocol of the communication class interface
+# bmRequestType : 0xA1/0xA2
+# bRequest      : 0x00
+# wValue        : 0x0000
+# wIndex        : Interface / Endpoint
+# wLength       : Amount of data in bytes associated with this recipient
+# Data          : Protocol Dependent Data
+#*******************************************************************************
+# start GET_ENCAPSULATED_RESPONSE
+GET_ENCAPSULATED_RESPONSE()
+{
+    wValue   = NextDataWord_();
+    if (wValue == 0)
+    {
+        if(SimpleShowItem())
+            AddPayLoadCell("wValue", Format("0x%04X", wValue), "wValue is zero");
+    }
+    else
+    {
+        err_tooltip = "Illegal wValue value, should set to zero!";
+        SetCellColor(WarningColor);
+        AddPayLoadCell("wValue", Format("0x%04X", wValue), AddErrorTooltip(), _ERROR);
+        RestoreCellColor();
+    }
+    
+    wIndex   = NextDataWord_();
+    if (bmRequestType == 0xA1 )
+    {
+        AddPayLoadCell("wIndex", Format("Interface %d", wIndex), "Interface ID");
+    }
+    else if (bmRequestType == 0xA2)
+    {
+        AddPayLoadCell("wIndex", Format("Endpoint %d", wIndex), "Endpoint ID");
+    }
+    else
+    {
+        err_tooltip = Format("Unknown bmRequestType (0x%02X)! ", bmRequestType);
+        SetCellColor(WarningColor);
+        AddPayLoadCell("wIndex", Format("0x%04X", wIndex), AddErrorTooltip(), _ERROR);        
+        RestoreCellColor();
+    }
+    
+    wLength  = NextDataWord_();
+    
+    if (wLength >= 0)
+    {
+    /*  if(wLength != in.DataLength - 8)
+        {
+            SetCellColor(RED);
+            AddPayLoadCell("wLength", Format("%u", wLength), "!!! WARNING !!!\n\nwLength value mismatched with actual data\nlength in Payload!",_ERROR);
+            AddCell("WARNING","Data Discrepancy",FormatEx("Data Length discrepancy between wLength (%d)\n and actual data in PayLoad (%d)...",wLength,in.DataLength - 8),WarningColor,_ERROR);            
+            RestoreCellColor();
+        }
+        else if(SimpleShowItem())
+    */
+            AddPayLoadCell("wLength", Format("%u", wLength), "Maximum Incoming Buffer Size\n Not necessarily the length\n of the data.");
+        AddSeparator();
+        DecodeNDIS();
+        rmLen=in.DataLength - out.Decoded - 8;        
+        if (rmLen > 0) {
+            ShowDataBlockReOrder(rmLen);
+        }
+        
+        out.Decoded = in.DataLength;
+    }
+    else
+    {
+        err_tooltip = "Illegal wLength Value" ;
+        AddPayLoadCell("wLength", Format("%d", wLength), AddErrorTooltip(), _ERROR);             
+        out.Decoded = 8;
+    }
+}
+
+# end GET_ENCAPSULATED_RESPONSE
+
+#*******************************************************************************
+# SET_COMM_FEATURE : This request controls the settings for a particular 
+#                 communication feature of a particular target
+# bmRequestType : 0x21/0x22
+# bRequest      : 0x02
+# wValue        : Feature Selector
+# wIndex        : Interface / Endpoint
+# wLength       : Length of State Data
+# Data          : State
+#*******************************************************************************
+set CommFeatureSelectorTable = 
+[
+    #------------------------------------------------------------------------------------------
+    # type, Feature name,   wLength, Error cell                                               |
+    #------------------------------------------------------------------------------------------
+    [ 0xF,  "UNKNOWN",        0,      _ERROR],
+    [ 0x0,  "Reserved",       0,      null],
+    [ 0x1,  "ABSTRACT_STATE", 2,      null],
+    [ 0x2,  "COUNTRY_SETTING",2,      null]
+];
+
+# start SET_COMM_FEATURE & GET_COMM_FEATURE
+SET_COMM_FEATURE()
+{
+    wValue   = NextDataWord_();
+    _row = Find(CommFeatureSelectorTable, wValue);
+    AddPayLoadCell("wValue", _row[1], Format("wValue = 0x%04X", wValue), _row[3]);
+    wIndex   = NextDataWord_();
+    if (bmRequestType == 0x21 )
+    {
+        AddPayLoadCell("wIndex", Format("Interface %d", wIndex), "Interface ID");
+    }
+    else if (bmRequestType == 0x22)
+    {
+        AddPayLoadCell("wIndex", Format("Endpoint %d", wIndex), "Endpoint ID");
+    }
+    else
+    {
+        err_tooltip = Format("Unknown bmRequestType (0x%02X)! ", bmRequestType);
+        AddPayLoadCell("wIndex", Format("0x%04X", wIndex), AddErrorTooltip(), _ERROR);        
+    }
+    wLength  = NextDataWord_();
+    if (wLength == _row[2])
+    {
+        AddPayLoadCell("wLength", Format("%d", wLength), "Length of the status data");
+        if (wValue == 0x1 ) # ABSTRACT_STATE
+        {
+            PLReservedCheck (15);
+            multiState = NextNBits_(1);
+            if ( multiState)
+                text = "Enabled";
+            else
+                text = "Disabled";
+            AddPayLoadCell("DMS", text, "Data Multiplexed State" + text + Format(" - 0x%X", multiState));
+        }
+        else if (wValue == 0x2)
+        {
+            code = NextDataWord_();
+            AddPayLoadCell("Country Code", Format("0x%04X", code), "Country code specified in ISO 3166");
+        }
+            
+        
+        out.Decoded = 8 + wLength;
+    }
+    else
+    {
+        err_tooltip = Format("Illegal wLength Value! The length for should be %d", _row[2]);
+        AddPayLoadCell("wLength", Format("%d", wLength), AddErrorTooltip(), _ERROR);
+        /*
+        if (wLength > 0)
+        {
+            AddExtraBytesPayloadCell(wLength);
+            out.Decoded = 8 + wLength;
+        }
+        else
+        */
+            out.Decoded = 8;
+    }
+}
+
+GET_COMM_FEATURE()
+{
+    wValue   = NextDataWord_();
+    _row = Find(CommFeatureSelectorTable, wValue);
+    AddPayLoadCell("wValue", _row[1], Format("wValue = 0x%04X", wValue), _row[3]);
+    wIndex   = NextDataWord_();
+    if (bmRequestType == 0xA1 )
+    {
+        AddPayLoadCell("wIndex", Format("Interface %d", wIndex), "Interface ID");
+    }
+    else if (bmRequestType == 0xA2)
+    {
+        AddPayLoadCell("wIndex", Format("Endpoint %d", wIndex), "Endpoint ID");
+    }
+    else
+    {
+        err_tooltip = Format("Unknown bmRequestType (0x%02X)! ", bmRequestType);
+        AddPayLoadCell("wIndex", Format("0x%04X", wIndex), AddErrorTooltip(), _ERROR);        
+    }
+    wLength  = NextDataWord_();
+    if (wLength == _row[2])
+    {
+        AddPayLoadCell("wLength", Format("%d", wLength), "Length of the status data");
+        if (wValue == 0x1 ) # ABSTRACT_STATE
+        {
+            PLReservedCheck (15);
+            multiState = NextNBits_(1);
+            if ( multiState)
+                text = "Enabled";
+            else
+                text = "Disabled";
+            AddPayLoadCell("DMS", text, "Data Multiplexed State" + text + Format(" - 0x%X", multiState));
+        }
+        else if (wValue == 0x2)
+        {
+            code = NextDataWord_();
+            AddPayLoadCell("Country Code", Format("0x%04X", code), "Country code specified in ISO 3166");
+        }
+            
+        
+        out.Decoded = 8 + wLength;
+    }
+    else
+    {
+        err_tooltip = Format("Illegal wLength Value! The length for should be %d", _row[2]);
+        AddPayLoadCell("wLength", Format("%d", wLength), AddErrorTooltip(), _ERROR);
+        /*
+        if (wLength > 0)
+        {
+            AddExtraBytesPayloadCell(wLength);
+            out.Decoded = 8 + wLength;
+        }
+        else
+        */
+            out.Decoded = 8;
+    }
+}
+
+
+# end SET_COMM_FEATURE & GET_COMM_FEATURE
+
+
+#*******************************************************************************
+# CLEAR_COMM_FEATURE : This request controls the settings for a particular 
+#                 communication feature of a particular target, setting the selected
+#                 feature to its default state
+# bmRequestType : 0x21/0x22
+# bRequest      : 0x04
+# wValue        : Feature Selector
+# wIndex        : Interface / Endpoint
+# wLength       : 0x0000
+# Data          : None
+#*******************************************************************************
+# start CLEAR_COMM_FEATURE
+CLEAR_COMM_FEATURE()
+{
+    wValue   = NextDataWord_();
+    _row = Find(CommFeatureSelectorTable, wValue);
+    AddPayLoadCell("wValue", _row[1], Format("wValue = 0x%04X", wValue));
+    wIndex   = NextDataWord_();
+    if (bmRequestType == 0x21 )
+    {
+        AddPayLoadCell("wIndex", Format("Interface %d", wIndex), "Interface ID");
+    }
+    else if (bmRequestType == 0x22)
+    {
+        AddPayLoadCell("wIndex", Format("Endpoint %d", wIndex), "Endpoint ID");
+    }
+    else
+    {
+        err_tooltip = Format("Unknown bmRequestType (0x%02X)! ", bmRequestType);
+        AddPayLoadCell("wIndex", Format("0x%04X", wIndex), AddErrorTooltip(), _ERROR);        
+    }
+    wLength  = NextDataWord_();
+    if (wLength == 0)
+    {
+        isError = null;
+    }
+    else
+    {
+        isError = _ERROR;
+    }
+    AddPayLoadCell("wLength", Format("%d", wLength), "Length of the data", isError);
+    out.Decoded = 8;
+/*
+    if (wLength == 0)
+    {
+        AddPayLoadCell("wLength", Format("%d", wLength), "Length of the data");
+        out.Decoded = 8;
+    }
+    else
+    {
+        err_tooltip = "Illegal wLength Value" ;
+        AddPayLoadCell("wLength", Format("%d", wLength), AddErrorTooltip(), _ERROR);
+
+        if (wLength > 0)
+        {
+            AddExtraBytesPayloadCell(wLength);
+            out.Decoded = 8 + wLength;
+        }
+        else
+
+            out.Decoded = 8;
+    }
+*/
+}
+
+# end CLEAR_COMM_FEATURE
+
+#*******************************************************************************
+# SET_AUX_LINE_STATE : This request is used to connect or disconnect a secondary 
+#                    jack to PORTS circuit or CODEC, depending on hook state
+# bmRequestType : 0x21/0x22
+# bRequest      : 0x10
+# wValue        : Disconnect/Connect
+# wIndex        : Interface / Endpoint
+# wLength       : 0x0000
+# Data          : None
+#*******************************************************************************
+# start SET_AUX_LINE_STATE
+SET_AUX_LINE_STATE()
+{
+    wValue   = NextDataWord_();
+    if (wValue == 0)
+        text = "Disconnect";
+    else if (wValue == 1)
+        text = "Connect";
+    else
+        text = "UNKNOWN";
+    if (wValue == 0 || wValue == 1)
+        AddPayLoadCell("wValue", text, Format("wValue = 0x%04X", wValue));
+    else
+    {
+        err_tooltip = Format("Unknown wValue (0x%04X)! ", wValue);
+        AddPayLoadCell("wIndex", Format("0x%04X", wIndex), AddErrorTooltip(), _ERROR);        
+    }
+    wIndex   = NextDataWord_();
+    if (bmRequestType == 0x21 )
+    {
+        AddPayLoadCell("wIndex", Format("Interface %d", wIndex), "Interface ID");
+    }
+    else if (bmRequestType == 0x22)
+    {
+        AddPayLoadCell("wIndex", Format("Endpoint %d", wIndex), "Endpoint ID");
+    }
+    else
+    {
+        err_tooltip = Format("Unknown bmRequestType (0x%02X)! ", bmRequestType);
+        AddPayLoadCell("wIndex", Format("0x%04X", wIndex), AddErrorTooltip(), _ERROR);        
+    }
+    wLength  = NextDataWord_();
+    if (wLength == 0)
+    {
+        isError = null;
+    }
+    else
+    {
+        isError = _ERROR;
+    }
+    AddPayLoadCell("wLength", Format("%d", wLength), "Length of the data", isError);
+    out.Decoded = 8;
+/*
+    if (wLength == 0)
+    {
+        AddPayLoadCell("wLength", Format("%d", wLength), "Length of the data");
+        out.Decoded = 8;
+    }
+    else
+    {
+        err_tooltip = "Illegal wLength Value" ;
+        AddPayLoadCell("wLength", Format("%d", wLength), AddErrorTooltip(), _ERROR);
+        if (wLength > 0)
+        {
+            AddExtraBytesPayloadCell(wLength);
+            out.Decoded = 8 + wLength;
+        }
+        else
+            out.Decoded = 8;
+    }
+*/
+}
+
+# end SET_AUX_LINE_STATE
+
+#*******************************************************************************
+# SET_HOOK_STATE : This request is used to set the necessary POTS line relay code
+#                  for on-hook, off-hook, and clear ID states
+# bmRequestType : 0x21/0x22
+# bRequest      : 0x11
+# wValue        : Relay Config
+# wIndex        : Interface / Endpoint
+# wLength       : 0x0000
+# Data          : None
+#*******************************************************************************
+# start SET_HOOK_STATE
+set RelayConfigSelectorTable = 
+[
+    #------------------------------------------------------------------------------------------
+    # value, code,      Error Cell                                                            |
+    #------------------------------------------------------------------------------------------
+    [ 0xFF,  "UNKNOWN",   _ERROR    ],
+    [ 0x00,  "ON_HOOK",   null      ],
+    [ 0x1,   "OFF_HOOK",  null      ],
+    [ 0x2,   "SNOOPING",  null      ]
+];
+
+SET_HOOK_STATE()
+{
+    wValue   = NextDataWord_();
+    _row = Find(RelayConfigSelectorTable, wValue);
+    VS = "wValue";
+    AddBlockPLCell("Relay Config", _row[1], Format("wValue = 0x%04X", wValue), _row[2]);
+
+    wIndex   = NextDataWord_();
+    if (bmRequestType == 0x21 )
+    {
+        AddPayLoadCell("wIndex", Format("Interface %d", wIndex), "Interface ID");
+    }
+    else if (bmRequestType == 0x22)
+    {
+        AddPayLoadCell("wIndex", Format("Endpoint %d", wIndex), "Endpoint ID");
+    }
+    else
+    {
+        err_tooltip = Format("Unknown bmRequestType (0x%02X)! ", bmRequestType);
+        AddPayLoadCell("wIndex", Format("0x%04X", wIndex), AddErrorTooltip(), _ERROR);        
+    }
+    wLength  = NextDataWord_();
+    if (wLength == 0)
+    {
+        isError = null;
+    }
+    else
+    {
+        isError = _ERROR;
+    }
+    AddPayLoadCell("wLength", Format("%d", wLength), "Length of the data", isError);
+    out.Decoded = 8;
+/*
+    if (wLength == 0)
+    {
+        AddPayLoadCell("wLength", Format("%d", wLength), "Length of the data");
+        out.Decoded = 8;
+    }
+    else
+    {
+        err_tooltip = "Illegal wLength Value" ;
+        AddPayLoadCell("wLength", Format("%d", wLength), AddErrorTooltip(), _ERROR);
+        if (wLength > 0)
+        {
+            AddExtraBytesPayloadCell(wLength);
+            out.Decoded = 8 + wLength;
+        }
+        else
+            out.Decoded = 8;
+    }
+*/
+}
+# end SET_HOOK_STATE
+
+#*******************************************************************************
+# PULSE_SETUP   : This request is used to prepare for a pulse-dialing
+# bmRequestType : 0x21/0x22
+# bRequest      : 0x12
+# wValue        : Enable/Disable
+# wIndex        : Interface / Endpoint
+# wLength       : 0x0000
+# Data          : None
+#*******************************************************************************
+# start PULSE_SETUP
+set PulseSetupSelectorTable = 
+[
+    #------------------------------------------------------------------------------------------
+    # value, code,                                                                            |
+    #------------------------------------------------------------------------------------------
+    [ 0x00,  "Enable" ],
+    [ 0xFF,  "Disable"]
+];
+PULSE_SETUP()
+{
+    wValue   = NextDataWord_();
+    _row = Find(PulseSetupSelectorTable, wValue);
+    AddPayLoadCell("wValue", _row[1], Format("wValue = 0x%04X", wValue));
+
+    wIndex   = NextDataWord_();
+    if (bmRequestType == 0x21 )
+    {
+        AddPayLoadCell("wIndex", Format("Interface %d", wIndex), "Interface ID");
+    }
+    else if (bmRequestType == 0x22)
+    {
+        AddPayLoadCell("wIndex", Format("Endpoint %d", wIndex), "Endpoint ID");
+    }
+    else
+    {
+        err_tooltip = Format("Unknown bmRequestType (0x%02X)! ", bmRequestType);
+        AddPayLoadCell("wIndex", Format("0x%04X", wIndex), AddErrorTooltip(), _ERROR);        
+    }
+    wLength  = NextDataWord_();
+    if (wLength == 0)
+    {
+        isError = null;
+    }
+    else
+    {
+        isError = _ERROR;
+    }
+    AddPayLoadCell("wLength", Format("%d", wLength), "Length of the data", isError);
+    out.Decoded = 8;
+/*
+    if (wLength == 0)
+    {
+        AddPayLoadCell("wLength", Format("%d", wLength), "Length of the data");
+        out.Decoded = 8;
+    }
+    else
+    {
+        err_tooltip = "Illegal wLength Value" ;
+        AddPayLoadCell("wLength", Format("%d", wLength), AddErrorTooltip(), _ERROR);
+        if (wLength > 0)
+        {
+            AddExtraBytesPayloadCell(wLength);
+            out.Decoded = 8 + wLength;
+        }
+        else
+            out.Decoded = 8;
+    }
+*/
+}
+# end PULSE_SETUP
+
+#*******************************************************************************
+# SEND_PULSE    : This request is used to generate a specified number of make/break 
+#                 pulses
+# bmRequestType : 0x21/0x22
+# bRequest      : 0x13
+# wValue        : Cycles
+# wIndex        : Interface / Endpoint
+# wLength       : 0x0000
+# Data          : None
+#*******************************************************************************
+# start SEND_PULSE
+SEND_PULSE()
+{
+    wValue   = NextDataWord_();
+    VS = "wValue";
+    AddBlockPLCell("Cycles", Format("0x%04X", wValue), Format("%d cycles", wValue));
+
+    wIndex   = NextDataWord_();
+    if (bmRequestType == 0x21 )
+    {
+        AddPayLoadCell("wIndex", Format("Interface %d", wIndex), "Interface ID");
+    }
+    else if (bmRequestType == 0x22)
+    {
+        AddPayLoadCell("wIndex", Format("Endpoint %d", wIndex), "Endpoint ID");
+    }
+    else
+    {
+        err_tooltip = Format("Unknown bmRequestType (0x%02X)! ", bmRequestType);
+        AddPayLoadCell("wIndex", Format("0x%04X", wIndex), AddErrorTooltip(), _ERROR);        
+    }
+    wLength  = NextDataWord_();
+    if (wLength == 0)
+    {
+        isError = null;
+    }
+    else
+    {
+        isError = _ERROR;
+    }
+    AddPayLoadCell("wLength", Format("%d", wLength), "Length of the data", isError);
+    out.Decoded = 8;
+/*
+    if (wLength == 0)
+    {
+        AddPayLoadCell("wLength", Format("%d", wLength), "Length of the data");
+        out.Decoded = 8;
+    }
+    else
+    {
+        err_tooltip = "Illegal wLength Value" ;
+        AddPayLoadCell("wLength", Format("%d", wLength), AddErrorTooltip(), _ERROR);
+        if (wLength > 0)
+        {
+            AddExtraBytesPayloadCell(wLength);
+            out.Decoded = 8 + wLength;
+        }
+        else
+            out.Decoded = 8;
+    }
+*/
+}
+# end SEND_PULSE
+
+#*******************************************************************************
+# SET_PULSE_TIME : This request sets the timing of make/break periods for pulse 
+#                  dialing
+# bmRequestType : 0x21/0x22
+# bRequest      : 0x14
+# wValue        : Timing
+# wIndex        : Interface / Endpoint
+# wLength       : 0x0000
+# Data          : None
+#*******************************************************************************
+# start SET_PULSE_TIME
+SET_PULSE_TIME()
+{
+    breakTime   = NextNBits_(8);
+    VS = "wValue";
+    AddBlockPLCell("Break Time", Format("0x%02X", breakTime), "The high byte of the wValue specifies the break time period");
+    makeTime = NextNBits_(8);
+    VS = "wValue";
+    AddBlockPLCell("Make Time", Format("0x%02X", makeTime), "The low byte of the wValue specifies the make time period");
+
+    wIndex   = NextDataWord_();
+    if (bmRequestType == 0x21 )
+    {
+        AddPayLoadCell("wIndex", Format("Interface %d", wIndex), "Interface ID");
+    }
+    else if (bmRequestType == 0x22)
+    {
+        AddPayLoadCell("wIndex", Format("Endpoint %d", wIndex), "Endpoint ID");
+    }
+    else
+    {
+        err_tooltip = Format("Unknown bmRequestType (0x%02X)! ", bmRequestType);
+        AddPayLoadCell("wIndex", Format("0x%04X", wIndex), AddErrorTooltip(), _ERROR);        
+    }
+    wLength  = NextDataWord_();
+    if (wLength == 0)
+    {
+        isError = null;
+    }
+    else
+    {
+        isError = _ERROR;
+    }
+    AddPayLoadCell("wLength", Format("%d", wLength), "Length of the data", isError);
+    out.Decoded = 8;
+/*
+    if (wLength == 0)
+    {
+        AddPayLoadCell("wLength", Format("%d", wLength), "Length of the data");
+        out.Decoded = 8;
+    }
+    else
+    {
+        err_tooltip = "Illegal wLength Value" ;
+        AddPayLoadCell("wLength", Format("%d", wLength), AddErrorTooltip(), _ERROR);
+        if (wLength > 0)
+        {
+            AddExtraBytesPayloadCell(wLength);
+            out.Decoded = 8 + wLength;
+        }
+        else
+            out.Decoded = 8;
+    }
+*/
+}
+# end SET_PULSE_TIME
+
+#*******************************************************************************
+# RING_AUX_JACK : This request is used to generate a ring signal on a secondary 
+#                 phone jack
+# bmRequestType : 0x21/0x22
+# bRequest      : 0x15
+# wValue        : Number of Rings
+# wIndex        : Interface / Endpoint
+# wLength       : 0x0000
+# Data          : None
+#*******************************************************************************
+# start RING_AUX_JACK
+RING_AUX_JACK()
+{
+    wValue   = NextDataWord_();
+    VS = "wValue";
+    AddBlockPLCell("# of Rings", Format("0x%04X", wValue), Format("%d Rings", wValue));
+
+    wIndex   = NextDataWord_();
+    if (bmRequestType == 0x21 )
+    {
+        AddPayLoadCell("wIndex", Format("Interface %d", wIndex), "Interface ID");
+    }
+    else if (bmRequestType == 0x22)
+    {
+        AddPayLoadCell("wIndex", Format("Endpoint %d", wIndex), "Endpoint ID");
+    }
+    else
+    {
+        err_tooltip = Format("Unknown bmRequestType (0x%02X)! ", bmRequestType);
+        AddPayLoadCell("wIndex", Format("0x%04X", wIndex), AddErrorTooltip(), _ERROR);        
+    }
+    wLength  = NextDataWord_();
+    if (wLength == 0)
+    {
+        isError = null;
+    }
+    else
+    {
+        isError = _ERROR;
+    }
+    AddPayLoadCell("wLength", Format("%d", wLength), "Length of the data", isError);
+    out.Decoded = 8;
+/*
+    if (wLength == 0)
+    {
+        AddPayLoadCell("wLength", Format("%d", wLength), "Length of the data");
+        out.Decoded = 8;
+    }
+    else
+    {
+        err_tooltip = "Illegal wLength Value" ;
+        AddPayLoadCell("wLength", Format("%d", wLength), AddErrorTooltip(), _ERROR);
+        if (wLength > 0)
+        {
+            AddExtraBytesPayloadCell(wLength);
+            out.Decoded = 8 + wLength;
+        }
+        else
+            out.Decoded = 8;
+    }
+*/
+}
+# end RING_AUX_JACK
+
+#*******************************************************************************
+# SET_LINE_CODING : This request allows the host to specify typical asynchronous
+#                   line-character formatting properties
+# bmRequestType : 0x21/0x22
+# bRequest      : 0x20
+# wValue        : 0x0000
+# wIndex        : Interface / Endpoint
+# wLength       : Size of Structure
+# Data          : Line Coding Structure
+#*******************************************************************************
+set LineCodingStopBitsTable = 
+[
+    [0xFF, "Unknown",      _ERROR],
+    [0x00, "1 Stop bit",    null],
+    [0x01, "1.5 Stop bits", null],
+    [0x02, "2 Stop bits",   null]
+];
+
+set LineCodingParityTable = 
+[
+    [0xFF, "Unknown", _ERROR],
+    [0x00, "No Parity"   , null  ],
+    [0x00, "Odd Parity"   , null  ],
+    [0x00, "Even Parity"   , null  ],
+    [0x00, "Mark Parity"   , null  ],
+    [0x00, "Space Parity"   , null  ]
+];    
+
+# start SET_LINE_CODING & GET_LINE_CODING
+SET_LINE_CODING()
+{
+    PLReservedCheck(16); # wValue reserved to be zero
+    wIndex   = NextDataWord_();
+    if (bmRequestType == 0x21 )
+    {
+        AddPayLoadCell("wIndex", Format("Interface %d", wIndex), "Interface ID");
+    }
+    else if (bmRequestType == 0x22)
+    {
+        AddPayLoadCell("wIndex", Format("Endpoint %d", wIndex), "Endpoint ID");
+    }
+    else
+    {
+        err_tooltip = Format("Unknown bmRequestType (0x%02X)! ", bmRequestType);
+        AddPayLoadCell("wIndex", Format("0x%04X", wIndex), AddErrorTooltip(), _ERROR);        
+    }
+    wLength  = NextDataWord_();
+    if (wLength == 7)
+    {
+        AddPayLoadCell("wLength", Format("%d", wLength), "Size of line coding structure");
+        dwDTERate = NextDataDWord_();
+        AddPayLoadCell("dwDTERate", Format("0x%08X", dwDTERate), "Data terminal rate, in bits per second");
+        
+        bCharFormat = NextNBits_(8);
+        _row = Find(LineCodingStopBitsTable, bCharFormat);
+        AddPayLoadCell("Stop Bits", _row[1],Format("Stop Bits = %d", bCharFormat), _row[2]);
+        
+        bParityType = NextNBits_(8);
+        _row = Find(LineCodingParityTable, bParityType);
+        AddPayLoadCell("Parity", _row[1], Format("Parity = %d", bParityType), _row[2]);
+        
+        bDataBits = NextNBits_(8);
+        if (bDataBits == 5 ||bDataBits == 6 ||bDataBits == 7 ||bDataBits == 8 ||bDataBits == 16)
+            isError = null;
+        else
+            isError = _ERROR;
+        AddPayLoadCell("Data Bits", Format("%d", bDataBits), "Data bits (5, 6, 7, 8, or 16)", isError);
+        
+        out.Decoded = 8 + wLength;
+    }
+    else
+    {
+        err_tooltip = "Illegal wLength Value! The length for should be 7";
+        AddPayLoadCell("wLength", Format("%d", wLength), AddErrorTooltip(), _ERROR);
+        /*
+        if (wLength > 0)
+        {
+            AddExtraBytesPayloadCell(wLength);
+            out.Decoded = 8 + wLength;
+        }
+        else
+        */
+            out.Decoded = 8;
+    }
+}
+
+GET_LINE_CODING()
+{
+    PLReservedCheck(16); # wValue reserved to be zero
+    wIndex   = NextDataWord_();
+    if (bmRequestType == 0xA1 )
+    {
+        AddPayLoadCell("wIndex", Format("Interface %d", wIndex), "Interface ID");
+    }
+    else if (bmRequestType == 0xA2)
+    {
+        AddPayLoadCell("wIndex", Format("Endpoint %d", wIndex), "Endpoint ID");
+    }
+    else
+    {
+        err_tooltip = Format("Unknown bmRequestType (0x%02X)! ", bmRequestType);
+        AddPayLoadCell("wIndex", Format("0x%04X", wIndex), AddErrorTooltip(), _ERROR);        
+    }
+    wLength  = NextDataWord_();
+    if (wLength == 7)
+    {
+        AddPayLoadCell("wLength", Format("%d", wLength), "Size of line coding structure");
+        dwDTERate = NextDataDWord_();
+        AddPayLoadCell("dwDTERate", Format("0x%08X", dwDTERate), "Data terminal rate, in bits per second");
+        
+        bCharFormat = NextNBits_(8);
+        _row = Find(LineCodingStopBitsTable, bCharFormat);
+        AddPayLoadCell("Stop Bits", _row[1],Format("Stop Bits = %d", bCharFormat), _row[2]);
+        
+        bParityType = NextNBits_(8);
+        _row = Find(LineCodingParityTable, bParityType);
+        AddPayLoadCell("Parity", _row[1], Format("Parity = %d", bParityType), _row[2]);
+        
+        bDataBits = NextNBits_(8);
+        if (bDataBits == 5 ||bDataBits == 6 ||bDataBits == 7 ||bDataBits == 8 ||bDataBits == 16)
+            isError = null;
+        else
+            isError = _ERROR;
+        AddPayLoadCell("Data Bits", Format("%d", bDataBits), "Data bits (5, 6, 7, 8, or 16)", isError);
+        
+        out.Decoded = 8 + wLength;
+    }
+    else
+    {
+        err_tooltip = "Illegal wLength Value! The length for should be 7";
+        AddPayLoadCell("wLength", Format("%d", wLength), AddErrorTooltip(), _ERROR);
+        /*
+        if (wLength > 0)
+        {
+            AddExtraBytesPayloadCell(wLength);
+            out.Decoded = 8 + wLength;
+        }
+        else
+        */
+            out.Decoded = 8;
+    }
+}
+# end SET_LINE_CODING & GET_LINE_CODING
+
+
+#*******************************************************************************
+# SET_CONTROL_LINE_STATE : 
+#                 This request generates RS-232/V.24 style control signals
+# bmRequestType : 0x21/0x22
+# bRequest      : 0x22
+# wValue        : Control Signal Bitmap
+# wIndex        : Interface / Endpoint
+# wLength       : 0x0000
+# Data          : None
+#*******************************************************************************
+# start SET_CONTROL_LINE_STATE
+SET_CONTROL_LINE_STATE()
+{
+    PLReservedCheck(14);
+    CarrierControl = NextNBits_(1);
+    if (CarrierControl == 1)
+        text = "Activate";
+    else
+        text = "Deactivate";
+    VS = "wValue";
+    AddBlockPLCell("Carrier Ctrl", text, "Carrier Control for half duplex modems.\nThis value should ignored when operating in full duplex mode.");
+    DTEPresent = NextNBits_(1);
+    if (DTEPresent == 1)
+        text = "Not Present";
+    else
+        text = "Present";
+    VS = "wValue";
+    AddBlockPLCell("DTE", text, "This signal corresponds to V.24 signal 108/2 and RS-232 signal DTR");
+    wIndex   = NextDataWord_();
+    if (bmRequestType == 0x21 )
+    {
+        AddPayLoadCell("wIndex", Format("Interface %d", wIndex), "Interface ID");
+    }
+    else if (bmRequestType == 0x22)
+    {
+        AddPayLoadCell("wIndex", Format("Endpoint %d", wIndex), "Endpoint ID");
+    }
+    else
+    {
+        err_tooltip = Format("Unknown bmRequestType (0x%02X)! ", bmRequestType);
+        AddPayLoadCell("wIndex", Format("0x%04X", wIndex), AddErrorTooltip(), _ERROR);        
+    }
+    wLength  = NextDataWord_();
+    if (wLength == 0)
+    {
+        isError = null;
+    }
+    else
+    {
+        isError = _ERROR;
+    }
+    AddPayLoadCell("wLength", Format("%d", wLength), "Length of the data", isError);
+    out.Decoded = 8;
+/*
+    if (wLength == 0)
+    {
+        AddPayLoadCell("wLength", Format("%d", wLength), "Length of the data");
+        out.Decoded = 8;
+    }
+    else
+    {
+        err_tooltip = "Illegal wLength Value" ;
+        AddPayLoadCell("wLength", Format("%d", wLength), AddErrorTooltip(), _ERROR);
+        if (wLength > 0)
+        {
+            AddExtraBytesPayloadCell(wLength);
+            out.Decoded = 8 + wLength;
+        }
+        else
+            out.Decoded = 8;
+    }
+    */
+}
+# end SET_CONTROL_LINE_STATE
+
+#*******************************************************************************
+# SEND_BREAK    : This request sends special carrier modulation that generates 
+#                 RS-232/V.24 style break
+# bmRequestType : 0x21/0x22
+# bRequest      : 0x23
+# wValue        : Duration of break
+# wIndex        : Interface / Endpoint
+# wLength       : 0x0000
+# Data          : None
+#*******************************************************************************
+# start SEND_BREAK
+SEND_BREAK()
+{
+    wValue = NextDataWord_();
+    if (wValue == 0x0000)
+        text = "Stop";
+    else if (wValue == 0xFFFF)
+        text = "Unlimited";
+    else
+        text = Format("0x%04X ms", wValue);
+    VS = "wValue";
+    AddBlockPLCell("Break Duration", text, "The length of the time, in milliseconds, of the break signal");
+    wIndex   = NextDataWord_();
+    if (bmRequestType == 0x21 )
+    {
+        AddPayLoadCell("wIndex", Format("Interface %d", wIndex), "Interface ID");
+    }
+    else if (bmRequestType == 0x22)
+    {
+        AddPayLoadCell("wIndex", Format("Endpoint %d", wIndex), "Endpoint ID");
+    }
+    else
+    {
+        err_tooltip = Format("Unknown bmRequestType (0x%02X)! ", bmRequestType);
+        AddPayLoadCell("wIndex", Format("0x%04X", wIndex), AddErrorTooltip(), _ERROR);        
+    }
+    wLength  = NextDataWord_();
+    if (wLength == 0)
+    {
+        isError = null;
+    }
+    else
+    {
+        isError = _ERROR;
+    }
+    AddPayLoadCell("wLength", Format("%d", wLength), "Length of the data", isError);
+    out.Decoded = 8;
+/*
+    if (wLength == 0)
+    {
+        AddPayLoadCell("wLength", Format("%d", wLength), "Length of the data");
+        out.Decoded = 8;
+    }
+    else
+    {
+        err_tooltip = "Illegal wLength Value" ;
+        AddPayLoadCell("wLength", Format("%d", wLength), AddErrorTooltip(), _ERROR);
+        if (wLength > 0)
+        {
+            AddExtraBytesPayloadCell(wLength);
+            out.Decoded = 8 + wLength;
+        }
+        else
+            out.Decoded = 8;
+    }
+    */
+}
+# end SEND_BREAK
+
+#*******************************************************************************
+# SET_RINGER_PARMS : This request configures the ringer for the communication 
+#                    device, either on a global basis or on a per-line basis 
+#                    for multiple line devices
+# bmRequestType : 0x21/0x22
+# bRequest      : 0x30
+# wValue        : 0x0000
+# wIndex        : Interface / Endpoint
+# wLength       : 0x04
+# Data          : Ringer configuration bitmap
+#*******************************************************************************
+# start SET_RINGER_PARMS & GET_RINGER_PARMS
+SET_RINGER_PARMS()
+{
+    PLReservedCheck(16); # wValue reserved to be zero
+    wIndex   = NextDataWord_();
+    if (bmRequestType == 0x21 )
+    {
+        AddPayLoadCell("wIndex", Format("Interface %d", wIndex), "Interface ID");
+    }
+    else if (bmRequestType == 0x22)
+    {
+        AddPayLoadCell("wIndex", Format("Endpoint %d", wIndex), "Endpoint ID");
+    }
+    else
+    {
+        err_tooltip = Format("Unknown bmRequestType (0x%02X)! ", bmRequestType);
+        AddPayLoadCell("wIndex", Format("0x%04X", wIndex), AddErrorTooltip(), _ERROR);        
+    }
+    wLength  = NextDataWord_();
+    if (wLength == 4)
+    {
+        AddPayLoadCell("wLength", Format("%d", wLength), "Size of line coding structure");
+        ringer = NextNBits_(1);
+        if (ringer == 1)
+            text = "Exist";
+        else
+            text = "Not exist";
+        AddPayLoadCell("Ringer", text, Format("Ringer = %d", ringer));
+        
+        PLReservedCheck(15);
+        ringerVolume = NextNBits_(8);
+        if (ringerVolume == 0)
+            text = "Off";
+        else if (ringerVolume == 255)
+            text = "Maximum";
+        else
+            text = Format("%d", ringerVolume);
+        AddPayLoadCell("Ringer Volume", text, "Ringer Volume Setting");
+        ringerPattern = NextNBits_(8);
+        AddPayLoadCell("Ringer Pattern", Format("%d", ringerPattern), "Ringer pattern Type Selection");
+
+        
+        out.Decoded = 8 + wLength;
+    }
+    else
+    {
+        err_tooltip = "Illegal wLength Value! The length for should be 4";
+        AddPayLoadCell("wLength", Format("%d", wLength), AddErrorTooltip(), _ERROR);
+        /*
+        if (wLength > 0)
+        {
+            AddExtraBytesPayloadCell(wLength);
+            out.Decoded = 8 + wLength;
+        }
+        else
+        */
+            out.Decoded = 8;
+    }
+}
+
+GET_RINGER_PARMS()
+{
+    Call("SET_RINGER_PARMS");
+}
+# end SET_RINGER_PARMS & GET_RINGER_PARMS
+
+
+#*******************************************************************************
+# SET_OPERATION_PARMS : 
+#                  This request sets the operational mode for the device, 
+#                  between a simple mode, standalone mode and a host centric mode.
+#                  Standalone mode means no controls from host, host centric mode 
+#                  means all controls from host
+# bmRequestType : 0x21/0x22
+# bRequest      : 0x32
+# wValue        : Operation Mode
+# wIndex        : Interface / Endpoint
+# wLength       : 0x0000
+# Data          : None
+#*******************************************************************************
+# start SET_OPERATION_PARMS
+set OperationModeSelectorTable = 
+[
+    #------------------------------------------------------------------------------------------
+    # value, text,          error                                                             |
+    #------------------------------------------------------------------------------------------
+    [ 0xFFFF,  "Unknown Mode", _ERROR   ],
+    [ 0x0000,  "Simple Mode", null      ],
+    [ 0x0001,  "Standalone Mode", null  ],
+    [ 0x0002,  "Host Centric Mode", null]
+];
+SET_OPERATION_PARMS()
+{
+    wValue   = NextDataWord_();
+    _row = Find(OperationModeSelectorTable, wValue);
+    VS = "wValue";
+    AddBlockPLCell("Operation Mode", _row[1], Format("wValue = 0x%04X", wValue), row[2]);
+
+    wIndex   = NextDataWord_();
+    if (bmRequestType == 0x21 )
+    {
+        AddPayLoadCell("wIndex", Format("Interface %d", wIndex), "Interface ID");
+    }
+    else if (bmRequestType == 0x22)
+    {
+        AddPayLoadCell("wIndex", Format("Endpoint %d", wIndex), "Endpoint ID");
+    }
+    else
+    {
+        err_tooltip = Format("Unknown bmRequestType (0x%02X)! ", bmRequestType);
+        AddPayLoadCell("wIndex", Format("0x%04X", wIndex), AddErrorTooltip(), _ERROR);        
+    }
+    wLength  = NextDataWord_();
+    if (wLength == 0)
+    {
+        isError = null;
+    }
+    else
+    {
+        isError = _ERROR;
+    }
+    AddPayLoadCell("wLength", Format("%d", wLength), "Length of the data", isError);
+    out.Decoded = 8;
+/*
+    if (wLength == 0)
+    {
+        AddPayLoadCell("wLength", Format("%d", wLength), "Length of the data");
+        out.Decoded = 8;
+    }
+    else
+    {
+        err_tooltip = "Illegal wLength Value" ;
+        AddPayLoadCell("wLength", Format("%d", wLength), AddErrorTooltip(), _ERROR);
+        if (wLength > 0)
+        {
+            AddExtraBytesPayloadCell(wLength);
+            out.Decoded = 8 + wLength;
+        }
+        else
+            out.Decoded = 8;
+    }
+    */
+}
+# end SET_OPERATION_PARMS
+
+#*******************************************************************************
+# GET_OPERATION_PARMS : 
+#                  This request gets the operational mode from the device.
+# bmRequestType : 0xA1/0xA2
+# bRequest      : 0x33
+# wValue        : Operation Mode
+# wIndex        : Interface / Endpoint
+# wLength       : 0x0000
+# Data          : Operation Mode
+#*******************************************************************************
+# start GET_OPERATION_PARMS
+GET_OPERATION_PARMS()
+{
+    PLReservedCheck(16); # wValue reserved to be zero
+    wIndex   = NextDataWord_();
+    if (bmRequestType == 0xA1 )
+    {
+        AddPayLoadCell("wIndex", Format("Interface %d", wIndex), "Interface ID");
+    }
+    else if (bmRequestType == 0xA2)
+    {
+        AddPayLoadCell("wIndex", Format("Endpoint %d", wIndex), "Endpoint ID");
+    }
+    else
+    {
+        err_tooltip = Format("Unknown bmRequestType (0x%02X)! ", bmRequestType);
+        AddPayLoadCell("wIndex", Format("0x%04X", wIndex), AddErrorTooltip(), _ERROR);        
+    }
+    wLength  = NextDataWord_();
+    if (wLength == 2)
+    {
+        AddPayLoadCell("wLength", Format("%d", wLength), "Size of line coding structure");
+        opertaionMode = NextDataWord_();
+        _row = Find(OperationModeSelectorTable, operationMode);
+        AddPayLoadCell("Operation Mode", _row[1], Format("Operation Mode = 0x%04X", wValue), row[2]);
+        
+        out.Decoded = 8 + wLength;
+    }
+    else
+    {
+        err_tooltip = "Illegal wLength Value! The length for should be 2";
+        AddPayLoadCell("wLength", Format("%d", wLength), AddErrorTooltip(), _ERROR);
+        /*
+        if (wLength > 0)
+        {
+            AddExtraBytesPayloadCell(wLength);
+            out.Decoded = 8 + wLength;
+        }
+        else
+        */
+            out.Decoded = 8;
+    }
+}
+# end GET_OPERATION_PARMS
+
+
+#*******************************************************************************
+# SET_LINE_PARMS : This request is used to change the state of the line, 
+#                  corresponding to the interface or master interface of a union 
+#                  to which the command was sent
+# bmRequestType : 0x21/0x22
+# bRequest      : 0x34
+# wValue        : Line State Change
+# wIndex        : Interface / Endpoint
+# wLength       : Length of Data
+# Data          : Data
+#*******************************************************************************
+# start SET_LINE_PARMS
+set LineStateSelectorTable = 
+[
+    #------------------------------------------------------------------------------------------
+    # value, text,          error                                                             |
+    #------------------------------------------------------------------------------------------
+    [ 0xFFFF,  "Unknown Line State value", _ERROR   ],
+    [ 0x0000,  "Drop the active call on the line", null      ],
+    [ 0x0001,  "Start a new call on the line", null  ],
+    [ 0x0002,  "Apply ringng to the line", null],
+    [ 0x0003,  "Remove ringing from the line", null],
+    [ 0x0004,  "Switch to a specific call on the line", null]
+];
+SET_LINE_PARMS()
+{
+    wValue   = NextDataWord_();
+    _row = Find(LineStateSelectorTable, wValue);
+    VS = "wValue";
+    AddBlockPLCell("Line State", Format("wValue = 0x%04X", wValue), _row[1], row[2]);
+
+    wIndex   = NextDataWord_();
+    if (bmRequestType == 0x21 )
+    {
+        AddPayLoadCell("wIndex", Format("Interface %d", wIndex), "Interface ID");
+    }
+    else if (bmRequestType == 0x22)
+    {
+        AddPayLoadCell("wIndex", Format("Endpoint %d", wIndex), "Endpoint ID");
+    }
+    else
+    {
+        err_tooltip = Format("Unknown bmRequestType (0x%02X)! ", bmRequestType);
+        AddPayLoadCell("wIndex", Format("0x%04X", wIndex), AddErrorTooltip(), _ERROR);        
+    }
+    wLength  = NextDataWord_();
+    if (wLength >= 0)
+    {
+        AddPayLoadCell("wLength", Format("%d", wLength), "Length of the data");
+        if (wLength > 0)
+          ShowDataBlock(wLength);
+        out.Decoded = 8 + wLength;
+    }
+    else
+    {
+        err_tooltip = "Illegal wLength Value" ;
+        AddPayLoadCell("wLength", Format("%d", wLength), AddErrorTooltip(), _ERROR);
+        out.Decoded = 8;
+    }
+}
+# end SET_LINE_PARMS
+
+#*******************************************************************************
+# GET_LINE_PARMS : This request is used to report the state of the line, that
+#                  corresponds to the interface or master interface of a union 
+#                  to which the command was sent
+# bmRequestType : 0xA1/0xA2
+# bRequest      : 0x35
+# wValue        : 0x0000
+# wIndex        : Interface / Endpoint
+# wLength       : Size of Structure
+# Data          : Line Status Information Structure
+#*******************************************************************************
+# start GET_LINE_PARMS
+set CallStateChangeValueSelectorTable = 
+[
+    [0xFF, "Unknown",       _ERROR  ],
+    [0x00, "Reserved",      null    ],
+    [0x01, "Idle",          null    ],
+    [0x02, "Dialing",       null    ],
+    [0x03, "Ringback",      null    ],
+    [0x04, "Connected",     null    ],
+    [0x05, "Incoming Call", null    ]
+];
+
+set CallStateValueSelectorTable = 
+[
+    [0xFF, "Unknown",       _ERROR  ],
+    [0x00, "Call is idle",  null    ],
+    [0x01, "Typical dial tone", null    ],
+    [0x02, "Interrupted dial tone", null    ],
+    [0x03, "Dialing is in progress", null   ],
+    [0x04, "Ringback",               null   ],
+    [0x05, "Connected",              null   ],
+    [0x06, "Incoming call",          null   ]
+];
+
+set CallStateRingbackSelectorTable =
+[
+    [3, "Reserved"],
+    [0, "normal"],
+    [1, "busy"  ],
+    [2, "fast busy"],
+    [255, "Unknown type"]
+];
+
+set CallStateConnectedSelectorTable = 
+[
+    [4, "Reserved"],
+    [0, "voice connection"],
+    [1, "answering machine connection"],
+    [2, "fax machine connection"],
+    [3, "data modem connection"],
+    [255, "unknown connection type"]
+];
+
+set CallStateImcomingSelectorTable = 
+[
+    [4, "Reserved for future use"],
+    [0, "Ringing pattern 1 (default or normal pattern)"],
+    [1, "Ringing pattern 2"],
+    [2, "Ringing pattern 3"],
+    [3, "Ringing pattern 4"]
+];
+
+GET_LINE_PARMS()
+{
+    PLReservedCheck(16); # wValue reserved to be zero
+    wIndex   = NextDataWord_();
+    if (bmRequestType == 0xA1 )
+    {
+        AddPayLoadCell("wIndex", Format("Interface %d", wIndex), "Interface ID");
+    }
+    else if (bmRequestType == 0xA2)
+    {
+        AddPayLoadCell("wIndex", Format("Endpoint %d", wIndex), "Endpoint ID");
+    }
+    else
+    {
+        err_tooltip = Format("Unknown bmRequestType (0x%02X)! ", bmRequestType);
+        AddPayLoadCell("wIndex", Format("0x%04X", wIndex), AddErrorTooltip(), _ERROR);        
+    }
+    wLength  = NextDataWord_();
+    if (wLength >=  10)
+    {
+        AddPayLoadCell("wLength", Format("%d", wLength), "Size of line Status Information structure");
+        length = NextDataWord_();
+        if (wLength == length)
+            isError = null;
+        else
+            isError = _ERROR;
+        AddPayLoadCell("Length", Format("%d", wLength), "Should match the Previous wLength value", isError);
+        
+        #Ringer Bitmap
+        ringer = NextNBits_(1);
+        if (ringer == 1)
+            text = "Exist";
+        else
+            text = "Not exist";
+        AddPayLoadCell("Ringer", text, Format("Ringer = %d", ringer));
+        
+        PLReservedCheck(15);
+        ringerVolume = NextNBits_(8);
+        if (ringerVolume == 0)
+            text = "Off";
+        else if (ringerVolume == 255)
+            text = "Maximum";
+        else
+            text = Format("%d", ringerVolume);
+        AddPayLoadCell("Ringer Volume", text, "Ringer Volume Setting");
+        ringerPattern = NextNBits_(8);
+        AddPayLoadCell("Ringer Pattern", Format("%d", ringerPattern), "Ringer pattern Type Selection");
+
+        
+        #Line State
+        activeFlag = NextNBits_(1);
+        if (activeFlag == 1)
+            text = "Active";
+        else
+            text = "Inactive";
+        AddPayLoadCell("Active Flag", text, "Line active flag");
+        PLReservedCheck(23);
+        indexActive = NextNBits_(8);
+        if (indexActive == 255)
+            text = "N/A";
+        else
+            text = Format("%d", indexActive);
+        AddPayLoadCell("Index", text, "Index of active call on this line");
+        bytesLeft = wLength - 10;
+        stateID = 0;
+        hasError = 0;
+        while (bytesLeft >= 4 && hasError == 0)
+        {
+            ActiveFlag = NextNBits_(1);
+            if (ActiveFlag == 1)
+                text = "Active";
+            else
+                text = "Inactive";
+            VS = "Active Flag";
+            AddBlockPLCell(Format("Active Flag %d", stateID), text, Format("Active flag for call state %d", stateID));
+            PLReservedCheck(15);
+            changeValue = NextNBits_(8);
+            _row = Find(CallStateChangeValueSelectorTable, changeValue);
+            VS = "Change Value";
+            AddBlockPLCell(Format("Change Value %d", stateID), _row[1], Format("Call State Change Value = %d", changeValue), _row[2]);
+            if (changeValue == 3)
+            {
+                stateValue = NextNBits_(8);
+                _row = Find(CallStateRingbackSelectorTable, stateValue);
+                AddPayLoadCell("Ringback Type", Format("%d", stateValue), _row[1]);
+                bytesLeft -= 4;
+            }
+            else if (changeValue == 4)
+            {
+                stateValue = NextNBits_(8);
+                _row = Find(CallStateConnectedSelectorTable, stateValue);
+                AddPayLoadCell("Connection Type", Format("%d", stateValue), _row[1]);
+                bytesLeft -= 4;
+            }
+            else if (changeValue == 5) 
+            {
+                stateValue = NextNBits_(8);
+                _row = Find(CallStateImcomingSelectorTable, stateValue);
+                AddPayLoadCell("Ringing Type", Format("%d", stateValue), _row[1]);
+                bytesLeft -= 4;
+                if (bytesLeft <= 0)
+                    hasError = 1;
+                else
+                {
+                    size = NextNBits_(8);
+                    bytesLeft --;
+                    AddPayLoadCell("Time Str size", Format("%d", size), "Size of the string following");
+                }
+                if (bytesLeft < size || hasError == 1)
+                    hasError = 1;
+                else
+                {
+                    text = GetStrFld(size);
+                    bytesLeft -= size;
+                    AddPayLoadCell("Time Str", text, "The time of the incoming call as delivered via caller ID");
+                }
+                if (bytesLeft <= 0 || hasError == 1)
+                    hasError = 1;
+                else
+                {
+                    size = NextNBits_(8);
+                    bytesLeft --;
+                    AddPayLoadCell("PN Str size", Format("%d", size), "Size of the Phone number string following");
+                }
+                if (bytesLeft < size || hasError == 1)
+                    hasError = 1;
+                else
+                {
+                    text = GetStrFld(size);
+                    bytesLeft -= size;
+                    AddPayLoadCell("PN Str", text, "The phone number of the incoming call as delivered via caller ID");
+                }
+                if (bytesLeft <= 0 || hasError == 1)
+                    hasError = 1;
+                else
+                {
+                    size = NextNBits_(8);
+                    bytesLeft --;
+                    AddPayLoadCell("Name Str size", Format("%d", size), "Size of the string following");
+                }
+                if (bytesLeft < size || hasError == 1)
+                    hasError = 1;
+                else
+                {
+                    text = GetStrFld(size);
+                    bytesLeft -= size;
+                    AddPayLoadCell("Name Str", text, "The name of the calling patry as delivered via caller ID");
+                }
+            }
+            else
+            {
+                stateValue = NextNBits_(8);
+                _row = Find(CallStateChangeValueSelectorTable, changeValue);
+                VS = "Change Value";
+                AddBlockPLCell(Format("Change Value %d", stateID), _row[1], Format("Call State Change Value = %d", changeValue), _row[2]);
+                bytesLeft -= 4;
+            }
+        }
+        if (bytesLeft >0)
+            AddExtraBytesPayloadCell(bytesLeft);
+        
+        
+        out.Decoded = 8 + wLength;
+    }
+    else
+    {
+        err_tooltip = "Illegal wLength Value!The lengh of the the payload has to be at least 10 bytes";
+        AddPayLoadCell("wLength", Format("%d", wLength), AddErrorTooltip(), _ERROR);
+        /*
+        if (wLength > 0)
+        {
+            AddExtraBytesPayloadCell(wLength);
+            out.Decoded = 8 + wLength;
+        }
+        else
+        */
+            out.Decoded = 8;
+    }
+}
+
+# end GET_LINE_PARMS
+
+#*******************************************************************************
+# DIAL_DIGITS   : This request dials the DTMF digits over the specified line
+# bmRequestType : 0x21/0x22
+# bRequest      : 0x36
+# wValue        : Line State Change
+# wIndex        : Interface / Endpoint
+# wLength       : Length of Dialing String
+# Data          : Dialing String
+#*******************************************************************************
+# start DIAL_DIGITS
+DIAL_DIGITS()
+{
+    PLReservedCheck(16); # wValue reserved to be zero
+    wIndex   = NextDataWord_();
+    if (bmRequestType == 0x21 )
+    {
+        AddPayLoadCell("wIndex", Format("Interface %d", wIndex), "Interface ID");
+    }
+    else if (bmRequestType == 0x22)
+    {
+        AddPayLoadCell("wIndex", Format("Endpoint %d", wIndex), "Endpoint ID");
+    }
+    else
+    {
+        err_tooltip = Format("Unknown bmRequestType (0x%02X)! ", bmRequestType);
+        AddPayLoadCell("wIndex", Format("0x%04X", wIndex), AddErrorTooltip(), _ERROR);        
+    }
+    wLength  = NextDataWord_();
+    if (wLength >= 0)
+    {
+        AddPayLoadCell("wLength", Format("%d", wLength), "Length of Dialing String");
+        text = GetStrFld(wLength);
+        AddPayLoadCell("Dialing str", text, "String of dialing commands");
+        out.Decoded = 8 + wLength;
+    }
+    else
+    {
+        err_tooltip = "Illegal wLength Value!";
+        AddPayLoadCell("wLength", Format("%d", wLength), AddErrorTooltip(), _ERROR);
+        out.Decoded = 8;
+    }
+}
+# end DIAL_DIGITS
+
+#*******************************************************************************
+# SET_UNIT_PARAMETER : This request sets the value of a parameter belonging to a 
+#                 Unit identified by Unit Parameter Structure.
+# GET_UNIT_PARAMETER : This request returns the current value of a parameter 
+#                 belonging to a Unit pointed out by a Unit Parameter Structure.
+# bmRequestType : 0x21/0xA1
+# bRequest      : 0x37/0x38
+# wValue        : Unit Parameter Structure
+# wIndex        : Interface
+# wLength       : Length of Unit Parameter
+# Data          : Unit Parameter
+#
+#*******************************************************************************
+# start SET_UNIT_PARAMETER/GET_UNIT_PARAMETER
+SET_UNIT_PARAMETER()
+{
+    bEntityId = NextNBits_(8);
+    VS = "wValue";
+    AddBlockPLCell("Unit Id", Format("%d", bEntityId), Format("Unit Id %d", bEntityId));
+    bParamenterIndex = NextNBits_(8);
+    VS = "wValue";
+    AddBlockPLCell("Param Id", Format("%d", bParamenterIndex), "A zero based value indecating Unit parameter index");
+    wIndex   = NextDataWord_();
+    if (bmRequestType == 0x21 || bmRequestType == 0xA1)
+    {
+        AddPayLoadCell("wIndex", Format("Interface %d", wIndex), "Interface ID");
+    }
+    else
+    {
+        err_tooltip = Format("Unknown bmRequestType (0x%02X)! ", bmRequestType);
+        AddPayLoadCell("wIndex", Format("0x%04X", wIndex), AddErrorTooltip(), _ERROR);        
+    }
+    wLength  = NextDataWord_();
+    if (wLength >= 0)
+    {
+        AddPayLoadCell("wLength", Format("%d", wLength), "Length of Dialing String");
+        text = GetStrFld(wLength);
+        AddExtraBytesPayloadCell(wLength);
+        out.Decoded = 8 + wLength;
+    }
+    else
+    {
+        err_tooltip = "Illegal wLength Value!";
+        AddPayLoadCell("wLength", Format("%d", wLength), AddErrorTooltip(), _ERROR);
+        out.Decoded = 8;
+    }
+}
+
+GET_UNIT_PARAMETER()
+{
+    Call("SET_UNIT_PARAMETER");
+}
+# end SET_UNIT_PARAMETER/GET_UNIT_PARAMETER
+
+#*******************************************************************************
+# CLEAR_UNIT_PARAMETER : This request restores the default value of a parameter 
+#                 belonging to a Unit identified by Unit Parameter Structure.
+# bmRequestType : 0x21
+# bRequest      : 0x39
+# wValue        : Unit Parameter Structure
+# wIndex        : Interface
+# wLength       : 0x00
+# Data          : None
+#*******************************************************************************
+# start CLEAR_UNIT_PARAMETER
+CLEAR_UNIT_PARAMETER()
+{
+    bEntityId = NextNBits_(8);
+    VS = "wValue";
+    AddBlockPLCell("Unit Id", Format("%d", bEntityId), Format("Unit Id %d", bEntityId));
+    bParamenterIndex = NextNBits_(8);
+   VS = "wValue";
+    AddBlockPLCell("Param Id", Format("%d", bParamenterIndex), "A zero based value indecating Unit parameter index");
+    wIndex   = NextDataWord_();
+    if (bmRequestType == 0x21)
+    {
+        AddPayLoadCell("wIndex", Format("Interface %d", wIndex), "Interface ID");
+    }
+    else
+    {
+        err_tooltip = Format("Unknown bmRequestType (0x%02X)! ", bmRequestType);
+        AddPayLoadCell("wIndex", Format("0x%04X", wIndex), AddErrorTooltip(), _ERROR);        
+    }
+    wLength  = NextDataWord_();
+    if (wLength == 0)
+    {
+        isError = null;
+    }
+    else
+    {
+        isError = _ERROR;
+    }
+    AddPayLoadCell("wLength", Format("%d", wLength), "Length of the data", isError);
+    out.Decoded = 8;
+/*
+    if (wLength == 0)
+    {
+        AddPayLoadCell("wLength", Format("%d", wLength), "Length of the data");
+        out.Decoded = 8;
+    }
+    else
+    {
+        err_tooltip = "Illegal wLength Value" ;
+        AddPayLoadCell("wLength", Format("%d", wLength), AddErrorTooltip(), _ERROR);
+        if (wLength > 0)
+        {
+            AddExtraBytesPayloadCell(wLength);
+            out.Decoded = 8 + wLength;
+        }
+        else
+            out.Decoded = 8;
+    }
+    */
+}
+# end CLEAR_UNIT_PARAMETER
+
+#*******************************************************************************
+# GET_PROFILE   : This request returns the profile information as defined by CAPI2.0.
+#                 The profile describes the implemented capabilities of the device.
+# bmRequestType : 0xA1
+# bRequest      : 0x3A
+# wValue        : 0x00
+# wIndex        : Interface
+# wLength       : 64
+# Data          : Profile Information according to CAPI2.0 chapter8
+#*******************************************************************************
+# start GET_PROFILE
+GET_PROFILE()
+{
+    PLReservedCheck(16); # wValue reserved to be zero
+    wIndex   = NextDataWord_();
+    if (bmRequestType == 0xA1 )
+    {
+        AddPayLoadCell("wIndex", Format("Interface %d", wIndex), "Interface ID");
+    }
+    else
+    {
+        err_tooltip = Format("Unknown bmRequestType (0x%02X)! ", bmRequestType);
+        AddPayLoadCell("wIndex", Format("0x%04X", wIndex), AddErrorTooltip(), _ERROR);        
+    }
+    wLength  = NextDataWord_();
+    if (wLength == 64)
+    {
+        AddPayLoadCell("wLength", Format("%d", wLength), "Length of the profile");
+        AddBlockPLCellMonoCap( "Profile", "Information" );   
+        ShowDataBlockVS( wLength );
+        out.Decoded = 8 + wLength;
+    }
+    else
+    {
+        err_tooltip = "Illegal wLength Value! The length for should be 64";
+        AddPayLoadCell("wLength", Format("%d", wLength), AddErrorTooltip(), _ERROR);
+        /*
+        if (wLength > 0)
+        {
+            AddExtraBytesPayloadCell(wLength);
+            out.Decoded = 8 + wLength;
+        }
+        else
+        */
+            out.Decoded = 8;
+    }
+}
+# end GET_PROFILE
+
+#*******************************************************************************
+# SET_ETHERNET_MULTICAST_FILTERS : 
+#                 This request sets the Ethernet Device multicast filters as 
+#                 specified in the sequential list of 48 bit Ethernet multicast address.
+# bmRequestType : 0x21
+# bRequest      : 0x40
+# wValue        : Number of Filters(N)
+# wIndex        : Interface
+# wLength       : N*6
+# Data          : List of N 48bit multicast addresses, in network byte order
+#*******************************************************************************
+# start SET_ETHERNET_MULTICAST_FILTERS
+SET_ETHERNET_MULTICAST_FILTERS()
+{
+    wValue = NextDataWord_();
+    VS = "wValue";
+    AddBlockPLCell("Num filters", Format("%d", wValue), Format("Number of filters = %d", wValue));
+    wIndex   = NextDataWord_();
+    if (bmRequestType == 0x21 )
+    {
+        AddPayLoadCell("wIndex", Format("Interface %d", wIndex), "Interface ID");
+    }
+    else
+    {
+        err_tooltip = Format("Unknown bmRequestType (0x%02X)! ", bmRequestType);
+        AddPayLoadCell("wIndex", Format("0x%04X", wIndex), AddErrorTooltip(), _ERROR);        
+    }
+    wLength  = NextDataWord_();
+    if (wLength == wValue * 6)
+    {
+        AddPayLoadCell("wLength", Format("%d", wLength), "Length of multicast addresses");
+        AddBlockPLCellMonoCap( "Multicast", "Addresses" );   
+        ShowDataBlockVS( wLength );
+        out.Decoded = 8 + wLength;
+    }
+    else
+    {
+        err_tooltip = Format("Illegal wLength Value! The length for should be %d", wValue * 6);
+        AddPayLoadCell("wLength", Format("%d", wLength), AddErrorTooltip(), _ERROR);
+        /*
+        if (wLength > 0)
+        {
+            AddExtraBytesPayloadCell(wLength);
+            out.Decoded = 8 + wLength;
+        }
+        else
+        */
+            out.Decoded = 8;
+    }
+}
+# end SET_ETHERNET_MULTICAST_FILTERS
+
+#*******************************************************************************
+# SET_ETHERNET_POWER_MANAGEMENT_PATTERN_FILTERS : 
+#                 This request sets up the specified Ethernet power management 
+#                 pattern filter as described in the data structure.
+# bmRequestType : 0x21
+# bRequest      : 0x41
+# wValue        : Filter Number
+# wIndex        : Interface
+# wLength       : Size of Structure
+# Data          : Power management pattern filter structure
+#*******************************************************************************
+# start SET_ETHERNET_POWER_MANAGEMENT_PATTERN_FILTERS
+SET_ETHERNET_POWER_MANAGEMENT_PATTERN_FILTERS()
+{
+    wValue = NextDataWord_();
+    VS = "wValue";
+    AddBlockPLCell("Filter num", Format("%d", wValue), Format("Filter Number = %d", wValue));
+    wIndex   = NextDataWord_();
+    if (bmRequestType == 0x21 )
+    {
+        AddPayLoadCell("wIndex", Format("Interface %d", wIndex), "Interface ID");
+    }
+    else
+    {
+        err_tooltip = Format("Unknown bmRequestType (0x%02X)! ", bmRequestType);
+        AddPayLoadCell("wIndex", Format("0x%04X", wIndex), AddErrorTooltip(), _ERROR);        
+    }
+    wLength  = NextDataWord_();
+    if (wLength >= 2)
+    {
+        AddPayLoadCell("wLength", Format("%d", wLength), "Size of the power managerment pattern filter structure");
+        maskSize = NextDataWord_();
+        AddPayLoadCell("Mask Size", Format("%d", maskSize), "Size of the Mask");
+        decodedBytes = 2;
+        if (wLength >= maskSize + decodedBytes)
+        {
+            IncFieldOffset( maskSize * 8 );
+            text = "0x";        
+            for(i = 0; i < maskSize; i++) 
+                text += Format("%02X", NextNBits(8));
+            AddPayLoadCell("Mask", text, "Bitmask");
+            decodedBytes += maskSize;
+            if (wLength >= maskSize * 8 + decodedBytes)
+            {
+                text = GetStrFld(maskSize * 8);
+                AddPayLoadCell("Match Str", text, "The string of bytes to perform pattern matching");
+                decodedBytes += maskSize * 8;
+            }
+        }
+        
+        if (wLength > decodedBytes)
+            AddExtraBytesPayloadCell(wLength - decodedBytes);
+        
+        out.Decoded = 8 + wLength;
+    }
+    else
+    {
+        err_tooltip = "Illegal wLength Value!";
+        AddPayLoadCell("wLength", Format("%d", wLength), AddErrorTooltip(), _ERROR);
+        /*
+        if (wLength > 0)
+        {
+            AddExtraBytesPayloadCell(wLength);
+            out.Decoded = 8 + wLength;
+        }
+        else
+        */
+            out.Decoded = 8;
+    }
+}
+# end SET_ETHERNET_POWER_MANAGEMENT_PATTERN_FILTERS
+
+#*******************************************************************************
+# GET_ETHERNET_POWER_MANAGEMENT_PATTERN_FILTERS : 
+#                 This request retrieves the status of the specified Ethernet 
+#                 power management pattern filter from the device.
+# bmRequestType : 0xA1
+# bRequest      : 0x42
+# wValue        : Filter Number
+# wIndex        : Interface
+# wLength       : 0x02
+# Data          : Patteren active boolean
+#*******************************************************************************
+# start GET_ETHERNET_POWER_MANAGEMENT_PATTERN_FILTERS
+GET_ETHERNET_POWER_MANAGEMENT_PATTERN_FILTERS()
+{
+    wValue = NextDataWord_();
+    VS = "wValue";
+    AddBlockPLCell("Filter Num", Format("%d", wValue), Format("Filter Number = %d", wValue));
+    wIndex   = NextDataWord_();
+    if (bmRequestType == 0xA1 )
+    {
+        AddPayLoadCell("wIndex", Format("Interface %d", wIndex), "Interface ID");
+    }
+    else
+    {
+        err_tooltip = Format("Unknown bmRequestType (0x%02X)! ", bmRequestType);
+        AddPayLoadCell("wIndex", Format("0x%04X", wIndex), AddErrorTooltip(), _ERROR);        
+    }
+    wLength  = NextDataWord_();
+    if (wLength == 2)
+    {
+        AddPayLoadCell("wLength", Format("%d", wLength), "Size of the pattern active boolean");
+        patternBoolean = NextDataWord_();
+        if (patternBoolean == 0x0000)
+            text = FALSE;
+        else if (patternBoolean == 0x0001)
+            text = TRUE;
+        else
+            text = Format("Undefined %d", patternBoolean);
+        AddPayLoadCell("Pattern Active", text, "If an active pattern has been set for the specified filter");
+        out.Decoded = 8 + wLength;
+    }
+    else
+    {
+        err_tooltip = "Illegal wLength Value!";
+        AddPayLoadCell("wLength", Format("%d", wLength), AddErrorTooltip(), _ERROR);
+        /*
+        if (wLength > 0)
+        {
+            AddExtraBytesPayloadCell(wLength);
+            out.Decoded = 8 + wLength;
+        }
+        else
+        */
+            out.Decoded = 8;
+    }
+}
+# end GET_ETHERNET_POWER_MANAGEMENT_PATTERN_FILTERS
+
+#*******************************************************************************
+# SET_ETHERNET_PACKET_FILTER : This request is used to configure device packet 
+#                 filter settings.
+# bmRequestType : 0x21
+# bRequest      : 0x43
+# wValue        : Packet Filter Bitmap
+# wIndex        : Interface
+# wLength       : 0x00
+# Data          : None
+#*******************************************************************************
+# start SET_ETHERNET_PACKET_FILTER
+SET_ETHERNET_PACKET_FILTER()
+{
+    packet_filter_bitmap = NextDataWord_();	
+	multicast = (packet_filter_bitmap & 0x10) >> 4;
+    if (multicast == 1)
+        text = "Enabled";
+    else
+        text = "Disabled";
+    VS = "wValue";
+    AddBlockPLCell("Multicast", text, Format("Packet type multicast = %d",multicast));
+    
+    broadcast = (packet_filter_bitmap & 0x8) >> 3;
+    if (broadcast == 1)
+        text = "Enabled";
+    else
+        text = "Disabled";
+    VS = "wValue";
+    AddBlockPLCell("Broadcast", text, Format("Packet type broadcast = %d",broadcast));
+    
+    directed  = (packet_filter_bitmap & 0x4) >> 2;
+    if (directed == 1)
+        text = "Enabled";
+    else
+        text = "Disabled";
+    VS = "wValue";
+    AddBlockPLCell("Directed", text, Format("Packet type directed = %d",directed));
+    
+    all_multicast  = (packet_filter_bitmap & 0x2) >> 1;
+    if (all_multicast == 1)
+        text = "Enabled";
+    else
+        text = "Disabled";
+    VS = "wValue";
+    AddBlockPLCell("All Multicast", text, Format("Packet type all multicast = %d",all_multicast));
+
+    promiscuous  = (packet_filter_bitmap & 0x1);
+    if (promiscuous == 1)
+        text = "Enabled";
+    else
+        text = "Disabled";
+    VS = "wValue";
+    AddBlockPLCell("Promiscuous", text, Format("Packet type promiscuous = %d",promiscuous));
+
+    wIndex   = NextDataWord_();
+    if (bmRequestType == 0x21 )
+    {
+        AddPayLoadCell("wIndex", Format("Interface %d", wIndex), "Interface ID");
+    }
+    else
+    {
+        err_tooltip = Format("Unknown bmRequestType (0x%02X)! ", bmRequestType);
+        AddPayLoadCell("wIndex", Format("0x%04X", wIndex), AddErrorTooltip(), _ERROR);        
+    }
+    wLength  = NextDataWord_();
+    if (wLength == 0)
+    {
+        isError = null;
+    }
+    else
+    {
+        isError = _ERROR;
+    }
+    AddPayLoadCell("wLength", Format("%d", wLength), "Length of the data", isError);
+    out.Decoded = 8;
+/*
+    if (wLength == 0)
+    {
+        AddPayLoadCell("wLength", Format("%d", wLength), "Size of the pattern active boolean");
+        out.Decoded = 8;
+    }
+    else
+    {
+        err_tooltip = "Illegal wLength Value!";
+        AddPayLoadCell("wLength", Format("%d", wLength), AddErrorTooltip(), _ERROR);
+        if (wLength > 0)
+        {
+            AddExtraBytesPayloadCell(wLength);
+            out.Decoded = 8 + wLength;
+        }
+        else
+            out.Decoded = 8;
+    }
+    */
+}
+# end SET_ETHERNET_PACKET_FILTER
+
+#*******************************************************************************
+# GET_ETHERNET_STATISTIC : 
+#                 This request is used to retrieve a statistic based on the 
+#                 feature selector.
+# bmRequestType : 0xA1
+# bRequest      : 0x44
+# wValue        : Feature Selector
+# wIndex        : Interface
+# wLength       : 0x04
+# Data          : 32 bit unsigned integer
+#*******************************************************************************
+# start GET_ETHERNET_STATISTIC
+set EthernetStatisticsFeatureSlectorTable =
+[
+    #------------------------------------------------------------------
+    # Code, Feature,                length,     description         
+    #------------------------------------------------------------------
+    [ 0x00, "RESERVED",             0, "Reserved for future use"                                                        ],
+    [ 0x01, "XMIT_OK",              4, "Frames transmitted without errors"                                              ],
+    [ 0x02, "RCV_OK",               4, "Frames received without errors"                                                 ],
+    [ 0x03, "XMIT_ERROR",           4, "Frames not transmitted, or transmitted with errors"                             ],
+    [ 0x04, "RCV_ERROR",            4, "Frames received with errors"                                                    ],
+    [ 0x05, "RCV_NO_BUFFOR",        4, "Frames missed, no buffers"                                                      ],
+    [ 0x06, "DIRECTED_BYTES_XMIT",  4, "Direct bytes transmitted without errors"                                        ],
+    [ 0x07, "DIRECTED_FRAMES_XMIT", 4, "Direct frames transmitted without errors"                                       ],
+    [ 0x08, "MULTICAST_BYTES_XMIT", 4, "Multicast bytes transmitted without errors"                                     ],
+    [ 0x09, "MULTICAST_FRAMES_XMIT",4, "Multicast frames transmitted without errors"                                    ],
+    [ 0x0A, "BROADCAST_BYTES_XMIT", 4, "Broadcast bytes transmitted without errors"                                     ],
+    [ 0x0B, "BROADCAST_FRAMES_XMIT",4, "Broadcast frames transmitted without errors"                                    ],
+    [ 0x0C, "DIRECTED_BYTES_RCV",   4, "Direct bytes received without errors"                                           ],
+    [ 0x0D, "DIRECTED_FRAMES_RCV",  4, "Direct frames received without errors"                                          ],
+    [ 0x0E, "MULTICAST_BYTES_RCV",  4, "Multicast bytes received without errors"                                        ],
+    [ 0x0F, "MULTICAST_FRAMES_RCV", 4, "Multicast frames received without errors"                                       ],
+    [ 0x10, "BROADCAST_BYTES_RCV",  4, "Broadcast bytes received without errors"                                        ],
+    [ 0x11, "BROADCAST_FRAMES_RCV", 4, "Broadcast frames received without errors"                                       ],
+    [ 0x12, "RCV_CRC_ERROR",        4, "Frames received with Cyclic Redundancy Check(CRC) or Frame check sequence(FCS)" ],
+    [ 0x13, "TRANSMIT_QUEUE_LENGTH",4, "Length of transmit queue"                                                       ],
+    [ 0x14, "RCV_ERROR_ALLIGNMENT", 4, "Frames received with alignment error"                                           ],
+    [ 0x15, "XMIT_ONE_COLLISION",   4, "Frames transmitted with one collision"                                          ],
+    [ 0x16, "XMIT_MORE_COLLISIONS", 4, "Frames transmitted with more than one collision"                                ],
+    [ 0x17, "XMIT_DEFERRED",        4, "Frames transmitted after deferral"                                              ],
+    [ 0x18, "XMIT_MAX_COLLISIONS",  4, "Frames not transmitted due to collisions"                                       ],
+    [ 0x19, "RCV_OVERRUN",          4, "Frames not received due to overrun"                                             ],
+    [ 0x1A, "XMIT_UNDERRUN",        4, "Frames not transmitted due to underrun"                                         ],
+    [ 0x1B, "XMIT_HEARTBEAT_FAILURE",4, "Frames transmitted with heartbeat failure"                                     ],
+    [ 0x1C, "XMIT_TIMES_CRS_LOST",  4, "The carrier sense signal lost during transmission"                              ],
+    [ 0x1D, "XMIT_LATE_COLLISIONS", 4, "Late collision detected"                                                        ]
+];  
+GET_ETHERNET_STATISTIC()
+{
+    wValue   = NextDataWord_();
+    _row = Find(EthernetStatisticsFeatureSlectorTable, wValue);
+    VS = "wValue";
+    AddBlockPLCell("Feature Selector", _row[1], _row[3]);
+
+    wIndex   = NextDataWord_();
+    if (bmRequestType == 0xA1 )
+    {
+        AddPayLoadCell("wIndex", Format("Interface %d", wIndex), "Interface ID");
+    }
+    else
+    {
+        err_tooltip = Format("Unknown bmRequestType (0x%02X)! ", bmRequestType);
+        AddPayLoadCell("wIndex", Format("0x%04X", wIndex), AddErrorTooltip(), _ERROR);        
+    }
+    wLength  = NextDataWord_();
+    if (wLength == _row[2])
+    {
+        AddPayLoadCell("wLength", Format("%d", wLength), "Length of the data");
+        if (wLength == 4)
+        {
+            data = NextDataDWord_();
+            AddPayLoadCell("Data", Format("%u", data), "32-bit unsigned integer");
+        }
+        out.Decoded = 8 + wLength;
+    }
+    else
+    {
+        err_tooltip = "Illegal wLength Value" ;
+        AddPayLoadCell("wLength", Format("%d", wLength), AddErrorTooltip(), _ERROR);
+        /*
+        if (wLength > 0)
+        {
+            AddExtraBytesPayloadCell(wLength);
+            out.Decoded = 8 + wLength;
+        }
+        else
+        */
+            out.Decoded = 8;
+    }
+}      
+
+# end GET_ETHERNET_STATISTIC
+
+#*******************************************************************************
+# SET_ATM_DATAFORMAT : This request is used to set the data format selected by 
+#                 the host in the wValue field.
+# bmRequestType : 0x21
+# bRequest      : 0x50
+# wValue        : Data Format
+# wIndex        : Interface
+# wLength       : 0x00
+# Data          : None
+#*******************************************************************************
+# start SET_ATM_DATAFORMAT
+set ATMDataFormatTable =
+[
+    [ 0x0000, "Unknow Type", "The Type number is never specified", _ERROR],
+    [ 0x0001, "Type 1", "Type 1 Format:concatenated ATM cells", null    ],
+    [ 0x0002, "Type 2", "Type 2 Format:ATM Header template + concatenated ATM cell payloads", null],
+    [ 0x0003, "Type 3", "Type 3 Format:AAL 5 SDU", null]
+];
+SET_ATM_DATAFORMAT()
+{
+    wValue   = NextDataWord_();
+    _row = Find(ATMDataFormatTable, wValue);
+    VS = "wValue";
+    AddBlockPLCell("Feature Selector", _row[1], _row[2], _row[3]);
+    wIndex   = NextDataWord_();
+    if (bmRequestType == 0x21 )
+    {
+        AddPayLoadCell("wIndex", Format("Interface %d", wIndex), "Interface ID");
+    }
+    else
+    {
+        err_tooltip = Format("Unknown bmRequestType (0x%02X)! ", bmRequestType);
+        AddPayLoadCell("wIndex", Format("0x%04X", wIndex), AddErrorTooltip(), _ERROR);        
+    }
+    wLength  = NextDataWord_();
+    if (wLength == 0)
+    {
+        isError = null;
+    }
+    else
+    {
+        isError = _ERROR;
+    }
+    AddPayLoadCell("wLength", Format("%d", wLength), "Length of the data", isError);
+    out.Decoded = 8;
+/*
+    if (wLength == 0)
+    {
+        AddPayLoadCell("wLength", Format("%d", wLength), "Length of the data");
+        out.Decoded = 8 + wLength;
+    }
+    else
+    {
+        err_tooltip = "Illegal wLength Value" ;
+        AddPayLoadCell("wLength", Format("%d", wLength), AddErrorTooltip(), _ERROR);
+        if (wLength > 0)
+        {
+            AddExtraBytesPayloadCell(wLength);
+            out.Decoded = 8 + wLength;
+        }
+        else
+            out.Decoded = 8;
+    }
+    */
+} 
+# end SET_ATM_DATAFORMAT
+
+#*******************************************************************************
+# GET_ATM_DEVICE_STATISTICS : This request is used to retrieve the device 
+#                 statistics based on the feature selector.
+# bmRequestType : 0xA1
+# bRequest      : 0x51
+# wValue        : Feature Selector
+# wIndex        : Interface
+# wLength       : 0x04
+# Data          : 32 bit unsigned integer
+#*******************************************************************************
+# start GET_ATM_DEVICE_STATISTICS
+set ATMDeviceStatisticsFeatureSelectorTable =
+[
+    [ 0x00, "RESERVED",                     0, "Reserved for future use"],
+    [ 0x01, "US_CELLS_SENT",                4, "No.of cells sent upstream to the WAN link by the ATM layer"],
+    [ 0x02, "DS_CELLS_RECEIVED",            4, "No.of cells received downstream from the WAN link by the ATM layer"],
+    [ 0x03, "DS_CELLS_USB_CONGESTION",      4, "No.of cells received and discarded due to congestion on USB link"],
+    [ 0x04, "DS_CELLS_AAL5_CRC_ERROR",      4, "No.of cells received and discarded due to AAL5 CRC error"],
+    [ 0x05, "DS_CELLS_HEC_ERROR",           4, "No.of cells received and discarded due to HEC errors in the cell header"],
+    [ 0x06, "DS_CELLS_HEC_ERROR_CORRECTED", 4, "No.of cells received with HEC errors in the cell header and successfully corrected"]
+];
+
+GET_ATM_DEVICE_STATISTICS()
+{
+    wValue   = NextDataWord_();
+    _row = Find(ATMDeviceStatisticsFeatureSelectorTable, wValue);
+    VS = "wValue";
+    AddBlockPLCell("Feature Selector", _row[1], _row[3]);
+
+    wIndex   = NextDataWord_();
+    if (bmRequestType == 0xA1 )
+    {
+        AddPayLoadCell("wIndex", Format("Interface %d", wIndex), "Interface ID");
+    }
+    else
+    {
+        err_tooltip = Format("Unknown bmRequestType (0x%02X)! ", bmRequestType);
+        AddPayLoadCell("wIndex", Format("0x%04X", wIndex), AddErrorTooltip(), _ERROR);        
+    }
+    wLength  = NextDataWord_();
+    if (wLength == _row[2])
+    {
+        AddPayLoadCell("wLength", Format("%d", wLength), "Length of the data");
+        if (wLength == 4)
+        {
+            data = NextDataDWord_();
+            AddPayLoadCell("Data", Format("%u", data), "32-bit unsigned integer");
+        }
+        out.Decoded = 8 + wLength;
+    }
+    else
+    {
+        err_tooltip = "Illegal wLength Value" ;
+        AddPayLoadCell("wLength", Format("%d", wLength), AddErrorTooltip(), _ERROR);
+        /*
+        if (wLength > 0)
+        {
+            AddExtraBytesPayloadCell(wLength);
+            out.Decoded = 8 + wLength;
+        }
+        else
+        */
+            out.Decoded = 8;
+    }
+}
+# end GET_ATM_DEVICE_STATISTICS
+
+#*******************************************************************************
+# SET_ATM_DEFAULT_VC : This request is used to pre-select the VPI/VCI value for 
+#                 subsequent GET_ATM_VC_STATISTICS requests.
+# bmRequestType : 0x21
+# bRequest      : 0x52
+# wValue        : 0x00
+# wIndex        : Interface
+# wLength       : 0x03
+# Data          : 1-byte VPI followed by 2-byte VCI value
+#*******************************************************************************
+# start SET_ATM_DEFAULT_VC
+SET_ATM_DEFAULT_VC()
+{
+    PLReservedCheck(16); # wValue reserved to be zero
+    wIndex   = NextDataWord_();
+    if (bmRequestType == 0x21 )
+    {
+        AddPayLoadCell("wIndex", Format("Interface %d", wIndex), "Interface ID");
+    }
+    else
+    {
+        err_tooltip = Format("Unknown bmRequestType (0x%02X)! ", bmRequestType);
+        AddPayLoadCell("wIndex", Format("0x%04X", wIndex), AddErrorTooltip(), _ERROR);        
+    }
+    wLength  = NextDataWord_();
+    if (wLength == 3)
+    {
+        AddPayLoadCell("wLength", Format("%d", wLength), "Size of the data");
+        VPI = NextNBits_(8);
+        AddPayLoadCell("VPI", Format("%02X", VPI), "VPI value");
+        VCI = NextDataWord_();
+        AddPayLoadCell("VCI", Format("%04X", VCI), "VCI value");
+        
+        out.Decoded = 8 + wLength;
+    }
+    else
+    {
+        err_tooltip = "Illegal wLength Value! The length for should be 3";
+        AddPayLoadCell("wLength", Format("%d", wLength), AddErrorTooltip(), _ERROR);
+        /*
+        if (wLength > 0)
+        {
+            AddExtraBytesPayloadCell(wLength);
+            out.Decoded = 8 + wLength;
+        }
+        else
+        */
+            out.Decoded = 8;
+    }
+}
+# end SET_ATM_DEFAULT_VC
+
+#*******************************************************************************
+# GET_ATM_VC_STATISTICS : This request is used to retrieve the ATM device statistics 
+#                 based on the feature selector for a pre-selected VPI/VCI as
+#                 stipulated in the latest preceding SET_ATM_DEFAULT_VC request.
+# bmRequestType : 0xA1
+# bRequest      : 0x53
+# wValue        : Feature Selector
+# wIndex        : Interface
+# wLength       : 0x04
+# Data          : 32 bit unsigned integer
+#*******************************************************************************
+# start GET_ATM_VC_STATISTICS
+set ATMVCSelectorTable =
+[
+    [ 0x00, "RESERVED",             0, "Reserved for future use"],
+    [ 0x01, "VC_US_CELLS_SENT",     4, "No.of cells sent upstream to the WAN link for the specified VPI/VCI"],
+    [ 0x02, "VC_DS_CELLS_RECEIVED", 4, "No.of cells received downstream from the WAN link for the specified VPI/VCI"]
+];
+GET_ATM_VC_STATISTICS()
+{
+    wValue   = NextDataWord_();
+    _row = Find(ATMVCSelectorTable, wValue);
+    VS = "wValue";
+    AddBlockPLCell("Feature Selector", _row[1], _row[3]);
+
+    wIndex   = NextDataWord_();
+    if (bmRequestType == 0xA1 )
+    {
+        AddPayLoadCell("wIndex", Format("Interface %d", wIndex), "Interface ID");
+    }
+    else
+    {
+        err_tooltip = Format("Unknown bmRequestType (0x%02X)! ", bmRequestType);
+        AddPayLoadCell("wIndex", Format("0x%04X", wIndex), AddErrorTooltip(), _ERROR);        
+    }
+    wLength  = NextDataWord_();
+    if (wLength == _row[2])
+    {
+        AddPayLoadCell("wLength", Format("%d", wLength), "Length of the data");
+        if (wLength == 4)
+        {
+            data = NextDataDWord_();
+            AddPayLoadCell("Data", Format("%u", data), "32-bit unsigned integer");
+        }
+        out.Decoded = 8 + wLength;
+    }
+    else
+    {
+        err_tooltip = "Illegal wLength Value" ;
+        AddPayLoadCell("wLength", Format("%d", wLength), AddErrorTooltip(), _ERROR);
+        /*
+        if (wLength > 0)
+        {
+            AddExtraBytesPayloadCell(wLength);
+            out.Decoded = 8 + wLength;
+        }
+        else
+        */
+            out.Decoded = 8;
+    }
+}
+
+# end GET_ATM_VC_STATISTICS
+#*******************************************************************************
+# MDLM_SEMANTIC_MODEL_REQUEST : This request is an MDLM request. MDLM is part of
+#                 the CDC Wireless Mobile Communication Devices spec. Requests
+#                 for MDLM are Semantic-Model specific, they are defined by the
+#                 model being used by the Interface reported in wIndex.
+#                 [Currently no explicit decoding tables available].
+#
+# bmRequestType : 0x??
+# bRequest      : 0x60-0x7F
+# wValue        : 0x????
+# wIndex        : Interface (????)
+# wLength       : 0x????
+# Data          : ?
+#*******************************************************************************
+# start MDLM_SEMANTIC_MODEL_REQUEST
+MDLM_SEMANTIC_MODEL_REQUEST()
+{
+    wValue = NextDataWord_();
+    text = "Defined by semantic model of MDLM interface identified by wIndex";
+    AddPayLoadCell("wValue", Format("0x%04X",wValue), Format("wValue = 0x%04X\n", wValue) + text, FieldColor, [_TABULARCELL, CELL_WVALUE, "TEXT_CAPTION"]);
+
+    wIndex   = NextDataWord_();
+    FieldColor = wIndexColor;
+    AddPayLoadCell("wIndex", Format("Interface %d", wIndex), "MDLM Interface");
+
+    wLength  = NextDataWord_();
+    FieldColor = wLengthColor;
+    if(wLength>0)
+        text = "\nData for designated operation as defined\nby the semantic model of the MDLM \ninterface identified by wIndex";
+    else
+        text = "";
+
+    if(wLength != in.DataLength - 8)
+    {
+        AddPayLoadCell("wLength", Format("%d", wLength), "!!! WARNING !!! \n" + FormatEx("Data Length discrepancy between wLength (%d)\n and actual data in PayLoad (%d)...\n\n",wLength,in.DataLength - 8) + "Length of the data." + text,_ERROR);
+    }
+    else
+        AddPayLoadCell("wLength", Format("%d", wLength), "Length of the data." + text);
+
+      out.Decoded = 8;
+}
+# end MDLM_SEMANTIC_MODEL_REQUEST
+#*******************************************************************************
+# GET_NTB_PARAMETERS :
+#                 This request retrieves the parameters that describe NTBs for each direction.
+#                 In response to this request, the function shall return these elements
+#
+# bmRequestType :
+# bmRequestType : 0xA1
+# bRequest      : 0x80
+# wValue        : 0x0000
+# wIndex        : Interface
+# wLength       : Amount of data in bytes associated with this recipient
+# Data          : NTB Parameter Structure
+#*******************************************************************************
+# start GET_NTB_PARAMETERS
+GET_NTB_PARAMETERS()
+{
+    if (bRequest == 0x80)
+    {
+        wValue   = GetDataWord(2); # Now that Endian is set...
+        wIndex   = GetDataWord(4);
+        wLength  = GetDataWord(6);
+
+        val_text =  Format("0x%04X", wValue);
+        val_text_Tooltip =  Format("wValue HexVal: 0x%04X", wValue);
+        AddWValueCell (val_text, val_text_Tooltip);
+
+        wIndex_text =  Format("0x%04X", wIndex);
+        wIndex_text_Tooltip =  Format("wIndex HexVal: 0x%04X", wIndex);
+        AddWIndexCell (wIndex_text, wIndex_text_Tooltip);
+
+        wLength_text =  Format("wLength HexVal: 0x%04X", wLength);
+        wLength_text_Tooltip =  Format("wLength HexVal: 0x%04X", wLength);
+        AddWLengthCell(wLength_text, wLength_text_Tooltip);
+
+        GetNBits( in.Data, 0, 0 );
+
+        NTB_Parameter_Structure_ToolTip = NTB_Parameter_Structure();
+        AddPayLoadCell("NTB_Parameter",   "Parameters",
+                        NTB_Parameter_Structure_ToolTip, FieldColor);
+
+        out.Decoded = in.DataLength;
+    }
+}
+# end GET_NTB_PARAMETERS
+#*******************************************************************************
+# GET_NET_ADDRESS :
+#                 This request returns the function’s current EUI-48 station address.
+#
+# bmRequestType : 0xA1
+# bRequest      : 0x81
+# wValue        : 0x0000
+# wIndex        : Interface
+# wLength       : Amount of data in bytes associated with this recipient
+# Data          : The EUI-48 current address, in net-work byte order
+#*******************************************************************************
+# start GET_NET_ADDRESS
+GET_NET_ADDRESS()
+{
+    if (bRequest == 0x81)
+    {
+        wValue   = GetDataWord(2); # Now that Endian is set...
+        wIndex   = GetDataWord(4);
+        wLength  = GetDataWord(6);
+
+        val_text =  Format("0x%04X", wValue);
+        val_text_Tooltip =  Format("wValue HexVal: 0x%04X", wValue);
+        AddWValueCell (val_text, val_text_Tooltip);
+
+        wIndex_text =  Format("0x%04X", wIndex);
+        wIndex_text_Tooltip =  Format("wIndex HexVal: 0x%04X", wIndex);
+        AddWIndexCell (wIndex_text, wIndex_text_Tooltip);
+
+        wLength_text =  Format("wLength HexVal: 0x%04X", wLength);
+        wLength_text_Tooltip =  Format("wLength HexVal: 0x%04X", wLength);
+        AddWLengthCell(wLength_text, wLength_text_Tooltip);
+
+        GetNBits( in.Data, 0, 0 );
+        dummy = NextNBits(6*8);
+        Len = NextNBits(8);
+        dummy = NextNBits(8);
+        i = 0;
+        st = "";
+        while (i < Len)
+        {
+            F1 = NextNBits(8);
+            st += FormatEx("%02X", F1);
+            st += " ";
+            i += 1;
+        }
+
+        Current_Address_ToolTip = st;
+
+        AddPayLoadCell("Current_Address",  st,
+            Format ("Current Net Address is = %s", Current_Address_ToolTip), FieldColor);
+        out.Decoded = in.DataLength;
+    }
+}
+# end GET_NET_ADDRESS
+
+#*******************************************************************************
+# SET_NET_ADDRESS :
+#                 This request sets the function’s current EUI-48 station address.
+#
+# bmRequestType : 0x21
+# bRequest      : 0x82
+# wValue        : 0x0000
+# wIndex        : Interface
+# wLength       : Amount of data in bytes associated with this recipient
+# Data          : The EUI-48 address, in network byte order
+#*******************************************************************************
+# start SET_NET_ADDRESS
+SET_NET_ADDRESS()
+{
+    if (bRequest == 0x82)
+    {
+        wValue   = GetDataWord(2); # Now that Endian is set...
+        wIndex   = GetDataWord(4);
+        wLength  = GetDataWord(6);
+
+        val_text =  Format("0x%04X", wValue);
+        val_text_Tooltip =  Format("wValue HexVal: 0x%04X", wValue);
+        AddWValueCell (val_text, val_text_Tooltip);
+
+        wIndex_text =  Format("0x%04X", wIndex);
+        wIndex_text_Tooltip =  Format("wIndex HexVal: 0x%04X", wIndex);
+        AddWIndexCell (wIndex_text, wIndex_text_Tooltip);
+
+        wLength_text =  Format("wLength HexVal: 0x%04X", wLength);
+        wLength_text_Tooltip =  Format("wLength HexVal: 0x%04X", wLength);
+        AddWLengthCell(wLength_text, wLength_text_Tooltip);
+
+        GetNBits( in.Data, 0, 0 );
+        dummy = NextNBits(6*8);
+        Len = NextNBits(8);
+        dummy = NextNBits(8);
+        i = 0;
+        st = "";
+        while (i < Len)
+        {
+            F1 = NextNBits(8);
+            st += FormatEx("%02X", F1);
+            st += " ";
+            i += 1;
+        }
+
+        Net_Address = st;
+
+        AddPayLoadCell("Net_Address",  st,
+            Format ("Set Net Address to = %s", Net_Address), FieldColor);
+
+        out.Decoded = in.DataLength;
+    }
+}
+# end SET_NET_ADDRESS
+
+#*******************************************************************************
+# GET_NTB_FORMAT :
+#                 This request returns the NTB data format currently being used by the function.
+#
+# bmRequestType : 0xA1
+# bRequest      : 0x83
+# wValue        : 0x0000
+# wIndex        : Interface
+# wLength       : Amount of data in bytes associated with this recipient
+# Data          : The NTB format code (2 bytes, little-endian), as defined under wValue in SetNtbFormat
+#*******************************************************************************
+# start GET_NTB_FORMAT
+GET_NTB_FORMAT()
+{
+    if (bRequest == 0x83)
+    {
+        wValue   = GetDataWord(2); # Now that Endian is set...
+        wIndex   = GetDataWord(4);
+        wLength  = GetDataWord(6);
+
+        val_text =  Format("0x%04X", wValue);
+        val_text_Tooltip =  Format("wValue HexVal: 0x%04X", wValue);
+        AddWValueCell (val_text, val_text_Tooltip);
+
+        wIndex_text =  Format("0x%04X", wIndex);
+        wIndex_text_Tooltip =  Format("wIndex HexVal: 0x%04X", wIndex);
+        AddWIndexCell (wIndex_text, wIndex_text_Tooltip);
+
+        wLength_text =  Format("wLength HexVal: 0x%04X", wLength);
+        wLength_text_Tooltip =  Format("wLength HexVal: 0x%04X", wLength);
+        AddWLengthCell(wLength_text, wLength_text_Tooltip);
+
+        GetNBits( in.Data, 0, 0 );
+        dummy = NextNBits(6*8);
+        Len = NextNBits(8);
+        dummy = NextNBits(8);
+
+        NTB_Format_Code = NextNBits(Len*8);
+
+        AddPayLoadCell("NTB_Format_Code",   Format("0x%X", NTB_Format_Code),
+            Format ("NTB Format Code is = 0x%X", NTB_Format_Code), FieldColor);
+        out.Decoded = in.DataLength;
+    }
+}
+# end GET_NTB_FORMAT
+
+#*******************************************************************************
+# SET_NTB_FORMAT :
+#                 This request selects the format of NTB to be used for NTBs transmitted from the function to the host.
+#
+# bmRequestType : 0x21
+# bRequest      : 0x84
+# wValue        : 0x0000/0x0001
+# wIndex        : Interface
+# wLength       : Amount of data in bytes associated with this recipient
+# Data          : None
+#*******************************************************************************
+# start SET_NTB_FORMAT
+SET_NTB_FORMAT()
+{
+    if (bRequest == 0x84)
+    {
+        wValue   = GetDataWord(2); # Now that Endian is set...
+        wIndex   = GetDataWord(4);
+        wLength  = GetDataWord(6);
+
+        val_text =  Format("0x%04X", wValue);
+        val_text_Tooltip =  Format("wValue HexVal: 0x%04X", wValue);
+        AddWValueCell (val_text, val_text_Tooltip);
+
+        wIndex_text =  Format("0x%04X", wIndex);
+        wIndex_text_Tooltip =  Format("wIndex HexVal: 0x%04X", wIndex);
+        AddWIndexCell (wIndex_text, wIndex_text_Tooltip);
+
+        wLength_text =  Format("wLength HexVal: 0x%04X", wLength);
+        wLength_text_Tooltip =  Format("wLength HexVal: 0x%04X", wLength);
+        AddWLengthCell(wLength_text, wLength_text_Tooltip);
+
+        out.Decoded = in.DataLength;
+    }
+}
+# end SET_NTB_FORMAT
+
+#*******************************************************************************
+# GET_NTB_INPUT_SIZE :
+#                 This request returns NTB input size currently being used by the function.
+#
+# bmRequestType : 0xA1
+# bRequest      : 0x85
+# wValue        : 0x0000
+# wIndex        : Interface
+# wLength       : Amount of data in bytes associated with this recipient
+# Data          : The NTB input size, as defined in SetNtbInputSize
+#*******************************************************************************
+# start GET_NTB_INPUT_SIZE
+GET_NTB_INPUT_SIZE()
+{
+    if (bRequest == 0x85)
+    {
+        wValue   = GetDataWord(2); # Now that Endian is set...
+        wIndex   = GetDataWord(4);
+        wLength  = GetDataWord(6);
+
+        val_text =  Format("0x%04X", wValue);
+        val_text_Tooltip =  Format("wValue HexVal: 0x%04X", wValue);
+        AddWValueCell (val_text, val_text_Tooltip);
+
+        wIndex_text =  Format("0x%04X", wIndex);
+        wIndex_text_Tooltip =  Format("wIndex HexVal: 0x%04X", wIndex);
+        AddWIndexCell (wIndex_text, wIndex_text_Tooltip);
+
+        wLength_text =  Format("wLength HexVal: 0x%04X", wLength);
+        wLength_text_Tooltip =  Format("wLength HexVal: 0x%04X", wLength);
+        AddWLengthCell(wLength_text, wLength_text_Tooltip);
+
+        GetNBits( in.Data, 0, 0 );
+        dummy = NextNBits(6*8);
+        Len = NextNBits(8);
+        dummy = NextNBits(8);
+        Ntb_Input_Size = NextNBits(Len*8);
+
+        AddPayLoadCell("Ntb_Input_Size",   Format("0x%X", Ntb_Input_Size),
+            Format ("Ntb Input Size is = 0x%X", Ntb_Input_Size), FieldColor);
+        out.Decoded = in.DataLength;
+    }
+}
+# end GET_NTB_INPUT_SIZE
+
+#*******************************************************************************
+# SET_NTB_INPUT_SIZE :
+#                 This request selects the maximum size of NTB that the device is permitted to send to the host.
+#
+# bmRequestType : 0x21
+# bRequest      : 0x86
+# wValue        : 0x0000
+# wIndex        : Interface
+# wLength       : Amount of data in bytes associated with this recipient
+# Data          : Maximum NTB size, in bytes, in little-endian order
+#*******************************************************************************
+# start SET_NTB_INPUT_SIZE
+SET_NTB_INPUT_SIZE()
+{
+    if (bRequest == 0x86)
+    {
+        wValue   = GetDataWord(2); # Now that Endian is set...
+        wIndex   = GetDataWord(4);
+        wLength  = GetDataWord(6);
+
+        val_text =  Format("0x%04X", wValue);
+        val_text_Tooltip =  Format("wValue HexVal: 0x%04X", wValue);
+        AddWValueCell (val_text, val_text_Tooltip);
+
+        wIndex_text =  Format("0x%04X", wIndex);
+        wIndex_text_Tooltip =  Format("wIndex HexVal: 0x%04X", wIndex);
+        AddWIndexCell (wIndex_text, wIndex_text_Tooltip);
+
+        wLength_text =  Format("wLength HexVal: 0x%04X", wLength);
+        wLength_text_Tooltip =  Format("wLength HexVal: 0x%04X", wLength);
+        AddWLengthCell(wLength_text, wLength_text_Tooltip);
+
+        GetNBits( in.Data, 0, 0 );
+        dummy = NextNBits(6*8);
+        Len = NextNBits(8);
+        dummy = NextNBits(8);
+        Maximum_NTB_Size = NextNBits(Len*8);
+
+        AddPayLoadCell("Maximum_NTB_Size ",   Format("0x%04X", Maximum_NTB_Size),
+            Format ("Set Maximum NTB Size to = 0x%04X", Maximum_NTB_Size), FieldColor);
+
+        out.Decoded = in.DataLength;
+    }
+}
+# end SET_NTB_INPUT_SIZE
+
+#*******************************************************************************
+# GET_MAX_DATAGRAM_SIZE :
+#                 This request returns the currently effective maximum datagram size that the function has in effect.
+#
+# bmRequestType : 0xA1
+# bRequest      : 0x87
+# wValue        : 0x0000
+# wIndex        : Interface
+# wLength       : Amount of data in bytes associated with this recipient
+# Data          : The current maximum datagram size, in little endian order (2 bytes).
+#*******************************************************************************
+# start GET_MAX_DATAGRAM_SIZE
+GET_MAX_DATAGRAM_SIZE()
+{
+    if (bRequest == 0x87)
+    {
+        wValue   = GetDataWord(2); # Now that Endian is set...
+        wIndex   = GetDataWord(4);
+        wLength  = GetDataWord(6);
+
+        val_text =  Format("0x%04X", wValue);
+        val_text_Tooltip =  Format("wValue HexVal: 0x%04X", wValue);
+        AddWValueCell (val_text, val_text_Tooltip);
+
+        wIndex_text =  Format("0x%04X", wIndex);
+        wIndex_text_Tooltip =  Format("wIndex HexVal: 0x%04X", wIndex);
+        AddWIndexCell (wIndex_text, wIndex_text_Tooltip);
+
+        wLength_text =  Format("wLength HexVal: 0x%04X", wLength);
+        wLength_text_Tooltip =  Format("wLength HexVal: 0x%04X", wLength);
+        AddWLengthCell(wLength_text, wLength_text_Tooltip);
+
+        GetNBits( in.Data, 0, 0 );
+        dummy = NextNBits(6*8);
+        Len = NextNBits(8);
+        dummy = NextNBits(8);
+        Max_Datagram_Size = NextNBits(Len*8);
+
+        AddPayLoadCell("Max_Datagram_Size",   Format("0x%X", Max_Datagram_Size),
+            Format ("Max Datagram Size is = 0x%X", Max_Datagram_Size), FieldColor);
+        out.Decoded = in.DataLength;
+    }
+}
+# end GET_MAX_DATAGRAM_SIZE
+
+#*******************************************************************************
+# SET_MAX_DATAGRAM_SIZE :
+#                 This request selects the maximum datagram size that either host or function will send in an NTB.
+#
+# bmRequestType : 0x21
+# bRequest      : 0x88
+# wValue        : 0x0000
+# wIndex        : Interface
+# wLength       : Amount of data in bytes associated with this recipient
+# Data          : Maximum datagram size, in bytes, in little-endian order
+#*******************************************************************************
+# start SET_MAX_DATAGRAM_SIZE
+SET_MAX_DATAGRAM_SIZE()
+{
+    if (bRequest == 0x88)
+    {
+        wValue   = GetDataWord(2); # Now that Endian is set...
+        wIndex   = GetDataWord(4);
+        wLength  = GetDataWord(6);
+
+        val_text =  Format("0x%04X", wValue);
+        val_text_Tooltip =  Format("wValue HexVal: 0x%04X", wValue);
+        AddWValueCell (val_text, val_text_Tooltip);
+
+        wIndex_text =  Format("0x%04X", wIndex);
+        wIndex_text_Tooltip =  Format("wIndex HexVal: 0x%04X", wIndex);
+        AddWIndexCell (wIndex_text, wIndex_text_Tooltip);
+
+        wLength_text =  Format("wLength HexVal: 0x%04X", wLength);
+        wLength_text_Tooltip =  Format("wLength HexVal: 0x%04X", wLength);
+        AddWLengthCell(wLength_text, wLength_text_Tooltip);
+
+        GetNBits( in.Data, 0, 0 );
+        dummy = NextNBits(6*8);
+        Len = NextNBits(8);
+        dummy = NextNBits(8);
+        Max_Datagram_Size = NextNBits(Len*8);
+
+        AddPayLoadCell("Max_Datagram_Size ",   Format("0x%02X", Max_Datagram_Size),
+            Format ("Set Max Datagram Size to = 0x%02X", Max_Datagram_Size), FieldColor);
+
+        out.Decoded = in.DataLength;
+    }
+}
+# end SET_MAX_DATAGRAM_SIZE
+
+#*******************************************************************************
+# GET_CRC_MODE :
+#                 This request returns the currently selected CRC mode for NTBs formatted by the function.
+#
+# bmRequestType : 0xA1
+# bRequest      : 0x89
+# wValue        : 0x0000
+# wIndex        : Interface
+# wLength       : Amount of data in bytes associated with this recipient
+# Data          : The current CRC mode, in little en-dian order (2 bytes).
+#*******************************************************************************
+# start GET_CRC_MODE
+GET_CRC_MODE()
+{
+    if (bRequest == 0x89)
+    {
+        wValue   = GetDataWord(2); # Now that Endian is set...
+        wIndex   = GetDataWord(4);
+        wLength  = GetDataWord(6);
+
+        val_text =  Format("0x%04X", wValue);
+        val_text_Tooltip =  Format("wValue HexVal: 0x%04X", wValue);
+        AddWValueCell (val_text, val_text_Tooltip);
+
+        wIndex_text =  Format("0x%04X", wIndex);
+        wIndex_text_Tooltip =  Format("wIndex HexVal: 0x%04X", wIndex);
+        AddWIndexCell (wIndex_text, wIndex_text_Tooltip);
+
+        wLength_text =  Format("wLength HexVal: 0x%04X", wLength);
+        wLength_text_Tooltip =  Format("wLength HexVal: 0x%04X", wLength);
+        AddWLengthCell(wLength_text, wLength_text_Tooltip);
+
+        GetNBits( in.Data, 0, 0 );
+        dummy = NextNBits(6*8);
+        Len = NextNBits(8);
+        dummy = NextNBits(8);
+        Crc_Mode = NextNBits(Len*8);
+
+        AddPayLoadCell("Crc_Mode",   Format("0x%X", Crc_Mode),
+            Format ("Crc Mode is = 0x%X", Crc_Mode), FieldColor);
+        out.Decoded = in.DataLength;
+    }
+}
+# end GET_CRC_MODE
+
+#*******************************************************************************
+# SET_CRC_MODE :
+#                 This request controls whether the function will append CRCs to
+#                 datagrams when formatting NTBs to be sent to the host.
+# bmRequestType : 0x21
+# bRequest      : 0x8A
+# wValue        : 0x0000/0x0001
+# wIndex        : Interface
+# wLength       : Amount of data in bytes associated with this recipient
+# Data          : None
+#*******************************************************************************
+# start SET_CRC_MODE
+SET_CRC_MODE()
+{
+    if (bRequest == 0x8A)
+    {
+        wValue   = GetDataWord(2); # Now that Endian is set...
+        wIndex   = GetDataWord(4);
+        wLength  = GetDataWord(6);
+
+        val_text =  Format("0x%04X", wValue);
+        val_text_Tooltip =  Format("wValue HexVal: 0x%04X", wValue);
+        AddWValueCell (val_text, val_text_Tooltip);
+
+        wIndex_text =  Format("0x%04X", wIndex);
+        wIndex_text_Tooltip =  Format("wIndex HexVal: 0x%04X", wIndex);
+        AddWIndexCell (wIndex_text, wIndex_text_Tooltip);
+
+        wLength_text =  Format("wLength HexVal: 0x%04X", wLength);
+        wLength_text_Tooltip =  Format("wLength HexVal: 0x%04X", wLength);
+        AddWLengthCell(wLength_text, wLength_text_Tooltip);
+
+        out.Decoded = in.DataLength;
+    }
+}
+# end SET_CRC_MODE
+

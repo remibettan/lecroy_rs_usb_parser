@@ -1,0 +1,1827 @@
+#
+#  Copyright (c) 2001, Computer Access Technology Corp. - All Rights Reserved
+#
+#  hci_command.dec
+#
+#  HCI command Display Decoder
+#
+
+%include "DecoderTools.inc"    #include usefull decoder functions
+%include "hci_common.inc"
+%include "hci_command_table.inc"
+
+#----  Input
+# in.Data       - Data_block to decode
+# in.DataLength - Length of Data_block 
+#
+#----  Output
+# out.Decoded   - amount of data has been decoded
+#
+
+%include "SharedTabularCellId.inc"
+
+const Tabular_Def_Table = Map( 
+[   
+    #-----------------------------------------------------------------------------------------------------
+    #       id              ,      colId                          , 		containerCellId
+    #-----------------------------------------------------------------------------------------------------
+    [ HCI_CELL_COMMAND      , TABULAR_SCRIPT_COLUMN_ID_SUBTYPE    , TABULAR_SCRIPT_CONTAINER_CELL_ID_NONE ],
+    [ HCI_CELL_LENGTH       , TABULAR_SCRIPT_COLUMN_ID_NONE       , TABULAR_SCRIPT_CONTAINER_CELL_ID_MISC ]
+] );
+
+
+set ModuleType  = "DataBlock Decoder";
+set OutputType  = "HCI command";
+
+# These values are for decoding on USB Analyzers
+set UsbDecodeType = "Request";
+set UsbClassCode = 0xE0;
+set UsbSubClass  = 0x01;
+set UsbProtocol  = 0x01;
+
+# This variable defines that the script which includes this file
+# belongs to the USB script decoding family.
+set ScriptFamily = "USB";
+
+
+
+set UsbReqType   = "Class";
+set UsbIgnoreSetupData = 1;
+
+
+#
+# Parsing entry point
+#
+const HCIcommandColor = 0x8854ff;
+
+set HciLength = 0;
+
+
+
+ProcessData()
+{
+    command = ( GetNBits(in.Data, 8, 8) << 8 ) | GetNBits(in.Data, 0, 8);
+    HciLength= GetNBits(in.Data, 16, 8);
+    _row = Find(HciCommandTable, command);
+    
+    AddCell("Command", _row[1], Format("0x%04X - ", command) + _row[2], HCIcommandColor, [_TABULARCELL, HCI_CELL_COMMAND]);
+    
+    AddCell("Length", Format("%d", HciLength), "",  HCIcommandColor, [_TABULARCELL, HCI_CELL_LENGTH, "TEXT_CAPTION"]);
+
+#    NextNBits(8);
+
+    Call ( _row[1], [ in.DataLength - 2 ] );
+
+    AddSeparator();
+
+###### uncomment the following lines if you need the original data of HCI
+#    GetNBits(in.Data, 0, 0);
+#    ShowDataBlock(in.DataLength);
+#########################################################################
+
+    out.Decoded = in.DataLength;
+    
+    return Complete();
+}
+
+
+
+##################### OGF = 0x01 - Link Control commands
+Inquiry()
+{
+    ShowLAP();
+    ShowInquiry_Length();
+    ShowNum_Responses();
+}
+
+Inquiry_Cancel() {}
+
+Periodic_Inquiry_Mode()
+{
+    data = Next16Bits();
+    AddCell ("Max_Period_Length", Format("%d", data), 
+             "Maximum amount of time specified between consecutive inquiries.\nRange: 0x03 - 0xFFFF\nTime = N * 1.28 sec\nRange: 3.84 - 83884.8 Sec\n0.0 - 23.3 hours",
+              HCIcommandColor, 
+              select { ( data < 0x03 ) : _ERROR; } );
+
+    data = Next16Bits();
+    AddCell ("Min_Period_Length", Format("%d", data), 
+             "Minimum amount of time specified between consecutive inquiries.\nRange: 0x02 - 0xFFFE\nTime = N * 1.28 sec\nRange: 2.56 - 83883.52 Sec\n0.0 - 23.3 hours",
+              HCIcommandColor, 
+              select { ( data < 0x02 ) : _ERROR; } );
+
+    ShowLAP();
+    ShowInquiry_Length();
+    ShowNum_Responses();
+}
+
+Exit_Periodic_Inquiry_Mode()  {}
+
+Create_Connection()
+{
+    ShowBD_ADDR(HCIcommandColor);
+    ShowPacket_Type(HCIcommandColor, PacketTypeTable_ACL);
+    ShowPage_Scan_Repetition_Mode(HCIcommandColor);
+    ShowPage_Scan_Mode(HCIcommandColor);
+    ShowClock_Offset();
+    ShowAllow_Role_Switch();
+}
+
+Disconnect()
+{
+    ShowConnection_Handle();
+    ShowReason();
+}
+
+Create_Connection_Cancel()
+{
+    ShowBD_ADDR(HCIcommandColor);
+}
+
+Add_SCO_Connection()
+{
+    ShowConnection_Handle();
+    ShowPacket_Type(HCIcommandColor, PacketTypeTable_SCO);
+}
+
+Accept_Connection_Request()
+{
+    ShowBD_ADDR(HCIcommandColor);
+    ShowRole();
+}
+
+Reject_Connection_Request()
+{
+    ShowBD_ADDR(HCIcommandColor);
+    ShowReason();
+}
+
+Link_Key_Request_Reply()
+{
+    ShowBD_ADDR(HCIcommandColor);
+    ShowLink_Key(HCIcommandColor);
+}
+
+Link_Key_Request_Negative_Reply()
+{
+    ShowBD_ADDR(HCIcommandColor);
+}
+
+PIN_Code_Request_Reply()
+{
+    ShowBD_ADDR(HCIcommandColor);
+    ShowPin_Code();
+}
+
+PIN_Code_Request_Negative_Reply()
+{
+    ShowBD_ADDR(HCIcommandColor);
+}
+
+Change_Connection_Packet_Type()
+{
+    ShowConnection_Handle();
+    ShowPacket_Type(HCIcommandColor, PacketTypeTable_ALL);
+}
+
+Authentication_Requested()
+{
+    ShowConnection_Handle();
+}
+
+Set_Connection_Encryption()
+{
+    ShowConnection_Handle();
+    ShowEncryption_Enable();
+}
+
+Change_Connection_Link_Key()
+{
+    ShowConnection_Handle();
+}
+
+Master_Link_Key()
+{
+    ShowKey_Flag();
+}
+
+Remote_Name_Request()
+{
+    ShowBD_ADDR(HCIcommandColor);
+    ShowPage_Scan_Repetition_Mode(HCIcommandColor);
+    ShowPage_Scan_Mode(HCIcommandColor);
+    ShowClock_Offset();
+}
+
+Remote_Name_Request_Cancel()
+{
+    ShowBD_ADDR(HCIcommandColor);
+}
+
+Read_Remote_Supported_Features()
+{
+    ShowConnection_Handle();
+}
+
+Read_Remote_Extended_Features()
+{
+    ShowConnection_Handle();
+    ShowPage(HCIcommandColor);
+}
+
+Read_Remote_Version_Information()
+{
+    ShowConnection_Handle();
+}
+
+Read_Clock_Offset()
+{
+    ShowConnection_Handle();
+}
+
+Read_LMP_Handle()
+{
+    ShowConnection_Handle();
+}
+
+Setup_Synchronous_Connection()
+{
+    ShowConnection_Handle();
+    ShowTransmit_Bandwidth();
+    ShowReceive_Bandwidth();
+    ShowMax_Latency();
+    ShowVoice_Setting(HCIcommandColor);
+    ShowRetransmission_Effort();
+    ShowPacket_Type(HCIcommandColor, PacketTypeTable_eSCO);
+}
+
+Accept_Synchronous_Connection_Request()
+{
+    ShowBD_ADDR(HCIcommandColor);
+    ShowTransmit_Bandwidth();
+    ShowReceive_Bandwidth();
+    ShowMax_Latency();
+    ShowVoice_Setting(HCIcommandColor);
+    ShowRetransmission_Effort();
+    ShowPacket_Type(HCIcommandColor, PacketTypeTable_eSCO);
+}
+
+Reject_Synchronous_Connection_Request()
+{
+    ShowBD_ADDR(HCIcommandColor);
+    ShowReason();
+}
+
+################### OGF = 0x02 - Link Policy Commands
+Hold_Mode() 
+{
+    ShowConnection_Handle();
+    ShowHold_Mode_Max_Interval();
+    ShowHold_Mode_Min_Interval();
+}
+
+Sniff_Mode()
+{
+    ShowConnection_Handle();
+    ShowSniff_Max_Interval();
+    ShowSniff_Min_Interval();
+    ShowSniff_Attempt();
+    ShowSniff_Timeout();
+}
+
+Exit_Sniff_Mode()
+{
+    ShowConnection_Handle();
+}
+
+Park_Mode()
+{
+    ShowConnection_Handle();
+    ShowBeacon_Max_Interval();
+    ShowBeacon_Min_Interval();
+}
+
+Exit_Park_Mode()
+{
+    ShowConnection_Handle();
+}
+
+QoS_Setup()
+{
+    ShowConnection_Handle();
+    ShowFlags(HCIcommandColor);
+    ShowService_Type();
+    ShowToken_Rate(HCIcommandColor);
+    ShowPeak_Bandwidth(HCIcommandColor);
+    ShowLatency(HCIcommandColor);
+    ShowDelay_Variation(HCIcommandColor);
+}
+
+Role_Discovery()
+{
+    ShowConnection_Handle();
+}
+
+Switch_Role()
+{
+    ShowBD_ADDR(HCIcommandColor);
+    ShowRoleSw();
+}
+
+Read_Link_Policy_Settings()
+{
+    ShowConnection_Handle();
+}
+
+Write_Link_Policy_Settings()
+{
+    ShowConnection_Handle();
+    ShowLink_Policy_Settings(HCIcommandColor);
+}
+
+Read_Default_Link_Policy_Settings()
+{}
+
+Write_Default_Link_Policy_Settings()
+{
+    ShowLink_Policy_Settings(HCIcommandColor);
+}
+
+Flow_Specification()
+{
+    ShowConnection_Handle();
+    ShowFlags(HCIcommandColor);
+
+    ShowFlow_direction(HCIcommandColor);
+    ShowService_Type();
+    ShowToken_Rate(HCIcommandColor);
+    ShowToken_Bucket_Size(HCIcommandColor);
+    ShowPeak_Bandwidth(HCIcommandColor);
+    ShowLatency(HCIcommandColor);
+}
+
+
+#################### OGF = 0x03 - Host Controller & Baseband Commands
+Set_Event_Mask()
+{
+    ShowEvent_Mask();
+}
+
+Reset()    {}
+
+
+
+
+set Filter_TypeTable = 
+[
+  [0xFF , "Reserved"            , "" ],
+  [0x00 , "Clear All Filters"   , "" ],
+  [0x01 , "Inquiry Result"      , "ShowInquiry_Result_Filter_Condition_Type"   ],
+  [0x02 , "Connection Setup"    , "ShowConnection_Setup_Filter_Condition_Type" ]
+];
+
+
+Set_Event_Filter()
+{
+  data = NextNBits(8);
+  _row = Find(Filter_TypeTable, data);
+  AddCell("Filter_Type",  _row[1], Format("0x%02X - ", data) + _row[1], HCIcommandColor);
+
+  Call ( _row[2] );
+}
+
+Flush()
+{
+    ShowConnection_Handle();
+}
+
+Read_PIN_Type()  {}
+
+Write_PIN_Type()
+{
+    ShowPIN_Type(HCIcommandColor);
+}
+
+Create_New_Unit_Key()  {}
+
+Read_Stored_Link_Key()
+{
+    ShowBD_ADDR(HCIcommandColor);
+    ShowRead_All_Flag();
+}
+
+Write_Stored_Link_Key()
+{
+    num = NextNBits(8);
+    AddCell("Num_Keys_To_Write", Format("%d", num),
+            "Number of Link Keys to Write.\nRange: 0x01 - 0x0B",
+             HCIcommandColor,
+             select {((num < 1) || (num > 0xB)): _ERROR; } );
+    for (i = 0; i < num; i++)
+    {
+        ShowBD_ADDR(HCIcommandColor);
+    }
+    for (i = 0; i < num; i++)
+    {
+        ShowLink_Key(HCIcommandColor);
+    }
+}
+
+Delete_Stored_Link_Key()
+{
+   ShowBD_ADDR(HCIcommandColor);
+   ShowDelete_All_Flag();
+}
+
+Write_Local_Name()
+{
+    ShowName(HCIcommandColor);
+}
+
+
+Read_Local_Name()                {}
+Read_Connection_Accept_Timeout() {}
+
+Write_Connection_Accept_Timeout()
+{
+    ShowConn_Accept_Timeout();
+}
+
+Read_Page_Timeout()    {}
+
+Write_Page_Timeout()
+{
+  ShowPage_Timeout();
+}
+
+Read_Scan_Enable()     {}
+
+Write_Scan_Enable()
+{
+   ShowScan_Enable(HCIcommandColor);
+}
+
+Read_Page_Scan_Activity()   {}
+
+Write_Page_Scan_Activity()
+{
+    ShowPage_Scan_Interval(HCIcommandColor);
+    ShowPage_Scan_Window(HCIcommandColor);
+}
+
+Read_Inquiry_Scan_Activity()   {}
+
+Write_Inquiry_Scan_Activity()
+{
+    ShowInquiry_Scan_Interval(HCIcommandColor);
+    ShowInquiry_Scan_Window(HCIcommandColor);
+}
+
+Read_Authentication_Enable() {}
+
+Write_Authentication_Enable()
+{
+    ShowAuthentication_Enable(HCIcommandColor);
+}
+
+Read_Encryption_Mode()    {}
+
+Write_Encryption_Mode()
+{
+    ShowEncryption_Mode(HCIcommandColor);
+}
+
+Read_Class_of_Device()    {}
+
+Write_Class_of_Device()
+{
+    ShowClass_of_Device(HCIcommandColor);
+}
+
+Read_Voice_Setting()     {}
+
+Write_Voice_Setting()
+{
+    ShowVoice_Setting(HCIcommandColor);
+}
+
+Read_Automatic_Flush_Timeout()
+{
+    ShowConnection_Handle();
+}
+
+Write_Automatic_Flush_Timeout()
+{
+    ShowConnection_Handle();
+    ShowFlush_Timeout(HCIcommandColor);
+}
+
+Read_Num_Broadcast_Retransmissions()   {}
+
+Write_Num_Broadcast_Retransmissions()
+{
+    ShowNum_Broadcast_Retran(HCIcommandColor);
+}
+
+Read_Hold_Mode_Activity() {}
+
+Write_Hold_Mode_Activity()
+{
+    ShowHold_Mode_Activity(HCIcommandColor);
+}
+
+Read_Transmit_Power_Level()
+{
+    ShowConnection_Handle();
+    ShowType();
+}
+
+Read_SCO_Flow_Control_Enable()  {}
+
+Write_SCO_Flow_Control_Enable()
+{
+    ShowSCO_Flow_Control_Enable(HCIcommandColor);
+}
+
+Set_Host_Controller_To_Host_Flow_Control()
+{
+    ShowFlow_Control_Enable();
+}
+
+Host_Buffer_Size()
+{
+
+    data = Next16Bits();
+    AddCell ("Host_ACL_Data_Packet_Length", Format("%d", data), "Maximum length (in bytes) of the data portion of each HCI ACL Data Packet that the Host is able to accept.", HCIcommandColor);
+
+    data = NextNBits(8);
+    AddCell ("Host_SCO_Data_Packet_Length", Format("%d", data), "Maximum length (in bytes) of the data portion of each HCI synchronous Data Packets that the Host is able to accept.", HCIcommandColor);
+
+    data = Next16Bits();
+    AddCell ("Host_Total_Num_ACL_Data_Packets", Format("%d", data), "Total number of HCI ACL Data Packets that can be stored in the data buffers of the Host." , HCIcommandColor);
+
+    data = Next16Bits();
+    AddCell ("Host_Total_Num_SCO_Data_Packets", Format("%d", data), "Total number of HCI synchronous Data Packets that can be stored in the data buffers of the Host." , HCIcommandColor);
+}
+
+Host_Number_Of_Completed_Packets()
+{
+    num = NextNBits(8);
+    AddCell("Number_Of_Handles", Format("%d", num),
+            "The number of Connection Handles and Host_Num_Of_Completed_Packets\nparameters pairs contained in this command.",
+             HCIcommandColor );
+
+    for (i = 0; i < num; i++)
+    {
+        ShowConnection_Handle();
+    }
+    for (i = 0; i < num; i++)
+    {
+        data = Next16Bits();
+        AddCell( "Host_Num_Of_Completed_Packets",
+                 Format("%d", data), 
+                 "The number of HCI Data Packets that have been completed for the associated\nConnection Handle since the previous time the event was returned.",
+             HCIcommandColor );
+    }
+}
+
+Read_Link_Supervision_Timeout()
+{
+    ShowConnection_Handle();
+}
+
+Write_Link_Supervision_Timeout()
+{
+    ShowConnection_Handle();
+    ShowLink_Supervision_Timeout(HCIcommandColor);
+}
+
+Read_Number_Of_Supported_IAC()  {}
+Read_Current_IAC_LAP()          {}
+
+Write_Current_IAC_LAP()
+{
+    num = NextNBits(8);
+    AddCell("Num_Current_IAC", Format("%d", num),
+            "Specifies the number of IACs which are currently in use by the local Bluetooth\ndevice to simultaneously listen for during an Inquiry Scan.\nRange: 0x01-0x40",
+             HCIcommandColor,
+             select {((num < 1) || (num > 0x40)): _ERROR; } );
+
+    for (i = 0; i < num; i++)
+    {
+        iac_lap = Next24Bits();
+
+        AddCell("IAC_LAP", Format("0x%06X", iac_lap), "LAP(s) used to create IAC which is currently in use by the local Bluetooth\ndevice to simultaneously listen for during an Inquiry Scan.\nRange: 0x9E8B00-0x9E8B3F."
+                , HCIcommandColor,
+              select {((iac_lap < 0x9E8B00) || (iac_lap > 0x9E8B3F)): _ERROR; } );
+    }
+}
+
+Read_Page_Scan_Period_Mode() {}
+
+Write_Page_Scan_Period_Mode()
+{
+    ShowPage_Scan_Period_Mode(HCIcommandColor);
+}
+
+Read_Page_Scan_Mode()    {}
+
+Write_Page_Scan_Mode()
+{
+    ShowPage_Scan_Mode(HCIcommandColor);
+}
+
+Set_AFH_Host_Channel_Classification()
+{
+    text = "0x";
+    for (i = 0; i < 10; i++)
+    {
+        text = text + Format("%02X", NextNBits(8));
+    }
+    AddCell("AFH_Host_Channel_Classification", text, "", HCIcommandColor ); 
+}
+
+Read_Inquiry_Scan_Type()           {}
+
+Write_Inquiry_Scan_Type()
+{
+    data = NextBits(8);
+    select {
+      data == 0 : AddCell("Scan_Type", "Standard", "0 - Mandatory: Standard Scan",  HCIcommandColor);
+      data == 1 : AddCell("Scan_Type", "Interlaced", "1 - Optional: Interlaced Scan",  HCIcommandColor);
+      default   : AddCell("Scan_Type", Format("0x%02X", data) , "Reserved value.",  HCIcommandColor);
+    };
+}
+
+Read_Inquiry_Mode()                {}
+
+Write_Inquiry_Mode()
+{
+    data = NextBits(8);
+    select {
+      data == 0 : AddCell("Inquiry_Mode", "Standard", "0 - Standard Inquiry Result event format",  HCIcommandColor);
+      data == 1 : AddCell("Inquiry_Mode", "with RSSI", "1 - Inquiry Result format with RSSI",  HCIcommandColor);
+      default   : AddCell("Inquiry_Mode", Format("0x%02X", data) , "Reserved value.",  HCIcommandColor);
+    };
+}
+
+Read_Page_Scan_Type()              {}
+
+Write_Page_Scan_Type()
+{
+    data = NextBits(8);
+    select {
+      data == 0 : AddCell("Page_Scan_Type", "Standard", "0 - Mandatory: Standard Scan",  HCIcommandColor);
+      data == 1 : AddCell("Page_Scan_Type", "Interlaced", "1 - Optional: Interlaced Scan",  HCIcommandColor);
+      default   : AddCell("Page_Scan_Type", Format("0x%02X", data) , "Reserved value.",  HCIcommandColor);
+    };
+}
+
+Read_AFH_Channel_Assessment_Mode() {}
+
+Write_AFH_Channel_Assessment_Mode()
+{
+    data = NextBits(8);
+    select {
+      data == 0 : AddCell("AFH_Channel_Assessment_Mode", "disabled", "0 - Controller channel assessment disabled.",  HCIcommandColor);
+      data == 1 : AddCell("AFH_Channel_Assessment_Mode", "enabled", "1 - Controller channel assessment enabled.",  HCIcommandColor);
+      default   : AddCell("AFH_Channel_Assessment_Mode", Format("0x%02X", data) , "Reserved value.",  HCIcommandColor);
+    };
+}
+
+################### OGF = 0x04 - Informational Parameters
+Read_Local_Version_Information()   {}
+Read_Local_Supported_Commands()    {}
+Read_Local_Supported_Features()    {}
+
+Read_Local_Extended_Features()
+{
+    ShowPage(HCIcommandColor);
+}
+
+Read_Buffer_Size()                 {}
+Read_Country_Code()                {}
+Read_BD_ADDR()                     {}
+ 
+############## OGF = 0x05 - status parameters.
+Read_Failed_Contact_Counter()
+{
+    ShowConnection_Handle();
+}
+
+Reset_Failed_Contact_Counter()
+{
+    ShowConnection_Handle();
+}
+
+Read_Link_Quality()
+{
+    ShowConnection_Handle();
+}
+
+Read_RSSI()
+{
+    ShowConnection_Handle();
+}
+
+Read_AFH_Channel_Map()
+{
+    ShowConnection_Handle();
+}
+
+Read_Clock()
+{
+    ShowConnection_Handle();
+
+    data = NextBits(8);
+    select {
+      data == 0 : AddCell("Which_Clock", "Local", "0 - Local Clock (Connection Handle does not have to be a valid handle)",  HCIcommandColor);
+      data == 1 : AddCell("Which_Clock", "Piconet", "1 - Piconet Clock (Connection Handle shall be a valid ACL Handle).",  HCIcommandColor);
+      default   : AddCell("Which_Clock", Format("0x%02X", data) , "Reserved value.",  HCIcommandColor);
+    };
+}
+
+############# OGF = 0x06 - Testing commands
+Read_Loopback_Mode()    {}
+
+Write_Loopback_Mode()
+{
+    ShowLoopback_Mode(HCIcommandColor);
+}
+
+Enable_Device_Under_Test_Mode()  {}
+
+
+
+############ CATC specific commands
+
+CATC_Read_HW_FIFO() {}
+
+CATC_Write_HW_FIFO() 
+{
+    ShowDataBlock(HciLength);
+}
+
+CATC_Read_HW_Register() 
+{
+    ShowCatcOffset();
+}
+
+CATC_Write_HW_Register() 
+{
+    ShowCatcOffset();
+    AddCell("Data", Format("0x%04X", Next16Bits()), "", HCIcommandColor);
+}
+
+CATC_Read_I2C()
+{
+    ShowCatcChipID();
+    ShowCatcAddress();
+
+}
+
+CATC_Write_I2C()
+{
+    ShowCatcChipID();
+    ShowCatcAddress();
+    AddCell("Data", Format("0x%02X", NextNBits(8)), "", HCIcommandColor);
+}
+
+CATC_Write_PCM_Settings() 
+{
+    AddCell("Settings", Format("0x%04X", Next16Bits()), "", HCIcommandColor);
+}
+
+CATC_Write_Country_Code() 
+{
+    AddCell("CountryCode", Format("0x%02X", NextNBits(8)), "", HCIcommandColor);
+}
+
+CATC_Read_Revision_Information() {}
+
+CATC_Enable_Real_Timestamp() 
+{
+    data = NextNBits(8);
+    AddCell("Mode", select { data == 0: "enable"; data == 1: "disable"; default: "unknown"; }, "", HCIcommandColor);
+}
+
+CATC_Reset() {}
+
+Catc_Write_Encryption_Key_Size() 
+{
+    ShowCatcKeySize(HCIcommandColor);
+}
+
+Catc_Read_Encryption_Key_Size() {}
+Catc_Write_Link_Key_Type() 
+{
+    ShowCatcKeyType(HCIcommandColor);
+}
+
+Catc_Read_Link_Key_Type() {}
+
+Catc_Select_SCO_Connection()
+{
+    ShowConnection_Handle();
+    ShowCatcDataPath(HCIcommandColor);
+    data = NextNBits(8);
+    AddCell("Data_Length", data, "range 0 - 30\nValid only if Data_Path=HCI is selected.\nIf 0, the data pattern is PRBS-9." , HCIcommandColor);
+      
+    ShowDataBlock(data);
+}
+
+Catc_Get_Selected_SCO_Connection() {}
+
+Catc_WriteLocalSupportedFeatures()
+{
+    ShowLmpFeatures(HCIcommandColor);
+}
+
+Catc_SetParkMode()
+{
+    ShowCatcParkMode(HCIcommandColor);
+}
+
+Catc_GetParkMode() 
+{}
+
+Catc_SetBroadcastScanWindow()
+{
+    ShowConnection_Handle();
+    data = Next16Bits();
+    AddCell("BroadcastScanWindow", Format("%d slots", data), "", HCIcommandColor);
+}
+
+Catc_ModifyBeacon()
+{
+    ShowConnection_Handle();
+    ShowBeacon_Max_Interval();
+    ShowBeacon_Min_Interval();
+}
+
+Catc_QoSResponse()
+{
+    data = NextNBits(8);
+    select {
+      data == 0: AddCell("Mode", "reject", "0 - Reject all incoming LMP_Quality_Of_Service",  HCIcommandColor);
+      data == 1: AddCell("Mode", "accept", "1 - Accept",  HCIcommandColor);
+      default:   AddCell("Mode", Format("0x%02X", data), "reserved value",  HCIcommandColor, _ERROR);
+    };
+}
+
+Catc_MaxSlotResponse()
+{
+    ShowConnection_Handle();
+
+    data = NextNBits(8);
+    select {
+      data == 0: AddCell("Action", "reject", "0 - Reject",  HCIcommandColor);
+      data == 1: AddCell("Action", "accept", "1 - Accept",  HCIcommandColor);
+      default:   AddCell("Action", Format("0x%02X", data), "reserved value",  HCIcommandColor, _ERROR);
+    };
+
+    data = NextNBits(8);
+    select {
+      data == 0: AddCell("Event", "enable" , "0-EnableCatcMaxSlotRequestEvent" ,  HCIcommandColor);
+      data == 1: AddCell("Event", "disable", "1-DisableCatcMaxSlotRequestEvent",  HCIcommandColor);
+      default:   AddCell("Event", Format("0x%02X", data), "reserved value",  HCIcommandColor, _ERROR);
+    };
+}
+
+
+Catc_ScoParameterChangeResponse()
+{
+    data = NextNBits(8);
+    select {
+      data == 0: AddCell("Mode", "reject", "0 - Reject all incoming parameter change",  HCIcommandColor);
+      data == 1: AddCell("Mode", "accept", "1 - Accept",  HCIcommandColor);
+      default:   AddCell("Mode", Format("0x%02X", data), "reserved value",  HCIcommandColor, _ERROR);
+    };
+}
+
+Catc_MaxSlot()
+{
+    ShowConnection_Handle();
+    ShowMaxSlot(HCIcommandColor);
+}
+
+Catc_PageModeRequest()
+{
+    ShowConnection_Handle();
+    ShowPagingSchemeAndSettings();
+}
+
+
+Catc_PageScanModeRequest()
+{
+    ShowConnection_Handle();
+    ShowPagingSchemeAndSettings();
+}
+
+Catc_PageScanModeResponse()
+{
+    data = NextNBits(8);
+    select {
+      data == 0: AddCell("Mode", "accept", "0 - Accept",  HCIcommandColor);
+      data == 1: AddCell("Mode", "reject", "1 - Reject",  HCIcommandColor);
+      default:   AddCell("Mode", Format("0x%02X", data), "reserved value",  HCIcommandColor, _ERROR);
+    };
+}
+
+Catc_TimingAccuracyRequest()
+{
+    ShowConnection_Handle();
+}
+
+Catc_IncreasePowerRequest()
+{
+    ShowConnection_Handle();
+}
+
+Catc_DecreasePowerRequest()
+{
+    ShowConnection_Handle();
+}
+
+Catc_OverrideRemoteFeatureCheck()
+{
+    ShowConnection_Handle();
+}
+
+Catc_Disconnect()
+{
+    ShowConnection_Handle();
+
+    data = NextNBits(8);
+    select {
+      data == 0: AddCell("Mode", "Tester Detach"            , "0 - Tester Detach"           ,  HCIcommandColor);
+      data == 1: AddCell("Mode", "IUT Detach"               , "1 - IUT Detach"              ,  HCIcommandColor);
+      data == 2: AddCell("Mode", "Link Supervision( Slave)" , "2 - Link Supervision (Slave)",  HCIcommandColor);
+      data == 3: AddCell("Mode", "Link Supervision( Master)", "3 - Link Supervision (Master)", HCIcommandColor);
+      default:   AddCell("Mode", Format("0x%02X", data)     , "reserved value"              ,  HCIcommandColor, _ERROR);
+    };
+
+    data = NextNBits(8);
+    AddCell("TimeOut", Format("%d", data), "TimeOut value\nUsed only in IUT Detach mode\nWait for this time period for detach request from IUT.\nIf no detach received, time out as nothing happened",  HCIcommandColor);
+
+
+}
+
+Catc_ScoErrorInjection()
+{
+    ShowConnection_Handle();
+
+    data = NextNBits(8);
+    select {
+      data == 0: AddCell("Test Scenario", "DV retransmittion", "0 - Retransmission of DV packet",  HCIcommandColor);
+      data == 1: AddCell("Test Scenario", "Uncorrectable DV", "1 - Uncorrectable DV packet",  HCIcommandColor);
+      default:   AddCell("Test Scenario", Format("0x%02X", data), "reserved value",  HCIcommandColor, _ERROR);
+    };
+
+}
+
+Catc_QoS()
+{
+    ShowConnection_Handle();
+
+    data = Next16Bits();
+    AddCell("poll interval", Format("%d slots", data), Format("Poll Interval = 0x%04X", data), HCIcommandColor); 
+
+    data = NextNBits(8);
+    AddCell("Nbc", Format("%d", data), "number of repetitions for broadcast packets", HCIcommandColor); 
+}
+
+#############################
+
+ShowCatcOffset()
+{
+    AddCell("Offset", Format("0x%02X", NextNBits(8)), "", HCIcommandColor);
+}
+
+ShowCatcChipID()
+{
+    AddCell("ChipID", Format("0x%02X", NextNBits(8)), "", HCIcommandColor);
+}
+
+ShowCatcAddress()
+{
+    AddCell("Address", Format("0x%02X", NextNBits(8)), "", HCIcommandColor);
+}
+
+
+############# OGF = 0x.. - CATC TCI commands
+set TciTestScenarioPageTable = [
+ [ 0xFF,  "Reserved" ],
+ [ 0x00,  "Return to use the normal Page" ],
+ [ 0x01,  "The tester pages the IUT only in the first half of the Tx time slot. \nAfter receiving response, the tester does not send an FHS packet. \nThe test continues according to TP/PHYS/PAG/BV-10-C or TP/PHYS/PAG/BV-11-C test case \naccording to the current Country Code." ],
+ [ 0x02,  "The tester pages the IUT only in the second half of the Tx time slot. \nAfter receiving response, the tester does not send an FHS packet. \nThe test continues according to TP/PHYS/PAG/BV-12-C or TP/PHYS/PAG/BV-13-C test case according to the current Country Code." ],
+ [ 0x03,  "The tester pages the IUT until the response ID is received. \nThe tester does not respond with FHS, but waits 16 slots, then 8 slots, \nand then an additional randomly chosen 0-1023 slots. \nPerform the test according to TP/PHYS/PAG/BV-14-C test case and current page scheme." ],
+ [ 0x04,  "The tester pages the IUT until the response ID is received. \nThe tester does not respond with FHS, but waits 16 slots, then 8 slots, \nand then an additional randomly chosen 0-2047 slots. \nPerform the test according to TP/PHYS/PAG/BV-16-C test case and current page scheme." ],
+ [ 0x05,  "The tester pages the IUT until the response ID is received. \nThe tester does not respond with FHS, but waits 16 slots, then 8 slots, \nand then an additional randomly chosen 0-4095 slots. \nPerform the test according to TP/PHYS/PAG/BV-18-C test case and current page scheme." ],
+ [ 0x06,  "The tester pages the IUT using page train A until the response ID is received. \nThe tester does not respond with FHS, but waits 16 slots, \nthen 8 slots, and then an additional randomly chosen 0-200 slots. \nPerform the test according to TP/PHYS/PAG/BV-20-C test case and current page scheme." ],
+ [ 0x07,  "Supports TP/PHYS/PAG/BV-31-C test case." ],
+ [ 0x08,  "Supports TP/PHYS/PAG/BV-32-C test case." ]
+];
+
+TCI_CatcPage () 
+{
+    ShowBD_ADDR(HCIcommandColor);
+
+    data = NextNBits(8);
+    _row = Find(TciTestScenarioPageTable, data);
+    AddCell("TestScenario",  Format("0x%02X", data), _row[1], HCIcommandColor);
+    ShowNumberOfTimes();
+}
+
+
+set TciTestScenarioPageScanTable = [
+ [ 0xFF , "Reserved" ],
+ [ 0x00 , "Return to use the normal Page Scan" ],
+ [ 0x01 , "Disable responding to incoming page ID packets \naccording to the TP/PHYS/PAG/BV-01-C or TP/PHYS/PAG/BV-02-C test cases \ndepending on the current Country Code settings" ],
+ [ 0x02 , "Respond to the first ID packet and the second \nreceived FHS packet from the Paging device according to \nTP/PHYS/PAG/BV-03-C and TP/PHYS/PAG/BV-04-C test cases depending on the current Country Code settings" ],
+ [ 0x03 , "Respond to the second ID packet and the second \nreceived FHS packet from the Paging device according to \nTP/PHYS/PAG/BV-05-C and TP/PHYS/PAG/BV-06-C test cases depending on the current Country Code settings" ]
+];
+
+TCI_CatcPageScan () 
+{
+    data = NextNBits(8);
+    _row = Find(TciTestScenarioPageScanTable, data);
+    AddCell("TestScenario",  Format("0x%02X", data), _row[1], HCIcommandColor);
+
+    AddCell("Npage", Next16Bits(), "Specifies Npage of the paging device", HCIcommandColor);
+}
+
+
+set TciTestScenarioInquiryTable = [
+ [ 0xFF , "Reserved" ],
+ [ 0x00 , "Exit the Inquiry test mode" ],
+ [ 0x01 , "Perform Inquiry procedure according to \nTP/PHYS/INQ/BV-10-C or TP/PHYS/INQ/BV-11-C test cases d\nepending on the current Country Code settings" ],
+ [ 0x02 , "Perform Inquiry procedure according to \nTP/PHYS/INQ/BV-14-C test case"                                                                          ],
+ [ 0x03 , "Perform Inquiry procedure according to \nTP/PHYS/INQ/BV-31-C test case. \nAn initial condition is an existence of 1 SCO link with HV3 packet." ],
+ [ 0x04 , "TBDRequires 2 SCO links" ]
+];
+
+TCI_CatcInquiry () 
+{
+    data = NextNBits(8);
+    _row = Find(TciTestScenarioInquiryTable, data);
+    AddCell("TestScenario",  Format("0x%02X", data), _row[1], HCIcommandColor);
+    ShowNumberOfTimes();
+}
+
+set TciTestScenarioInquiryScanTable = [
+ [ 0xFF , "Reserved" ],
+ [ 0x00 , "Exit Inquiry Scan test mode" ],
+ [ 0x01 , "Disable responding to incoming inquiry ID packets. \nPerform according to TP/PHYS/INQ/BV-01-C or TP/PHYS/INQ/BV-02-C \naccording to the current Country Code settings" ]
+];
+
+
+TCI_CatcInquiryScan () 
+{
+    data = NextNBits(8);
+    _row = Find(TciTestScenarioInquiryScanTable, data);
+    AddCell("TestScenario",  Format("0x%02X", data), _row[1], HCIcommandColor);
+
+    AddCell("Ninquiry", Next16Bits(), "Number of train repetitions", HCIcommandColor);
+}
+
+    
+set TciErrorTypeTestControlMasterTable = [
+ [ 0xFFFF , "Reserved" ],
+ [ 0x0008 , "HEC error injection"  ],
+ [ 0x0010 , "CRC error injection"  ],
+ [ 0x0040 , "FEC 2/3 error injection" ],
+ [ 0x0080 , "FEC 1/3 header error injection" ],
+ [ 0x0100 , "FEC 1/3 payload error injection" ],
+ [ 0x0200 , "Wrong AM_ADDR of the slave. \nData parameter contains the AM_ADDR to be transmitted." ],
+ [ 0x0000 , "No error" ]
+];
+
+       
+TCI_CatcTestControlMaster () 
+{
+    ShowConnection_Handle();
+    ShowLmpTestScenario(HCIcommandColor);
+    ShowLmpHoppingMode(HCIcommandColor);
+    ShowTxFreq(HCIcommandColor);
+    ShowRxFreq(HCIcommandColor);
+    ShowPowerControlMode(HCIcommandColor);
+    ShowPollPeriod(HCIcommandColor);
+    ShowPacketType(HCIcommandColor);
+
+    ShowNumberOfPackets();
+    ShowTimeLength();
+    ShowTciPacketData();
+    ShowTciErrorType(TciErrorTypeTestControlMasterTable);
+    ShowTciErrorMask();
+    ShowTciTxJitter(HCIcommandColor);
+}
+
+TCI_CatcTestControlSlave () {}
+TCI_CatcTestActivate () {}
+
+set TciErrorTypeCreateConnectionTable = [
+ [ 0xFFFF , "Reserved"                                                         ],
+ [ 0x0000 , "No error"                                                         ],
+ [ 0x0001 , "FEC 1/3 - uncorrectable packet header"                            ],
+ [ 0x0002 , "FEC 2/3 - uncorrectable payload.Special case is for DV payload"   ],
+ [ 0x0004 , "Explicit NAK"                                                     ],
+ [ 0x0008 , "SEQN. See TP/PROT/ARQ/BV-18-C test case"                          ],
+ [ 0x0010 , "FLOW control"                                                     ],
+ [ 0x0020 , "Same SEQN value. See TP/PROT/ARQ/BV-23-C test case"               ],
+ [ 0x0040 , "Wrong UAP"                                                        ],
+ [ 0x0080 , "Wrong AM_ADDR of the slave"                                       ],
+ [ 0x0100 , "Deadlock avoidance according to the LMP test case TP/LIH/BV-81-C" ]
+];
+
+TCI_CatcCreateConnectionExt ()
+{
+    ShowBD_ADDR(HCIcommandColor);
+    ShowPacket_Type(HCIcommandColor, PacketTypeTable_ACL);
+    ShowPage_Scan_Repetition_Mode(HCIcommandColor);
+    ShowPage_Scan_Mode(HCIcommandColor);
+    ShowClock_Offset();
+    ShowAllow_Role_Switch();
+
+    ShowNumberOfPackets();
+    ShowTimeLength();
+    ShowTciPacketData();
+
+    ShowTciErrorType(TciErrorTypeCreateConnectionTable);
+
+    ShowTciErrorMask();
+    ShowTciTxJitter(HCIcommandColor);
+
+    # This field was added in BTTrainer 2.01 
+    ShowTciL_CH();
+}
+
+
+set TciTestScenarioAcceptConnectionTable = [
+ [ 0xFF , "Reserved"                                  ],
+ [ 0 , "Comply with the regular Bluetooth connection" ],
+ [ 1 , "Send packets in every slave Tx slot"          ]
+];
+
+
+
+set TciErrorTypeAcceptConnectionTable = [
+ [ 0xFFFF , "Reserved"                                                         ],
+ [ 0x0000 , "No error"                                                         ],
+ [ 0x0001 , "Send NULL packets with NAK as the response \nto the incoming data packets" ],
+ [ 0x0002 , "Implicit NAK. \nNo response to the incoming data packets."        ],
+ [ 0x0004 , "Uncorrectable FEC 1/3 header error injection"                     ],
+ [ 0x0008 , "Uncorrectable FEC 2/3 payload error injection"                    ],
+ [ 0x0010 , "FLOW control bit set to 0. \nNAK bit is set as well."             ],
+ [ 0x0020 , "FLOW control bit set to 0. \nNAK bit is set as well.Implicit GO." ],
+ [ 0x0040 , "Same SEQN value"                                                  ],
+ [ 0x0080 , "Wrong UAP"                                                        ],
+ [ 0x0100 , "Deadlock avoidance according to the LMP test case TP/LIH/BV-80-C" ]
+];
+
+TCI_CatcAcceptConnectionExt () 
+{
+    data = NextNBits(8);
+    _row = Find(TciTestScenarioAcceptConnectionTable, data);
+    AddCell("TestScenario",  Format("0x%02X", data), _row[1], HCIcommandColor);
+
+    ShowPacket_Type(HCIcommandColor, PacketTypeTable_ACL);
+    ShowNumberOfPackets();
+    ShowTciPacketData();
+
+    ShowTciErrorType(TciErrorTypeAcceptConnectionTable);
+
+    ShowTciErrorMask();
+    ShowTciTxJitter(HCIcommandColor);
+
+    # This field was added in BTTrainer 2.01 
+    ShowTciL_CH();
+}
+
+TCI_CatcSetClock () 
+{
+    data = Next32Bits();
+    AddCell("Clock",  Format("0x%07X", data), "Local Bluetooth clock ", HCIcommandColor);
+}
+TCI_CatcSetBdAddr () 
+{
+    ShowBD_ADDR(HCIcommandColor);
+}
+
+TCI_CatcCreateConnectionExt_Disconnect()
+{
+}
+
+
+
+
+
+ShowNumberOfTimes()
+{
+    AddCell("Times",  Next16Bits(), "Number of times to repeat the test", HCIcommandColor);
+}
+
+ShowNumberOfPackets()
+{
+    AddCell("NumOfPackets", Next16Bits(), "", HCIcommandColor);
+}
+
+ShowTimeLength()
+{
+    AddCell("TimeLength", Format("%d ms", Next16Bits()), "", HCIcommandColor);
+}
+
+ShowTciPacketData()
+{
+    data = Next16Bits();
+    AddCell("PacketLength", data, "", HCIcommandColor);
+    ShowDataBlock(data);
+}
+
+ShowTciErrorType( table )
+{
+    data = Next16Bits();
+    _row = Find(table, data);
+    AddCell("ErrorType",  Format("0x%04X", data), _row[1], HCIcommandColor);
+}
+
+ShowTciErrorMask()
+{
+    AddCell("ErrorMask", Format("0x%04X", Next16Bits()), "", HCIcommandColor);
+}
+
+
+ShowTciL_CH()
+{
+    data = NextNBits(8);
+    select {
+        data == 1: AddCell("L_CH", "Cont" ,"L_CH = 1\nContinuation fragment of an L2CAP message\nDefines payload header L_CH value and type of the payload to be sent.", HCIcommandColor); 
+        data == 2: AddCell("L_CH", "Start","L_CH = 2\nStart of an L2CAP message or no fragmentation\nDefines payload header L_CH value and type of the payload to be sent.", HCIcommandColor); 
+        data == 3: AddCell("L_CH", "LMP"  ,"L_CH = 3\nLMP Message\nDefines payload header L_CH value and type of the payload to be sent.", HCIcommandColor); 
+        default:   AddCell("L_CH", Format("0x%02X", data) ,"reserved value.", HCIcommandColor, _ERROR); 
+    };
+}
+
+
+
+const PagingScheme_Table = [
+  [ "mandatory"  , "0 - mandatory scheme"  ],
+  [ "optional 1" , "1 - optional scheme 1" ],
+  [ "optional 2" , "2 - optional scheme 2" ],
+  [ "optional 3" , "3 - optional scheme 3" ]
+];
+
+const PagingSchSettings_Table = [
+  [ "R0"       , "0 - R0" ],
+  [ "R1"       , "1 - R1" ],
+  [ "R2"       , "2 - R2" ]
+];
+
+const PagingSchSettingsOS1_Table = [
+  [ "Reserved" , "0 - Reserved for scheme 1" ],
+  [ "R1"       , "1 - R1" ],
+  [ "R2"       , "2 - R2" ]
+];
+
+ShowPagingSchemeAndSettings()
+{
+    page_sch = NextNBits(8);
+    page_sch_set = NextNBits(8);
+
+    if (page_sch < sizeof(PagingScheme_Table))
+    {
+        AddCell("PagingScheme", PagingScheme_Table[page_sch][0], PagingScheme_Table[page_sch][1], HCIcommandColor); 
+
+        if (page_sch_set < sizeof(PagingSchSettings_Table))
+        {
+            if (page_sch == 1)
+                AddCell("PagingSchemeSettings", PagingSchSettingsOS1_Table[page_sch_set][0], PagingSchSettingsOS1_Table[page_sch_set][1], HCIcommandColor); 
+            else 
+                AddCell("PagingSchemeSettings", PagingSchSettings_Table[page_sch_set][0], PagingSchSettings_Table[page_sch_set][1], HCIcommandColor); 
+        }
+        else
+            AddCell("PagingSchemeSettings", Format("0x%02X", data), "reserved value", HCIcommandColor, _ERROR); 
+    }
+    else
+    {
+        AddCell("PagingScheme", Format("0x%02X", page_sch), "reserved value", HCIcommandColor, _ERROR); 
+        AddCell("PagingSchemeSettings", Format("0x%02X", data), "", HCIcommandColor); 
+    }
+}
+
+
+
+################### Specific fields
+ShowLAP()
+{
+    data = Next24Bits();
+    AddCell ("LAP", Format("0x%06X", data), 
+             "This is the LAP from which the inquiry access code should be derived when the inquiry procedure is made.\n Range 0x9E8B00 - 0x9E8B3F", 
+              HCIcommandColor, 
+              select { (( data < 0x9E8B00) || (data > 0x9E8B3F)): _ERROR; });
+}
+
+
+
+ShowInquiry_Length()
+{
+    data = NextNBits(8);
+    AddCell ("Inquiry_Length", Format("%d", data), 
+             "Maximum amount of time specified before the Inquiry is halted.\nRange: 0x01 - 0x30\nTime = N * 1.28 sec\nRange: 1.28 - 61.44 Sec", 
+              HCIcommandColor, 
+              select { ( ( data < 0x01) || (data> 0x30) ): _ERROR; });
+}
+
+ShowNum_Responses()
+{
+    data = NextNBits(8);
+    if ( data== 0 )
+      AddCell ("Num_Responses", Format("%d", data), "Unlimited number of responses.", HCIcommandColor);
+    else
+      AddCell ("Num_Responses", Format("%d", data), "Maximum number of responses from the Inquiry before the Inquiry is halted.", HCIcommandColor);
+}
+
+
+
+ShowClock_Offset()
+{
+    data = Next16Bits();
+
+    AddCell("Clock_Offset_Valid_Flag", select { data & 0x8000: "Valid"; default: "Invalid"; }, "", HCIcommandColor);
+    
+    data = data & 0x7FFF;
+    AddCell("Clock_Offset", Format("0x%04X", data), "Bit 16.2 of CLKslave-CLKmaster.", HCIcommandColor);
+}
+
+
+set Allow_Role_SwitchTable = 
+[
+  [0xFF  , "Reserved for future use." ],
+  [0x00  , "The local device will be a master, and will not accept a master-slave\nswitch requested by the remote device at the connection setup." ],
+  [0x01  , "The local device may be a master, or may become a slave after\naccepting a master-slave switch requested by the remote device\nat the connection setup." ]
+];
+
+ShowAllow_Role_Switch()
+{
+    data = NextNBits(8);
+    _row = Find(Allow_Role_SwitchTable, data);
+    AddCell("Allow_Role_Switch", Format("0x%02X", data), _row[1], HCIcommandColor);
+}
+
+
+ShowReason()
+{
+  data = NextNBits(8);
+  _row = Find(HciErrorCodes, data);
+  AddCell("Reason", _row[1], Format("0x%02X - ", data) + _row[2], HCIcommandColor);
+}
+
+ShowRole()
+{
+    data = NextNBits(8);
+    select {
+      data == 0 : AddCell("Role", "master", "Become the Master for this connection. The LM will perform the Master/Slave switch.", HCIcommandColor);
+      data == 1 : AddCell("Role", "slave", "Remain the Slave for this connection. The LM will NOT perform the Master/Slave switch.", HCIcommandColor);
+      default: AddCell("Role", "unknown", Format("0x%02X", data) + " - unknown value", HCIcommandColor, _ERROR);
+    };
+}
+
+ShowRoleSw()
+{
+    data = NextNBits(8);
+    select {
+      data == 0 : AddCell("Role", "master", "Change own Role to Master for this BD_ADDR.", HCIcommandColor);
+      data == 1 : AddCell("Role", "slave", "Change own Role to Slave for this BD_ADDR.", HCIcommandColor);
+      default: AddCell("Role", "unknown", Format("0x%02X", data) + " - unknown value", HCIcommandColor, _ERROR);
+    };
+}
+
+
+
+ShowPin_Code()
+{
+    len = NextNBits(8);
+    AddCell ("PIN_Code_Length", Format("%d", len), 
+             "The PIN code length specifics the length, in bytes, of the PIN code to be used.\nRange: 0x01-0x10", 
+              HCIcommandColor,
+              select { ((len < 1)  || (len > 0x10)) : _ERROR; } 
+            );
+
+   ascii_enable = 1;
+   for (i = 0; i < len; i++ )
+   {
+      data = NextNBits(8);
+      if ((data > 0x1F) && (data < 0x7F))
+        ascii_enable = 0;
+      hex_str = hex_str + Format(" %02X", data);
+      ascii_str = ascii_str + Format("%c", data);
+   }
+  
+   AddCell("PIN_Code", select { ascii_enable : ascii_str; default : hex_str; },
+           "PIN code for the device that is to be connected.", HCIcommandColor);
+
+}
+
+
+ShowEncryption_Enable()
+{
+    data = NextNBits(8);
+    select {
+      data == 0 : AddCell("Encryption_Enable", "turn off", "Turn Link Level Encryption OFF.", HCIcommandColor);
+      data == 1 : AddCell("Encryption_Enable", "turn on", "Turn Link Level Encryption ON.", HCIcommandColor);
+      default: AddCell("Encryption_Enable", "unknown", Format("0x%02X", data) + " - unknown value", HCIcommandColor, _ERROR);
+    };
+}
+
+ShowKey_Flag()
+{
+    data = NextNBits(8);
+    select {
+      data == 0 : AddCell("Key_Flag", "use semi-permanent", "Use semi-permanent Link Keys.", HCIcommandColor);
+      data == 1 : AddCell("Key_Flag", "use Temporary", "Use Temporary Link Key.", HCIcommandColor);
+      default: AddCell("Key_Flag", "unknown", Format("0x%02X", data) + " - unknown value", HCIcommandColor, _ERROR);
+    };
+}
+
+ShowHold_Mode_Max_Interval()
+{
+    data = Next16Bits();
+    AddCell("Hold_Mode_Max_Interval", Format("%d slots", data),
+            "Maximum acceptable number of Baseband slots to wait in Hold Mode.\nTime Length of the Hold = N * 0.625 msec (1 Baseband slot)\nRangefor N: 0x0002-0xFFFE (1.25ms - 40.9 sec);\nMandatory Range: 0x0014 to 0x8000\nonly even values are valid",
+             HCIcommandColor,
+             select { ( (data < 0x0002) || ((data & 1) == 1) ): _ERROR; } );
+}
+
+
+ShowHold_Mode_Min_Interval()
+{
+    data = Next16Bits();
+    AddCell("Hold_Mode_Min_Interval", Format("%d slots", data),
+            "Minimum acceptable number of Baseband slots to wait in Hold Mode.\nTime Length of the Hold = N * 0.625 msec (1 Baseband slot)\nRangefor N: 0x0002-0xFF00\nMandatory Range: 0x0014 to 0x8000\nonly even values are valid",
+             HCIcommandColor,
+             select {( (data < 0x0002) || (data > 0xFF00) || ((data & 1) == 1) ): _ERROR; } );
+}
+
+
+ShowSniff_Max_Interval()
+{
+    data = Next16Bits();
+    AddCell("Sniff_Max_Interval", Format("%d slots", data),
+             "Maximum acceptable number of Baseband slots between each sniff period.\n(Sniff_Max_Interval >= Sniff_Min_Interval)\nLength = N * 0.625 msec (1 Baseband slot)\nRangefor N: 0x0002 - 0xFFFE (1.25 msec to 40.9 sec)\nMandatory Range: 0x0006 to 0x0540\nonly even values are valid",
+             HCIcommandColor,
+             select {( (data < 0x0002) || ((data & 1) == 1) ): _ERROR; } );
+}
+
+ShowSniff_Min_Interval()
+{
+    data = Next16Bits();
+    AddCell("Sniff_Min_Interval", Format("%d slots", data),
+            "Minimum acceptable number of Baseband slots between each sniff period.\n(Sniff_Max_Interval >= Sniff_Min_Interval)\nLength = N * 0.625 msec (1 Baseband slot)\nRange for N: 0x0002 - 0xFFFE (1.25 msec to 40.9 sec)\nMandatory Range: 0x0006 to 0x0540\nonly even values are valid",
+             HCIcommandColor,
+             select {( (data < 0x0002) || ((data & 1) == 1) ): _ERROR; } );
+}
+
+ShowSniff_Attempt()
+{
+    data = Next16Bits();
+    AddCell("Sniff_Attempt", Format("%d slots", 2 * data - 1),
+            "Number of Baseband receive slots for sniff attempt.\nLength = N* 1.25 msec\nRange for N: 0x0001 - 0x7FFF (0.625msec - 40.9sec)",
+             HCIcommandColor,
+             select {( (data == 0) || (data > 0x7fff) ): _ERROR; } );
+}
+
+ShowSniff_Timeout()
+{
+    data = Next16Bits();
+    AddCell("Sniff_Timeout", Format("%d slots", 2 * data - 1),
+            "Number of Baseband receive slots for sniff timeout.\nLength = N * 1.25 msec\nRange for N: 0x0000 - 0x7FFF (0msec - 40.9sec)\nMandatory Range for Controller: 0 to 0x0028",
+             HCIcommandColor,
+             select {(data > 0x7fff): _ERROR; } );
+}
+
+ShowBeacon_Max_Interval()
+{
+    data = Next16Bits();
+    AddCell("Beacon_Max_Interval", Format("%d slots", data),
+            "Maximum acceptable number of Baseband slots between consecutive beacons.\nInterval Length = N * 0.625 msec (1 Baseband slot)\nRange for N: 0x000E - 0xFFFE\nTime Range: 8.75 msec to 40.9 sec\nonly even values are valid",
+             HCIcommandColor,
+             select {((data < 0x000E) || ((data & 1) == 1) ): _ERROR; } );
+}
+
+ShowBeacon_Min_Interval()
+{
+    data = Next16Bits();
+    AddCell("Beacon_Min_Interval", Format("%d slots", data),
+            "Minimum acceptable number of Baseband slots between consecutive beacons\nInterval Length = N * 0.625 msec (1 Baseband slot)\nRange for N: 0x000E - 0xFFFE\nTime Range: 8.75 msec to 40.9 sec\nonly even values are valid",
+             HCIcommandColor,
+             select { ((data < 0x000E) || ((data & 1) == 1) ): _ERROR; } );
+}
+
+set Service_TypeTable = 
+[
+  [0xFF , "Reserved"   ],
+  [0x00 , "No Traffic" ],
+  [0x01 , "Best Effort"],
+  [0x02 , "Guaranteed" ]
+];
+
+ShowService_Type()
+{
+    data = NextNBits(8);
+    _row = Find(Service_TypeTable, data);
+    AddCell("Service_Type",  _row[1], Format("0x%02X - ", data) + _row[1], HCIcommandColor);
+}
+
+set Event_MaskTable = 
+[
+#  [ 0x00000000 , "No events specified"                            ],
+  [ 0x00000001 , "Inquiry Complete event"                         ],
+  [ 0x00000002 , "Inquiry Result event"                           ],
+  [ 0x00000004 , "Connection Complete event"                      ],
+  [ 0x00000008 , "Connection Request event"                       ],
+  [ 0x00000010 , "Disconnection Complete event"                   ],
+  [ 0x00000020 , "Authentication Complete event"                  ],
+  [ 0x00000040 , "Remote Name Request Complete event"             ],
+  [ 0x00000080 , "Encryption Change event"                        ],
+  [ 0x00000100 , "Change Connection Link Key Complete event"      ],
+  [ 0x00000200 , "Master Link Key Complete event"                 ],
+  [ 0x00000400 , "Read Remote Supported Features Complete event"  ],
+  [ 0x00000800 , "Read Remote Version Information Complete event" ],
+  [ 0x00001000 , "QoS Setup Complete event"                       ],
+  [ 0x00002000 , "Command Complete event\n(Reserved in 1.2 spec)" ],
+  [ 0x00004000 , "Command Status event\n(Reserved in 1.2 spec)"   ],
+  [ 0x00008000 , "Hardware Error event"                           ],
+  [ 0x00010000 , "Flush Occurred event"                           ],
+  [ 0x00020000 , "Role Change event"                              ],
+  [ 0x00040000 , "Number Of Completed Packets event\n(Reserved in 1.2 spec)" ],
+  [ 0x00080000 , "Mode Change event"                              ],
+  [ 0x00100000 , "Return Link Keys event"                         ],
+  [ 0x00200000 , "PIN Code Request event"                         ],
+  [ 0x00400000 , "Link Key Request event"                         ],
+  [ 0x00800000 , "Link Key Notification event"                    ],
+  [ 0x01000000 , "Loopback Command event"                         ],
+  [ 0x02000000 , "Data Buffer Overflow event"                     ],
+  [ 0x04000000 , "Max Slots Change event"                         ],
+  [ 0x08000000 , "Read Clock Offset Complete event"               ],
+  [ 0x10000000 , "Connection Packet Type Changed event"           ],
+  [ 0x20000000 , "QoS Violation event"                            ],
+  [ 0x40000000 , "Page Scan Mode Change event"                    ],
+  [ 0x80000000 , "Page Scan Repetition Mode Change event"         ]
+];
+
+set Event_MaskTableHi = 
+[
+  [ 0x00000001 , "Flow Specification Complete Event"              ],
+  [ 0x00000002 , "Inquiry Result with RSSI Event"                 ],
+  [ 0x00000004 , "Read Remote Extended Features Complete Event"   ],
+  [ 0x00000008 , "Reserved"                                       ],
+  [ 0x00000010 , "Reserved"                                       ],
+  [ 0x00000020 , "Reserved"                                       ],
+  [ 0x00000040 , "Reserved"                                       ],
+  [ 0x00000080 , "Reserved"                                       ],
+  [ 0x00000100 , "Reserved"                                       ],
+  [ 0x00000200 , "Reserved"                                       ],
+  [ 0x00000400 , "Reserved"                                       ],
+  [ 0x00000800 , "Synchronous Connection Complete Event"          ],
+  [ 0x00001000 , "Synchronous Connection Changed event"           ]
+];
+   
+   
+ShowEvent_Mask()
+{
+    dataHi = Next32Bits();
+    str = Format("0x%08X", dataHi);
+
+    data = Next32Bits();
+    str = str + Format("%08X", data);
+
+    tooltip = "<HTML><TABLE CELLPADDING=2>";
+    for (i = 0; i < sizeof(Event_MaskTable); i++)
+    {
+      tooltip = tooltip + Format("<TR><TD>bit %d</TD>", i) +
+        select { data & Event_MaskTable[i][0] : "<TD>1</TD>";
+                 default                      : "<TD>0</TD>"; } 
+        + "<TD>" + Event_MaskTable[i][1] + "</TD></TR>";
+ 
+    }
+
+    for (i = 0; i < sizeof(Event_MaskTableHi); i++)
+    {
+      tooltip = tooltip + Format("<TR><TD>bit %d</TD>", i+32) +
+        select { dataHi & Event_MaskTableHi[i][0] : "<TD>1</TD>";
+                 default                      : "<TD>0</TD>"; } 
+        + "<TD>" + Event_MaskTableHi[i][1] + "</TD></TR>";
+ 
+    }
+    tooltip = tooltip + Format("<TR><TD></TD><TD>0x%04X</TD><TD>Reserved</TD></TR>", dataHi >> i);
+
+    tooltip += "</TABLE></HTML>";
+    AddCell("Event_Mask", str, tooltip, HCIcommandColor);
+}
+
+
+
+set Inquiry_Result_Filter_Condition_TypeTable = 
+[
+  [ 0xFF , "reserved"         , "Reserved for Future Use"                                                    ],
+  [ 0x00 , "All devices"      , "Return responses from all devices during the Inquiry process."              ],
+  [ 0x01 , "specific COD"     , "A device with a specific Class of Device responded to the Inquiry process." ],
+  [ 0x02 , "specific BD_ADDR" , "A device with a specific BD_ADDR responded to the Inquiry process."         ] 
+];
+
+ShowInquiry_Result_Filter_Condition_Type()
+{
+  data = NextNBits(8);
+  _row = Find(Inquiry_Result_Filter_Condition_TypeTable, data);
+  AddCell("Inquiry_Result_Filter_Condition_Type",  _row[1], Format("Inquiry_Result_Filter_Condition_Type\n0x%02X - ", data) + _row[2], HCIcommandColor);
+  select 
+  {
+      _row[0] == 1 : ShowCODcondition();
+      _row[2] == 2 : ShowBD_ADDR(HCIcommandColor);
+  };
+}
+
+ShowCODcondition()
+{
+  data = NextNBits(24);
+  if (data == 0x000000)
+  {
+    AddCell("Condition-COD", Format("0x%06X", data), "Return all Devices - 000000", HCIcommandColor);
+  } 
+  else 
+  {
+    AddCell("Condition-COD", Format("0x%06X", data), Format("Return devices with COD == 0x%06X", data), HCIcommandColor);
+  }
+
+  data = NextNBits(24);
+  AddCell("Condition-COD Mask", Format("0x%06X", data), "Bit Mask to determine significant COD bits", HCIcommandColor);
+}
+
+
+
+
+set Connection_Setup_Filter_Condition_TypeTable = 
+[
+  [ 0xFF , "reserved"         , "Reserved for Future Use."                                         ],
+  [ 0x00 , "all devices"      , "Allow Connections from all devices."                              ],
+  [ 0x01 , "specific COD"     , "Allow Connections from a device with a specific Class of Device." ],
+  [ 0x02 , "specific BD_ADDR" , "Allow Connections from a device with a specific BD_ADDR."         ]
+];
+
+ShowConnection_Setup_Filter_Condition_Type()
+{
+  data = NextNBits(8);
+  _row = Find(Connection_Setup_Filter_Condition_TypeTable, data);
+  AddCell("Connection_Setup_Filter_Condition_Type",  _row[1], Format("Connection_Setup_Filter_Condition_Type\n0x%02X - ", data) + _row[2], HCIcommandColor);
+
+  select 
+  {
+      _row[0] == 0 : ShowAuto_Accept_Flag();
+      _row[0] == 1 : { ShowCODcondition();           ShowAuto_Accept_Flag(); }
+      _row[0] == 2 : { ShowBD_ADDR(HCIcommandColor); ShowAuto_Accept_Flag(); }
+  };
+}
+
+
+set Auto_Accept_Flag_Table = 
+[
+  [ 0xFF , "reserved"                , "Reserved for Future Use."                                                        ],
+  [ 0x01 , "NOT accept"              , "Do NOT Auto accept the connection. (Auto accept is off)"                         ],
+  [ 0x02 , "accept, switch disabled" , "Do Auto accept the connection with role switch disabled. (Auto accept is on)."   ],
+  [ 0x03 , "accept, switch enabled"  , "Do Auto accept the connection with role switch enabled. (Auto accept is on)./n Note: When auto accepting an incoming SCO connection, no role switch will be performed. /nThe value 0x03 of the Auto_Accept_Flag will then get the same effect as if the value had been 0x02.."         ]
+];
+
+
+ShowAuto_Accept_Flag()
+{
+    data = NextNBits(8);
+    _row = Find(Auto_Accept_Flag_Table, data);
+    AddCell("Auto_Accept_Flag",  _row[1], Format("Auto_Accept_Flag\n0x%02X - ", data) + _row[2], HCIcommandColor);
+}
+
+
+
+set Read_All_FlagTable = 
+[
+  [ 0xFF , "Reserved for future use."               ],
+  [ 0x00 , "Return Link Key for specified BD_ADDR." ],
+  [ 0x01 , "Return all stored Link Keys."           ]
+];
+
+ShowRead_All_Flag()
+{
+    data = NextNBits(8);
+    _row = Find(Read_All_FlagTable, data);
+    AddCell("Read_All_Flag",  Format("0x%02X", data), _row[1], HCIcommandColor);
+}
+
+
+set Delete_All_FlagTable =
+[
+  [ 0xFF , "Reserved for future use."                         ],
+  [ 0x00 , "Delete only the Link Key for specified BD_ADDR."  ],
+  [ 0x01 , "Delete all stored Link Keys."                     ]
+];
+
+ShowDelete_All_Flag()
+{
+    data = NextNBits(8);
+    _row = Find(Delete_All_FlagTable, data);
+    AddCell("Delete_All_Flag",  Format("0x%02X", data), _row[1], HCIcommandColor);
+}
+
+ShowConn_Accept_Timeout()
+{
+    data = Next16Bits();
+    AddCell("Conn_Accept_Timeout", Format("%d slots",  data),
+            "Connection Accept Timeout measured in Number of Baseband slots.\nInterval Length = N * 0.625 msec (1 Baseband slot)\nRange for N: 0x0001 - 0xB540\nTime Range: 0.625 msec - 29 seconds\nDefault: N = 0x1FA0 Time = 5 Sec",
+             HCIcommandColor,
+             select {((data > 0xB540) || (data < 1)): _ERROR; } );
+}
+
+ShowPage_Timeout()
+{
+  timeout = Next16Bits();
+  if ( timeout )
+    AddCell ("Page_Timeout", Format("%d", timeout), "Page Timeout measured in Number of Baseband slots.", HCIcommandColor);
+  else
+    AddCell ("Page_Timeout", "0", "Illegal Page Timeout. Must be larger than 0.", HCIcommandColor, _ERROR);
+}
+
+
+
+set TypeTable = 
+[
+  [ 0xFF , "Reserved"                           ],
+  [ 0x00 , "Read Current Transmit Power Level." ],
+  [ 0x01 , "Read Maximum Transmit Power Level." ]
+];
+
+ShowType()
+{
+    data = NextNBits(8);
+    _row = Find(TypeTable, data);
+    AddCell("Type",  Format("0x%02X", data), _row[1], HCIcommandColor);
+}
+
+
+
+set Flow_Control_EnableTable = 
+[
+  [ 0xFF , "Reserved"  ],
+  [ 0x00 , "Flow control off in direction from Host Controller to Host."  ],
+  [ 0x01 , "Flow control on for HCI ACL Data Packets and off for \nHCI SCO Data Packets in direction from Host Controller to Host." ],
+  [ 0x02 , "Flow control off for HCI ACL Data Packets and on for\n HCI SCO Data Packets in direction from Host Controller to Host." ],
+  [ 0x03 , "Flow control on both for HCI ACL Data Packets and \nHCI SCO Data Packets in direction from Host Controller to Host."    ]
+];
+
+ShowFlow_Control_Enable()
+{
+    data = NextNBits(8);
+    _row = Find(Flow_Control_EnableTable, data);
+    AddCell("Flow_Control_Enable",  Format("0x%02X", data), _row[1], HCIcommandColor);
+}
+
+
+
+
+ShowTransmit_Bandwidth()
+{
+    data = Next32Bits();
+    select {
+      data == 0xFFFFFFFF: AddCell("Transmit_Bandwidth", "Don't care", "0xFFFFFFFF - Don't care",  HCIcommandColor);
+      default           : AddCell("Transmit_Bandwidth", Format("%d", data), "Transmit bandwidth in bytes per second.",  HCIcommandColor);
+   };
+}
+
+ShowReceive_Bandwidth()
+{
+    data = Next32Bits();
+    select {
+      data == 0xFFFFFFFF: AddCell("Receive_Bandwidth", "Don't care", "0xFFFFFFFF - Don't care",  HCIcommandColor);
+      default           : AddCell("Receive_Bandwidth", Format("%d", data), "Receive bandwidth in bytes per second.",  HCIcommandColor);
+    };
+}
+
+ShowMax_Latency()
+{
+    data = Next16Bits();
+    select {
+      data < 4       : AddCell("Max_Latency", Format("%d", data) , "Reserved value",  HCIcommandColor, _ERROR);
+      data == 0xFFFF : AddCell("Max_Latency", "Don't care." , "0xFFFF - Don't care.",  HCIcommandColor);
+      default        : AddCell("Max_Latency", Format("%d ms", data) , "Representing the upper limit of the sum\nof the synchronous interval and the size of the eSCO window.",  HCIcommandColor);
+    };
+}
+
+ShowRetransmission_Effort()
+{
+    data = NextNBits(8);
+    select {
+      data == 0   : AddCell("Retransmission_Effort", "No ReTX" , "0 - No retransmissions",  HCIcommandColor);
+      data == 1   : AddCell("Retransmission_Effort", "optimize power" , "1 - At least one retransmission, optimize for power consumption.",  HCIcommandColor);
+      data == 2   : AddCell("Retransmission_Effort", "link quality" , "2 - At least one retransmission, optimize for link quality.",  HCIcommandColor);
+      data == 0xFF: AddCell("Retransmission_Effort", "Don't care."  , "0xFF - Don't care.",  HCIcommandColor);
+      default     : AddCell("Retransmission_Effort", Format("0x%02X", data) , "Reserved value",  HCIcommandColor, _ERROR);
+    };
+}
+
