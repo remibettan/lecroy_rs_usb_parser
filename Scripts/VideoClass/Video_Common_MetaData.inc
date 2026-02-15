@@ -488,7 +488,7 @@ DoVideoPayloadHeader(ep)
 						AddSimplePLCell("Manual brightnes", Format ("%d", manualBrightness), "Manual brightnes value");
 						
 						contrast = GetDataLong(metaDataStart + 140);
-						AddSimplePLCell("Manual Exposure", Format ("%d", contrast), "Manual contrast");
+						AddSimplePLCell("Manual Contrast", Format ("%d", contrast), "Manual contrast");
 						
 						saturation = GetDataLong(metaDataStart + 144);
 						AddSimplePLCell("Saturation", Format ("%d", saturation), "Laser saturation value");

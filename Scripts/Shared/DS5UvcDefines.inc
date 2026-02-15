@@ -9,7 +9,7 @@ set ProbeCommitIVCAM = 1;
 # 5 - D585
 # 6 - S585
 
-set Ds5SkuType=6;
+set Ds5SkuType=4;
 
 set metaDataSummary = 1;
 set CurrentInterfacesMapPSR = 
